@@ -24,6 +24,8 @@ app/              Expo Router routes (file-based, typed)
 components/ui/    Dumb, role-agnostic primitives — vendored, edit freely
 components/       App-level composition (theme provider, theme toggle)
 features/         Screen-specific composition, by domain
+hooks/            TanStack Query hooks, one file per domain
+lib/api/          Typed clients, zod schemas, transports, the mock backend
 lib/              money, date, number, validation, query client, tokens
 stores/           Zustand — cart state only
 design-tokens.js  The single source of truth for every colour and scale
@@ -53,6 +55,70 @@ Money is always `variant="mono"`, which carries tabular figures so rupiah column
 Spacing has semantic names on top of Tailwind's numeric scale: `p-md` (12), `gap-lg` (16), `min-h-touch` (44, the accessible minimum). Radius is restricted to the design scale: `rounded-sm` (6), `rounded-md` (8), `rounded-lg` (12), `rounded-full`.
 
 Breakpoints are `tablet:` (≥768) and `desktop:` (≥1280). Mobile is the unprefixed base.
+
+## Data layer
+
+Screens talk to `hooks/`, hooks call the typed clients in `lib/api/domains/`, and those go through one request pipeline. Nothing above the transport knows whether it is talking to a mock or a server.
+
+```
+hooks/use-products.ts     TanStack Query: keys, caching, invalidation
+lib/api/domains/*.ts      One client + zod schemas per domain
+lib/api/client.ts         Timeout, envelope check, schema validation, errors
+lib/api/http.ts           Live transport — fetch against the base URL
+lib/api/mock/             Mock transport — the IndoMart dataset, in memory
+```
+
+### Mock and live
+
+```bash
+EXPO_PUBLIC_API_MODE=mock   # in-memory dataset, no backend (default)
+EXPO_PUBLIC_API_MODE=live   # fetch against EXPO_PUBLIC_API_URL
+```
+
+Copy `.env.example` to `.env` and restart the dev server — `EXPO_PUBLIC_*` values are inlined at build time. Switching modes swaps the transport and nothing else: same clients, same schemas, same hooks, same errors.
+
+Mock mode signs in with the seeded accounts — `owner@indomart.com` / `SecurePassword123!`, and `ani@example.com`, `budi@example.com`, `siti@example.com`, `dewi@example.com`, all `password123`.
+
+### Two things happen at the boundary, and nowhere else
+
+**Money becomes an integer.** The API sends `"15750000.00"`; the `money` schema in `lib/api/schema.ts` parses it to `15750000` before it reaches a component. A fractional rupiah fails the parse rather than rounding — a money bug should break loudly, not quietly.
+
+**Wire shape becomes domain shape.** `total_revenue` becomes `totalRevenue`, `product_id` becomes `productId`. Screens never see snake_case.
+
+Both happen inside zod, so a payload that does not match the contract throws an `ApiError` of kind `parse` at the boundary instead of rendering `undefined` three components deep.
+
+### Errors
+
+Every failure — HTTP status, `success: false`, timeout, schema mismatch — reaches the UI as an `ApiError` with a `kind`, plus helpers that pull the detail out of `errors[]`:
+
+```ts
+isUnauthorized(error)            // 401 — send them back to login
+isForbidden(error)               // 403 — the role gate caught them
+isDuplicateEmail(error)          // 409 on register or staff creation
+insufficientStockDetails(error)  // 400 — which line, requested vs available
+priceChangedDetails(error)       // 409 PRICE_CHANGED, prices already integers
+fieldErrors(error)               // merge straight into react-hook-form
+```
+
+Mock mode can force any of these on demand while you build the screen that handles it:
+
+```ts
+setMockScenario('timeout');
+setMockScenario('forbidden', { once: true });
+setMockScenario('server_error', { path: /^\/products/ });
+```
+
+### Checkout is idempotent
+
+`POST /transactions` carries an `Idempotency-Key` derived from the payload, so a retry after a timeout returns the original sale with `isDuplicate: true` rather than charging twice. The mock enforces this before it looks at stock. That is what makes a retry button safe to offer.
+
+### Known gaps the mock fills
+
+The backend has no `Product.sku`, `Category.status`, `Transaction.status` or `Payment` model yet. The client types keep all four, the schemas default them when a live response omits them, and the mock serves them so screens can be built now.
+
+### Role gating
+
+The mock enforces the role matrix in `claude.md`, which is stricter than the contract's `Access:` lines in three places: catalog writes are Admin-only, Admin has no access to transactions at all, and checkout is Cashier-only. A forbidden call answers 403 in mock mode, so the router's 403 path is exercisable before the backend exists.
 
 ## Things worth knowing
 
