@@ -118,8 +118,8 @@ export function dataScope(role: Role): DataScope {
 
 /**
  * A route is reachable when the role satisfies any one of its requirements.
- * `/dashboard` takes two because it renders the business dashboard for an
- * Owner and the stock dashboard for an Admin.
+ * `/dashboard` and `/analytics` are Owner reporting surfaces. The Admin lands
+ * on inventory operations, so typing either reporting URL returns a real 403.
  */
 type Requirement = { resource: Resource; access: Access };
 
@@ -128,10 +128,7 @@ type RouteRule = { pattern: RegExp; anyOf: Requirement[] };
 const ROUTE_RULES: RouteRule[] = [
   {
     pattern: /^\/dashboard$/,
-    anyOf: [
-      { resource: 'businessDashboard', access: 'read' },
-      { resource: 'stockDashboard', access: 'read' },
-    ],
+    anyOf: [{ resource: 'businessDashboard', access: 'read' }],
   },
   { pattern: /^\/analytics/, anyOf: [{ resource: 'analytics', access: 'read' }] },
   { pattern: /^\/ai-insights/, anyOf: [{ resource: 'aiInsights', access: 'read' }] },
@@ -177,13 +174,11 @@ function normalisePath(pathname: string): string {
 
 /**
  * Where a role goes after signing in, and where the 403 screen sends them back
- * to. Owner and Admin share `/dashboard`, which renders a different screen for
- * each — the business dashboard and the stock overview are different products,
- * not two tabs.
+ * to. The Owner lands on business reporting, the Admin on inventory operations.
  */
 export const LANDING_ROUTE: Record<Role, string> = {
   OWNER: '/dashboard',
-  ADMIN: '/dashboard',
+  ADMIN: '/inventory',
   CASHIER: '/pos',
 };
 

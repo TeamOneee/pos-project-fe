@@ -11,7 +11,6 @@
  * contract would let screens exist that the product does not have.
  */
 
-
 import {
   AI_INSIGHT,
   AOV_TREND,
@@ -478,7 +477,9 @@ const userHandlers: Route[] = [
 
       const role = (readString(body, 'role') as WireUser['role'] | undefined) ?? user.role;
       const outletId =
-        'outlet_id' in body ? ((readString(body, 'outlet_id') ?? null) as string | null) : user.outlet_id;
+        'outlet_id' in body
+          ? ((readString(body, 'outlet_id') ?? null) as string | null)
+          : user.outlet_id;
 
       if (role === 'CASHIER' && !outletId) {
         throw new MockHttpError(400, 'outlet_id is required for CASHIER role');
@@ -551,9 +552,7 @@ const categoryHandlers: Route[] = [
     template: '/categories/:categoryId',
     handle: ({ params, body }) => {
       requireRole('ADMIN');
-      const category = getDb().categories.find(
-        (entry) => entry.category_id === params.categoryId
-      );
+      const category = getDb().categories.find((entry) => entry.category_id === params.categoryId);
       if (!category) throw new MockHttpError(404, 'Category not found');
 
       const name = readString(body, 'name');
@@ -568,9 +567,7 @@ const categoryHandlers: Route[] = [
     template: '/categories/:categoryId',
     handle: ({ params }) => {
       requireRole('ADMIN');
-      const category = getDb().categories.find(
-        (entry) => entry.category_id === params.categoryId
-      );
+      const category = getDb().categories.find((entry) => entry.category_id === params.categoryId);
       if (!category) throw new MockHttpError(404, 'Category not found');
 
       category.status = 'INACTIVE';
@@ -1111,7 +1108,8 @@ const transactionHandlers: Route[] = [
         });
       }
 
-      if (lines.length === 0) throw new MockHttpError(400, 'Transaction must have at least one item');
+      if (lines.length === 0)
+        throw new MockHttpError(400, 'Transaction must have at least one item');
 
       const shortfalls = lines.flatMap((line) => {
         const available = stockAt(outletId, line.productId);
@@ -1269,6 +1267,7 @@ const dashboardHandlers: Route[] = [
             total_products: DASHBOARD_FIGURES.totalProducts,
             revenue_growth: DASHBOARD_FIGURES.revenueGrowth,
             transactions_growth: DASHBOARD_FIGURES.transactionsGrowth,
+            products_sold_growth: DASHBOARD_FIGURES.productsSoldGrowth,
           },
           sales_trend: {
             labels: SALES_TREND.labels,
@@ -1336,7 +1335,9 @@ const dashboardHandlers: Route[] = [
       const threshold = database.merchant.low_stock_threshold;
       const outletFilter = query.outlet_id;
 
-      const rows = stockRows().filter((row) => !outletFilter || row.outlet.outlet_id === outletFilter);
+      const rows = stockRows().filter(
+        (row) => !outletFilter || row.outlet.outlet_id === outletFilter
+      );
 
       // Every figure below is computed from current stock, so an adjustment on
       // the inventory screen is reflected here immediately.

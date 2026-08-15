@@ -3,8 +3,8 @@
  *
  * The shape and wording of the nav are a design decision (docs/design-brief.md
  * §3), so they live in a config object rather than being inferred from
- * permissions — the Owner's "Dashboard" and the Admin's "Dashboard Stok" are
- * the same route with different names, and only a config can say that.
+ * permissions — labels and grouping remain explicit while route access stays
+ * centralized in the role matrix.
  *
  * Access, though, is not a design decision. Everything here is filtered
  * through `canAccessRoute` before it renders, so the role matrix stays the one
@@ -28,7 +28,6 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
-
 
 import { canAccessRoute, type Role } from '@/lib/auth/permissions';
 
@@ -101,7 +100,6 @@ const NAV: Record<Role, NavSection[]> = {
     {
       title: 'Operasional',
       items: [
-        { href: '/dashboard', label: 'Dashboard Stok', icon: LayoutDashboard, exact: true },
         { href: '/inventory', label: 'Inventori', icon: Boxes, exact: true },
         { href: '/inventory/low-stock', label: 'Stok Menipis', icon: TriangleAlert },
       ],

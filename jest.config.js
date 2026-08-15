@@ -34,6 +34,9 @@ module.exports = {
         'react-native-css-interop',
         '@rn-primitives[/\\\\].*',
         'lucide-react-native',
+        // Victory publishes an untranspiled ESM build under es/; every
+        // victory-* package needs Babel.
+        'victory.*',
       ].join('|') +
       ')[/\\\\]?)',
   ],

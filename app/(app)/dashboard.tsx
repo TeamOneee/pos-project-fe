@@ -1,173 +1,166 @@
-/**
- * `/dashboard` renders a different product for each role: the Owner's business
- * dashboard (S-03) and the Admin's stock overview (S-14).
- *
- * One route rather than two because Expo Router resolves `(owner)/dashboard`
- * and `(admin)/dashboard` to the same URL — route groups do not appear in the
- * path. The role matrix still decides who may open it; this only decides what
- * they see once they are through.
- */
+/** Owner-only business dashboard (S-03). RouteGuard returns 403 for Admin. */
 
+import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
-import { useAuth } from '@/components/auth/auth-provider';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { TopBarActions } from '@/components/shell/shell-context';
 import { Text } from '@/components/ui/text';
-import { useAdminDashboard, useOwnerDashboard } from '@/hooks/use-dashboard';
-import { formatIDR } from '@/lib/money';
-import { formatCount, formatPercentDelta } from '@/lib/number';
+import { CHART_HEIGHT } from '@/features/charts/chart-frame';
+import { AovTrendCard, RecentTransactionsCard } from '@/features/dashboard/aov-recent-cards';
+import { DashboardEmpty, DashboardSkeleton } from '@/features/dashboard/dashboard-states';
+import { KpiRow } from '@/features/dashboard/kpi-row';
+import { MerchantSummaryCard } from '@/features/dashboard/merchant-summary-card';
+import { OutletPerformanceCard } from '@/features/dashboard/outlet-performance-card';
+import { PeriodComparisonCard } from '@/features/dashboard/period-comparison-card';
+import { TopProductsCard, UnderperformingCard } from '@/features/dashboard/products-cards';
+import { SalesTrendCard } from '@/features/dashboard/sales-trend-card';
+import { TimePatternCard } from '@/features/dashboard/time-pattern-card';
+import { FreshnessCaption, OutletSelect, PeriodSegmented } from '@/features/owner/controls';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { useOwnerDashboard } from '@/hooks/use-dashboard';
+import type { Period } from '@/lib/api/schema';
 
 export default function DashboardScreen() {
-  const { role } = useAuth();
+  const mobile = useBreakpoint() === 'mobile';
+  const [period, setPeriod] = React.useState<Period>('THIS_MONTH');
+  const [outletId, setOutletId] = React.useState<string | null>(null);
 
-  if (role === 'ADMIN') return <AdminDashboard />;
-  return <OwnerDashboard />;
-}
+  // One fat endpoint and one screen loading state. Filter changes update this
+  // key, so selecting a different period or outlet refetches the whole surface.
+  const dashboard = useOwnerDashboard({
+    period,
+    ...(outletId ? { outlet_id: outletId } : {}),
+  });
 
-/* -------------------------------------------------------------------------- */
+  const chartHeight = mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.default;
+  const outletOptions =
+    dashboard.data?.outletPerformance.map((outlet) => ({
+      outletId: outlet.outletId,
+      name: outlet.outletName,
+    })) ?? [];
+  const snapshotUpdatedAt = dashboard.dataUpdatedAt > 0 ? dashboard.dataUpdatedAt - 120_000 : 0;
 
-function OwnerDashboard() {
-  // One query for the whole screen: GET /dashboard/owner is a single fat
-  // endpoint, so there is one loading state here and no waterfall.
-  const dashboard = useOwnerDashboard();
-
-  if (dashboard.isPending) return <DashboardSkeleton />;
-  if (dashboard.isError || !dashboard.data) {
-    return <LoadFailure message="Gagal memuat dashboard." />;
-  }
-
-  const { summary, merchantOverview } = dashboard.data;
-
-  return (
-    <ScrollView contentContainerClassName="gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1200px]">
-      <View className="gap-xs">
-        <Text variant="h1">{merchantOverview.merchantName}</Text>
-        <Text variant="body" tone="muted">
-          Ringkasan bisnis bulan ini di {formatCount(summary.totalOutlets)} outlet.
-        </Text>
-      </View>
-
-      <View className="gap-md tablet:flex-row">
-        <StatTile
-          label="Omzet"
-          value={formatIDR(summary.totalRevenue)}
-          delta={summary.revenueGrowth}
-        />
-        <StatTile
-          label="Transaksi"
-          value={formatCount(summary.totalTransactions)}
-          delta={summary.transactionsGrowth}
-        />
-        <StatTile label="Rata-rata / transaksi" value={formatIDR(summary.averageOrderValue)} />
-      </View>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dashboard lengkap menyusul</CardTitle>
-          <CardDescription>
-            Tren penjualan, performa outlet, produk terlaris, dan pola jam ramai (S-03).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="gap-sm">
-          <Text variant="body" tone="muted">
-            {formatCount(merchantOverview.totalProductsActive)} produk ·{' '}
-            {formatCount(merchantOverview.totalEmployeesActive)} karyawan ·{' '}
-            {formatCount(merchantOverview.totalCategories)} kategori
-          </Text>
-        </CardContent>
-      </Card>
-    </ScrollView>
+  const controls = (
+    <View className="flex-row items-center gap-md">
+      <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
+      <PeriodSegmented value={period} onChange={setPeriod} />
+      <FreshnessCaption
+        updatedAt={snapshotUpdatedAt}
+        refreshing={dashboard.isFetching}
+        onRefresh={() => void dashboard.refetch()}
+      />
+    </View>
   );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function AdminDashboard() {
-  const dashboard = useAdminDashboard();
-
-  if (dashboard.isPending) return <DashboardSkeleton />;
-  if (dashboard.isError || !dashboard.data) {
-    return <LoadFailure message="Gagal memuat dashboard stok." />;
-  }
-
-  const { summary } = dashboard.data;
 
   return (
-    <ScrollView contentContainerClassName="gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1200px]">
-      <View className="gap-xs">
-        <Text variant="h1">Dashboard Stok</Text>
-        <Text variant="body" tone="muted">
-          Kondisi persediaan di {formatCount(summary.totalOutlets)} outlet.
-        </Text>
-      </View>
+    <>
+      {!mobile && <TopBarActions name="dashboard-controls">{controls}</TopBarActions>}
 
-      <View className="gap-md tablet:flex-row">
-        <StatTile label="Nilai stok" value={formatIDR(summary.totalStockValue)} />
-        <StatTile label="Stok menipis" value={formatCount(summary.lowStockProductsCount)} />
-        <StatTile label="Stok habis" value={formatCount(summary.outOfStockProductsCount)} />
-      </View>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dashboard lengkap menyusul</CardTitle>
-          <CardDescription>
-            Daftar peringatan stok dan ringkasan per outlet (S-14).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Text variant="body" tone="muted">
-            {formatCount(summary.totalStockItems)} unit tersimpan ·{' '}
-            {formatCount(summary.totalProducts)} produk aktif
-          </Text>
-        </CardContent>
-      </Card>
-    </ScrollView>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function StatTile({ label, value, delta }: { label: string; value: string; delta?: number }) {
-  return (
-    <Card className="tablet:flex-1">
-      <CardContent className="gap-xs pt-lg">
-        <Text variant="label" tone="muted">
-          {label}
-        </Text>
-        {/* Money and counts are mono so columns of figures line up. */}
-        <Text variant="mono" className="type-h1">
-          {value}
-        </Text>
-        {delta !== undefined && (
-          <Text variant="caption" tone={delta >= 0 ? 'success' : 'danger'}>
-            {formatPercentDelta(delta)} dari periode lalu
-          </Text>
+      <ScrollView contentContainerClassName="gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
+        {mobile && (
+          <View className="gap-md">
+            <View className="gap-md">
+              <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
+              <FreshnessCaption
+                updatedAt={snapshotUpdatedAt}
+                refreshing={dashboard.isFetching}
+                onRefresh={() => void dashboard.refetch()}
+              />
+            </View>
+            <PeriodSegmented value={period} onChange={setPeriod} />
+          </View>
         )}
-      </CardContent>
-    </Card>
+
+        {dashboard.isPending ? (
+          <DashboardSkeleton chartHeight={chartHeight} />
+        ) : dashboard.isError || !dashboard.data ? (
+          <LoadFailure />
+        ) : (
+          <OwnerDashboardBody
+            dashboard={dashboard.data}
+            chartHeight={chartHeight}
+            compact={mobile}
+          />
+        )}
+      </ScrollView>
+    </>
   );
 }
 
-function DashboardSkeleton() {
+function OwnerDashboardBody({
+  dashboard,
+  chartHeight,
+  compact,
+}: {
+  dashboard: NonNullable<ReturnType<typeof useOwnerDashboard>['data']>;
+  chartHeight: number;
+  compact: boolean;
+}) {
+  const noSales = dashboard.summary.totalTransactions === 0;
+
   return (
-    <View className="gap-lg p-lg">
-      <Skeleton className="h-8 w-56" />
-      <View className="gap-md tablet:flex-row">
-        <Skeleton className="h-24 flex-1" />
-        <Skeleton className="h-24 flex-1" />
-        <Skeleton className="h-24 flex-1" />
-      </View>
-      <Skeleton className="h-32 w-full" />
+    <View className="gap-lg">
+      <KpiRow dashboard={dashboard} />
+
+      {noSales ? (
+        <DashboardEmpty />
+      ) : (
+        <>
+          <View className="gap-lg desktop:flex-row">
+            <SalesTrendCard
+              trend={dashboard.salesTrend}
+              height={chartHeight}
+              compact={compact}
+              className="desktop:w-[66%]"
+            />
+            <MerchantSummaryCard overview={dashboard.merchantOverview} className="desktop:flex-1" />
+          </View>
+
+          <View className="gap-lg desktop:flex-row">
+            <OutletPerformanceCard
+              outlets={dashboard.outletPerformance}
+              className="desktop:w-[58%]"
+            />
+            <TimePatternCard
+              pattern={dashboard.timePattern}
+              height={chartHeight}
+              compact={compact}
+              className="desktop:flex-1"
+            />
+          </View>
+
+          <View className="gap-lg desktop:flex-row">
+            <TopProductsCard products={dashboard.topProducts} className="desktop:flex-1" />
+            <UnderperformingCard
+              products={dashboard.underperformingProducts}
+              className="desktop:flex-1"
+            />
+          </View>
+
+          <View className="gap-lg desktop:flex-row">
+            <AovTrendCard
+              trend={dashboard.aovTrend}
+              height={chartHeight}
+              className="desktop:flex-1"
+            />
+            <RecentTransactionsCard
+              transactions={dashboard.recentTransactions}
+              className="desktop:flex-1"
+            />
+          </View>
+
+          <PeriodComparisonCard comparison={dashboard.periodComparison} />
+        </>
+      )}
     </View>
   );
 }
 
-function LoadFailure({ message }: { message: string }) {
+function LoadFailure() {
   return (
     <View className="flex-1 items-center justify-center p-xl">
       <Text variant="body" tone="danger">
-        {message}
+        Gagal memuat dashboard.
       </Text>
     </View>
   );

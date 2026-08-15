@@ -39,6 +39,7 @@ const summarySchema = z
     total_products: z.number(),
     revenue_growth: percentage,
     transactions_growth: percentage,
+    products_sold_growth: percentage,
   })
   .transform((value) => ({
     totalRevenue: value.total_revenue,
@@ -52,6 +53,7 @@ const summarySchema = z
     /** Percentages, not money: 12.5 renders as "12,5%". */
     revenueGrowth: value.revenue_growth,
     transactionsGrowth: value.transactions_growth,
+    productsSoldGrowth: value.products_sold_growth,
   }));
 
 const salesTrendSchema = z
@@ -123,7 +125,7 @@ export type RankedProduct = z.infer<typeof rankedProductSchema>;
 
 /** An unrecognised recommendation must not take the dashboard down with it. */
 const recommendationSchema = z
-  .enum(['PROMOTION', 'DISCOUNT', 'BUNDLE', 'DISCONTINUE'])
+  .enum(['PROMOTION', 'DISCOUNT', 'TRANSFER', 'BUNDLE', 'DISCONTINUE'])
   .catch('PROMOTION');
 
 const underperformingSchema = z

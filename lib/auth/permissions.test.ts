@@ -130,13 +130,7 @@ describe('route access', () => {
       '/transactions',
       '/transactions/trx_001',
     ],
-    ADMIN: [
-      '/dashboard',
-      '/products',
-      '/categories',
-      '/inventory',
-      '/inventory/low-stock',
-    ],
+    ADMIN: ['/products', '/categories', '/inventory', '/inventory/low-stock'],
     CASHIER: ['/pos', '/transactions', '/transactions/trx_001'],
   };
 
@@ -145,10 +139,11 @@ describe('route access', () => {
     expect(reachable.sort()).toEqual([...ALLOWED[role]].sort());
   });
 
-  it('shares /dashboard between Owner and Admin but not the Cashier', () => {
+  it('keeps the Owner reporting routes away from Admin and Cashier', () => {
     expect(canAccessRoute('OWNER', '/dashboard')).toBe(true);
-    expect(canAccessRoute('ADMIN', '/dashboard')).toBe(true);
+    expect(canAccessRoute('ADMIN', '/dashboard')).toBe(false);
     expect(canAccessRoute('CASHIER', '/dashboard')).toBe(false);
+    expect(canAccessRoute('ADMIN', '/analytics')).toBe(false);
   });
 
   it('closes transactions to the Admin', () => {
@@ -178,9 +173,9 @@ describe('landing', () => {
     });
   });
 
-  it('sends the Cashier to the till and the others to a dashboard', () => {
+  it('sends each role to its primary surface', () => {
     expect(landingRoute('OWNER')).toBe('/dashboard');
-    expect(landingRoute('ADMIN')).toBe('/dashboard');
+    expect(landingRoute('ADMIN')).toBe('/inventory');
     expect(landingRoute('CASHIER')).toBe('/pos');
   });
 

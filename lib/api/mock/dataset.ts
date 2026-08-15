@@ -166,18 +166,90 @@ type ProductSeed = {
 };
 
 const PRODUCT_SEEDS: ProductSeed[] = [
-  { product_id: 'prd_cc1500', category_id: 'cat_minuman', name: 'Coca Cola 1.5L', sku: 'CC-1500', price: '15000.00' },
-  { product_id: 'prd_sp1500', category_id: 'cat_minuman', name: 'Sprite 1.5L', sku: 'SP-1500', price: '15000.00' },
-  { product_id: 'prd_mw600', category_id: 'cat_minuman', name: 'Air Mineral 600ml', sku: 'MW-600', price: '4000.00' },
-  { product_id: 'prd_tb450', category_id: 'cat_minuman', name: 'Teh Botol 450ml', sku: 'TB-450', price: '5000.00' },
-  { product_id: 'prd_ch068', category_id: 'cat_makanan_ringan', name: 'Chitato Sapi Panggang', sku: 'CH-068', price: '12500.00' },
-  { product_id: 'prd_or133', category_id: 'cat_makanan_ringan', name: 'Oreo Original 133g', sku: 'OR-133', price: '10000.00' },
-  { product_id: 'prd_ks250', category_id: 'cat_kopi', name: 'Kopi Susu Botol 250ml', sku: 'KS-250', price: '18000.00' },
-  { product_id: 'prd_pcb001', category_id: 'cat_kopi', name: 'Premium Coffee Beans', sku: 'PCB-001', price: '35000.00' },
-  { product_id: 'prd_im001', category_id: 'cat_makanan_ringan', name: 'Indomie Goreng', sku: 'IM-001', price: '3500.00' },
-  { product_id: 'prd_sb100', category_id: 'cat_perawatan', name: 'Sabun Mandi Lifebuoy', sku: 'SB-100', price: '8500.00' },
-  { product_id: 'prd_rt400', category_id: 'cat_roti', name: 'Roti Tawar Sari Roti', sku: 'RT-400', price: '17000.00' },
-  { product_id: 'prd_su250', category_id: 'cat_minuman', name: 'Susu UHT Coklat 250ml', sku: 'SU-250', price: '6500.00' },
+  {
+    product_id: 'prd_cc1500',
+    category_id: 'cat_minuman',
+    name: 'Coca Cola 1.5L',
+    sku: 'CC-1500',
+    price: '15000.00',
+  },
+  {
+    product_id: 'prd_sp1500',
+    category_id: 'cat_minuman',
+    name: 'Sprite 1.5L',
+    sku: 'SP-1500',
+    price: '15000.00',
+  },
+  {
+    product_id: 'prd_mw600',
+    category_id: 'cat_minuman',
+    name: 'Air Mineral 600ml',
+    sku: 'MW-600',
+    price: '4000.00',
+  },
+  {
+    product_id: 'prd_tb450',
+    category_id: 'cat_minuman',
+    name: 'Teh Botol 450ml',
+    sku: 'TB-450',
+    price: '5000.00',
+  },
+  {
+    product_id: 'prd_ch068',
+    category_id: 'cat_makanan_ringan',
+    name: 'Chitato Sapi Panggang',
+    sku: 'CH-068',
+    price: '12500.00',
+  },
+  {
+    product_id: 'prd_or133',
+    category_id: 'cat_makanan_ringan',
+    name: 'Oreo Original 133g',
+    sku: 'OR-133',
+    price: '10000.00',
+  },
+  {
+    product_id: 'prd_ks250',
+    category_id: 'cat_kopi',
+    name: 'Kopi Susu Botol 250ml',
+    sku: 'KS-250',
+    price: '18000.00',
+  },
+  {
+    product_id: 'prd_pcb001',
+    category_id: 'cat_kopi',
+    name: 'Premium Coffee Beans',
+    sku: 'PCB-001',
+    price: '35000.00',
+  },
+  {
+    product_id: 'prd_im001',
+    category_id: 'cat_makanan_ringan',
+    name: 'Indomie Goreng',
+    sku: 'IM-001',
+    price: '3500.00',
+  },
+  {
+    product_id: 'prd_sb100',
+    category_id: 'cat_perawatan',
+    name: 'Sabun Mandi Lifebuoy',
+    sku: 'SB-100',
+    price: '8500.00',
+  },
+  {
+    product_id: 'prd_rt400',
+    category_id: 'cat_roti',
+    name: 'Roti Tawar Sari Roti',
+    sku: 'RT-400',
+    price: '17000.00',
+  },
+  {
+    product_id: 'prd_su250',
+    category_id: 'cat_minuman',
+    name: 'Susu UHT Coklat 250ml',
+    sku: 'SU-250',
+    price: '6500.00',
+  },
 ];
 
 export const PRODUCTS = PRODUCT_SEEDS.map((seed) => ({
@@ -265,7 +337,11 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     created_at: '2026-08-13T14:30:00.000Z',
     payment_method: 'CASH',
     // 60.000 + 50.000 + 40.000 = 150.000
-    lines: [['prd_cc1500', 4], ['prd_ch068', 4], ['prd_or133', 4]],
+    lines: [
+      ['prd_cc1500', 4],
+      ['prd_ch068', 4],
+      ['prd_or133', 4],
+    ],
   },
   {
     transaction_id: 'trx_002',
@@ -275,7 +351,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     created_at: '2026-08-13T14:35:00.000Z',
     payment_method: 'QRIS',
     // §6's two-item cart: 30.000 + 15.000 = 45.000
-    lines: [['prd_cc1500', 2], ['prd_sp1500', 1]],
+    lines: [
+      ['prd_cc1500', 2],
+      ['prd_sp1500', 1],
+    ],
   },
   {
     transaction_id: 'trx_003',
@@ -285,7 +364,11 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     created_at: '2026-08-13T13:05:00.000Z',
     payment_method: 'CASH',
     // §6's sample cart: 30.000 + 12.500 + 10.000 = 52.500
-    lines: [['prd_cc1500', 2], ['prd_ch068', 1], ['prd_or133', 1]],
+    lines: [
+      ['prd_cc1500', 2],
+      ['prd_ch068', 1],
+      ['prd_or133', 1],
+    ],
   },
   {
     transaction_id: 'trx_004',
@@ -294,7 +377,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     user_id: 'usr_rudi',
     created_at: '2026-08-13T11:12:00.000Z',
     payment_method: 'CASH',
-    lines: [['prd_im001', 10], ['prd_mw600', 5]],
+    lines: [
+      ['prd_im001', 10],
+      ['prd_mw600', 5],
+    ],
   },
   {
     transaction_id: 'trx_005',
@@ -303,7 +389,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     user_id: 'usr_rudi',
     created_at: '2026-08-13T12:48:00.000Z',
     payment_method: 'DEBIT',
-    lines: [['prd_ks250', 2], ['prd_su250', 3]],
+    lines: [
+      ['prd_ks250', 2],
+      ['prd_su250', 3],
+    ],
   },
   {
     transaction_id: 'trx_006',
@@ -312,7 +401,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     user_id: 'usr_ani',
     created_at: '2026-08-12T19:22:00.000Z',
     payment_method: 'CASH',
-    lines: [['prd_sb100', 2], ['prd_rt400', 1]],
+    lines: [
+      ['prd_sb100', 2],
+      ['prd_rt400', 1],
+    ],
   },
   {
     transaction_id: 'trx_007',
@@ -321,7 +413,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     user_id: 'usr_budi',
     created_at: '2026-08-12T20:01:00.000Z',
     payment_method: 'TRANSFER',
-    lines: [['prd_tb450', 10], ['prd_im001', 6]],
+    lines: [
+      ['prd_tb450', 10],
+      ['prd_im001', 6],
+    ],
   },
   {
     transaction_id: 'trx_008',
@@ -330,7 +425,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     user_id: 'usr_rudi',
     created_at: '2026-08-12T12:30:00.000Z',
     payment_method: 'CASH',
-    lines: [['prd_ch068', 5], ['prd_or133', 2]],
+    lines: [
+      ['prd_ch068', 5],
+      ['prd_or133', 2],
+    ],
   },
   {
     // A pending sale, so the status badge has something other than COMPLETED.
@@ -350,7 +448,10 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
     user_id: 'usr_rudi',
     created_at: '2026-08-11T17:40:00.000Z',
     payment_method: 'QRIS',
-    lines: [['prd_pcb001', 1], ['prd_su250', 1]],
+    lines: [
+      ['prd_pcb001', 1],
+      ['prd_su250', 1],
+    ],
   },
 ];
 
@@ -378,6 +479,7 @@ export const DASHBOARD_FIGURES = {
   totalCategories: 8,
   revenueGrowth: 12.5,
   transactionsGrowth: 8.3,
+  productsSoldGrowth: 5.1,
 };
 
 /** Seven days that sum to exactly 15.750.000. */
@@ -480,7 +582,7 @@ export const UNDERPERFORMERS = [
     total_revenue: '78000.00',
     stock_level: 71,
     days_without_sale: 9,
-    recommendation: 'BUNDLE' as const,
+    recommendation: 'TRANSFER' as const,
   },
   {
     product_id: 'prd_sb100',
@@ -558,4 +660,4 @@ export const AI_INSIGHT = {
   updated_at: '2026-08-13T08:00:00.000Z',
 };
 
-export const LAST_AI_ANALYSIS = '2026-08-13T08:00:00.000Z';
+export const LAST_AI_ANALYSIS = '2026-08-12T08:00:00.000Z';

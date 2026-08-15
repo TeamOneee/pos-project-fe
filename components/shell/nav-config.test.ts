@@ -59,13 +59,7 @@ describe('per-role shape', () => {
   it('gives the Admin operations and catalog, and no transactions', () => {
     const hrefs = navItemsFor('ADMIN').map((item) => item.href);
 
-    expect(hrefs).toEqual([
-      '/dashboard',
-      '/inventory',
-      '/inventory/low-stock',
-      '/products',
-      '/categories',
-    ]);
+    expect(hrefs).toEqual(['/inventory', '/inventory/low-stock', '/products', '/categories']);
     expect(hrefs).not.toContain('/transactions');
   });
 
@@ -77,12 +71,9 @@ describe('per-role shape', () => {
     expect(navItemsFor('CASHIER').map((item) => item.href)).toEqual(['/pos', '/transactions']);
   });
 
-  it('names the same route differently for Owner and Admin', () => {
-    const owner = navItemsFor('OWNER').find((item) => item.href === '/dashboard');
-    const admin = navItemsFor('ADMIN').find((item) => item.href === '/dashboard');
-
-    expect(owner?.label).toBe('Dashboard');
-    expect(admin?.label).toBe('Dashboard Stok');
+  it('keeps the business dashboard Owner-only', () => {
+    expect(navItemsFor('OWNER').some((item) => item.href === '/dashboard')).toBe(true);
+    expect(navItemsFor('ADMIN').some((item) => item.href === '/dashboard')).toBe(false);
   });
 
   it('keeps the Admin within five items, so the tab bar needs no overflow', () => {

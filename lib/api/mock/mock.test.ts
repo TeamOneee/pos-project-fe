@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { request, setTransport } from '@/lib/api/client';
 import { aiInsightsApi } from '@/lib/api/domains/ai-insights';
+import { analyticsApi } from '@/lib/api/domains/analytics';
 import { authApi } from '@/lib/api/domains/auth';
 import { cartApi } from '@/lib/api/domains/cart';
 import { categoriesApi } from '@/lib/api/domains/categories';
@@ -178,10 +179,7 @@ describe('the Owner dashboard', () => {
   it('splits revenue across outlets so the parts sum to the whole', async () => {
     const dashboard = await dashboardApi.owner();
 
-    const total = dashboard.outletPerformance.reduce(
-      (sum, outlet) => sum + outlet.totalRevenue,
-      0
-    );
+    const total = dashboard.outletPerformance.reduce((sum, outlet) => sum + outlet.totalRevenue, 0);
     const transactions = dashboard.outletPerformance.reduce(
       (sum, outlet) => sum + outlet.totalTransactions,
       0
@@ -275,7 +273,18 @@ describe('authentication and role gating', () => {
 
   it('keeps analytics and AI to the Owner', async () => {
     await signIn(ADMIN);
-    const error = await aiInsightsApi.get().catch((caught: unknown) => caught);
+    const [analyticsError, aiError] = await Promise.all([
+      analyticsApi.timePattern().catch((caught: unknown) => caught),
+      aiInsightsApi.get().catch((caught: unknown) => caught),
+    ]);
+
+    expect(isForbidden(analyticsError)).toBe(true);
+    expect(isForbidden(aiError)).toBe(true);
+  });
+
+  it('keeps the Owner dashboard away from the Admin', async () => {
+    await signIn(ADMIN);
+    const error = await dashboardApi.owner().catch((caught: unknown) => caught);
 
     expect(isForbidden(error)).toBe(true);
   });
@@ -515,9 +524,9 @@ describe('transactions', () => {
     });
 
     expect(transactions.items.length).toBeGreaterThan(0);
-    expect(
-      transactions.items.every((entry) => entry.createdAt?.startsWith('2026-08-13'))
-    ).toBe(true);
+    expect(transactions.items.every((entry) => entry.createdAt?.startsWith('2026-08-13'))).toBe(
+      true
+    );
   });
 });
 

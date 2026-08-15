@@ -115,6 +115,30 @@ export function formatRelativeDateTime(input: DateInput, now: DateInput = new Da
   return formatDateTime(date);
 }
 
+/**
+ * "Baru saja" / "2 menit lalu" / "3 jam lalu", falling back to the full
+ * timestamp past a day.
+ *
+ * For freshness captions — the dashboard is not real-time, and how stale it is
+ * has to be legible at a glance rather than inferred from a clock time.
+ */
+export function formatTimeAgo(input: DateInput, now: DateInput = new Date()): string {
+  const then = toDate(input).getTime();
+  const current = toDate(now).getTime();
+  const seconds = Math.floor((current - then) / 1000);
+
+  // A clock skew or a future timestamp reads as fresh rather than negative.
+  if (seconds < 45) return 'Baru saja';
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${Math.max(1, minutes)} menit lalu`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+
+  return formatDateTime(then);
+}
+
 /** "2026-08-13" — for API query params, never for display. */
 export function toApiDate(input: DateInput): string {
   const d = toDate(input);
