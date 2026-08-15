@@ -17,6 +17,39 @@ npm run format     # Prettier
 npm run tokens     # regenerate global.css from design-tokens.js
 ```
 
+## Running with Docker
+
+```bash
+docker compose up --build        # → http://localhost:8080
+```
+
+That builds the web export and serves it with nginx. It defaults to **mock mode**, so it needs no backend and no network — the IndoMart dataset is inside the browser bundle. Sign in with `owner@indomart.com` / `SecurePassword123!`, or `sari@indomart.com`, `budi@indomart.com`, `rudi@indomart.com`, all `password123`.
+
+Hot reload instead of a static build:
+
+```bash
+docker compose --profile dev up  # → http://localhost:8081
+```
+
+Metro's file watching over a bind mount from a Windows or macOS host is slower and flakier than it is natively. If a save does not trigger a reload, that is why, and `npm start` on the host is the better tool.
+
+### Pointing it at a real backend
+
+`EXPO_PUBLIC_*` values are **compiled into the bundle by Metro at build time**, not read by the container at runtime. Setting them on `docker run` does nothing; they have to be build args, and changing one means rebuilding:
+
+```bash
+docker compose build \
+  --build-arg EXPO_PUBLIC_API_MODE=live \
+  --build-arg EXPO_PUBLIC_API_URL=https://api.example.com/api/v1
+docker compose up
+```
+
+Ports come from the environment if you need them elsewhere: `WEB_PORT=3001 docker compose up`.
+
+### What the image is and isn't
+
+It serves static files. There is no server-side rendering at request time, no API proxy, and no TLS — put it behind whatever already terminates TLS if this ever goes further than a local check. Dynamic routes such as `/transactions/{id}` fall back to `index.html` and are resolved on the client, so the pre-rendered HTML for those is generic while the rendered page is correct.
+
 ## Layout
 
 ```

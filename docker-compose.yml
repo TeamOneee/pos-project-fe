@@ -1,0 +1,44 @@
+# Two ways to run the frontend.
+#
+#   docker compose up --build            → the built app on http://localhost:8080
+#   docker compose --profile dev up      → the Expo dev server on http://localhost:8081
+#
+# Both default to mock mode, so neither needs a backend: the IndoMart dataset
+# is served from inside the browser bundle.
+
+services:
+  # The one to use for "let me just look at it".
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # EXPO_PUBLIC_* is compiled into the bundle, so these are build args and
+        # not environment variables. Changing them requires --build.
+        EXPO_PUBLIC_API_MODE: ${EXPO_PUBLIC_API_MODE:-mock}
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:3000/api/v1}
+        EXPO_PUBLIC_API_TIMEOUT_MS: ${EXPO_PUBLIC_API_TIMEOUT_MS:-15000}
+        EXPO_PUBLIC_MOCK_LATENCY_MS: ${EXPO_PUBLIC_MOCK_LATENCY_MS:-220}
+    image: pos-fe:latest
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    restart: unless-stopped
+
+  # Opt-in: hot reload against the source on your machine.
+  dev:
+    profiles: ['dev']
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: pos-fe-dev:latest
+    ports:
+      - '${DEV_PORT:-8081}:8081'
+    volumes:
+      - .:/app
+      # Keeps the container's node_modules rather than shadowing them with the
+      # host's, which are built for a different platform.
+      - /app/node_modules
+    environment:
+      EXPO_PUBLIC_API_MODE: ${EXPO_PUBLIC_API_MODE:-mock}
+    stdin_open: true
+    tty: true
