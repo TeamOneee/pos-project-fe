@@ -41,6 +41,7 @@ module.exports = {
     'lib/**/*.{ts,tsx}',
     'components/**/*.{ts,tsx}',
     'features/**/*.{ts,tsx}',
+    'hooks/**/*.{ts,tsx}',
     '!**/*.test.{ts,tsx}',
   ],
 };
