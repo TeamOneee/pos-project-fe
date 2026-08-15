@@ -1,4 +1,7 @@
 import '@/global.css';
+// Installs the transport that matches EXPO_PUBLIC_API_MODE. Must be imported
+// before the first query runs.
+import '@/lib/api';
 
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
