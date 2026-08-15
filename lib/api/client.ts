@@ -16,6 +16,7 @@ import { API_CONFIG } from '@/lib/api/config';
 import { ApiError, type ApiErrorEnvelope } from '@/lib/api/errors';
 import { httpTransport } from '@/lib/api/http';
 import type { ApiRequest, Transport } from '@/lib/api/transport';
+import { reportUnauthorized } from '@/lib/api/unauthorized';
 
 let installed: Transport | null = null;
 
@@ -79,6 +80,10 @@ export async function requestWithStatus<TSchema extends z.ZodTypeAny>(
   const envelope = asEnvelope(raw.body);
 
   if (raw.status >= 400 || envelope?.success === false) {
+    // An authenticated request that came back unauthorized means the session is
+    // gone; the auth provider turns this into the expired-session modal.
+    if (raw.status === 401) reportUnauthorized(request.path);
+
     throw ApiError.fromEnvelope(
       {
         success: false,

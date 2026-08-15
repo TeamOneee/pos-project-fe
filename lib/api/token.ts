@@ -6,9 +6,7 @@
  * session store, when it lands, drives this rather than replacing it.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STORAGE_KEY = 'pos.auth.token';
+import { tokenStorage } from '@/lib/auth/token-storage';
 
 let current: string | null = null;
 
@@ -26,7 +24,7 @@ export function setToken(token: string | null): void {
 
   // Persistence is fire-and-forget: a failed write must not fail the login that
   // triggered it, and the in-memory value is already correct.
-  const write = token === null ? AsyncStorage.removeItem(STORAGE_KEY) : AsyncStorage.setItem(STORAGE_KEY, token);
+  const write = token === null ? tokenStorage.clear() : tokenStorage.write(token);
   void write.catch(() => {
     // Storage unavailable; the session simply will not survive a restart.
   });
@@ -39,7 +37,7 @@ export function clearToken(): void {
 /** Rehydrate on boot. Returns the token so callers can branch on it. */
 export async function restoreToken(): Promise<string | null> {
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    const stored = await tokenStorage.read();
     current = stored;
     listeners.forEach((listener) => listener(stored));
     return stored;
