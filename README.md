@@ -162,6 +162,22 @@ Any 401 on a session that was working raises the expired-session modal — one m
 
 The API answers 401 for both an unknown email and a wrong password, and [login-error.ts](features/auth/login-error.ts) keeps it that way: one banner reading "Email atau password salah.", both inputs marked, no field-level message, and the server's own message never echoed. Anything finer would let someone enumerate which emails have accounts.
 
+## The POS (S-16)
+
+Two panels at tablet and desktop, grid plus a cart sheet at mobile. Tablet landscape is the primary form factor and the layout is built for it first.
+
+**Local-first cart.** Every tap writes to the Zustand store and the screen re-renders from it — a cashier cannot wait for a round trip between taps. [use-cart-sync.ts](features/pos/use-cart-sync.ts) catches the server up afterwards on a 400ms debounce, so holding "+" six times sends one request carrying the final quantity. Writes are sequential because every cart endpoint returns the whole cart, and the server stays authoritative on failure: a rejected write resets the local cart to what the server actually holds rather than leaving it optimistic.
+
+**What the grid may sell** is decided in [pos-catalog.ts](features/pos/pos-catalog.ts), not in a component. A product can be `ACTIVE` while its category is not, and the backend returns it either way — that product appears in neither the grid nor the chip row.
+
+**Staying at 60fps with a few hundred products:** a virtualised `FlatList` with a fixed row height, a memoised pure filter, and `React.memo` on every tile. The tile press handler reads the cart through `getState()` rather than closing over it, so adding an item doesn't invalidate every tile's handler and re-render the grid.
+
+Three deliberate departures from the brief, all documented at the point of decision:
+
+- **Stepper buttons are 44px, not 32px.** CLAUDE.md rule 6 sets the floor at 44 and says cart steppers should be larger still; it wins where the two disagree.
+- **Remove (×) is always visible**, not revealed on hover. The primary form factor is a tablet, which has no hover.
+- **The low-stock threshold is a constant**, not the merchant's. See below.
+
 ## Things worth knowing
 
 **Money never touches a float.** The API sends `"15750000.00"`; `parseMoney` turns it into the integer `15750000` at the boundary and it stays an integer. `formatIDR` is the only way money reaches the screen, and it never emits a decimal separator. See `lib/money.ts`.
