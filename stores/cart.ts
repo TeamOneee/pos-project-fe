@@ -12,6 +12,7 @@ import { lineTotal, sumRupiah, type Rupiah } from '@/lib/money';
 export type CartLine = {
   productId: string;
   name: string;
+  sku: string;
   /** Integer rupiah. */
   unitPrice: Rupiah;
   quantity: number;
@@ -27,6 +28,14 @@ type CartState = {
   decrement: (productId: string) => void;
   removeLine: (productId: string) => void;
   clear: () => void;
+  /** Seeds the cart from the server's, once, when the POS screen opens. */
+  hydrate: (lines: CartLine[]) => void;
+  /**
+   * Refreshes the stock ceilings after inventory refetches, trimming any line
+   * that no longer fits. Quantities are otherwise left alone — the cashier's
+   * local edits stay authoritative.
+   */
+  syncAvailability: (stockByProduct: Record<string, number>) => void;
 };
 
 export const useCartStore = create<CartState>()((set) => ({
@@ -84,6 +93,23 @@ export const useCartStore = create<CartState>()((set) => ({
     set((state) => ({ lines: state.lines.filter((item) => item.productId !== productId) })),
 
   clear: () => set({ lines: [] }),
+
+  hydrate: (lines) => set({ lines: lines.filter((line) => line.quantity > 0) }),
+
+  syncAvailability: (stockByProduct) =>
+    set((state) => ({
+      lines: state.lines
+        .map((line) => {
+          const availableStock = stockByProduct[line.productId] ?? line.availableStock;
+          return {
+            ...line,
+            availableStock,
+            quantity: Math.min(line.quantity, availableStock),
+          };
+        })
+        // A product that sold out elsewhere cannot stay in the cart.
+        .filter((line) => line.quantity > 0),
+    })),
 }));
 
 function clamp(value: number, min: number, max: number): number {
@@ -100,7 +126,17 @@ export function selectSubtotal(state: CartState): Rupiah {
   return sumRupiah(state.lines.map((line) => lineTotal(line.unitPrice, line.quantity)));
 }
 
-/** Total item count, for the cart badge. */
+/**
+ * Total units in the cart, for the badge and the mobile bar ("3 item").
+ *
+ * Note this counts units, not lines: two Coca Cola and one Sprite is "3 item".
+ * The API's `total_items` counts lines instead, so the two deliberately differ.
+ */
 export function selectItemCount(state: CartState): number {
   return state.lines.reduce((count, line) => count + line.quantity, 0);
+}
+
+/** Quantity of one product, or 0. Drives the tile's count circle. */
+export function selectQuantityOf(state: CartState, productId: string): number {
+  return state.lines.find((line) => line.productId === productId)?.quantity ?? 0;
 }
