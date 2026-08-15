@@ -5,10 +5,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { merchantsApi, type UpdateMerchantInput } from '@/lib/api/domains/merchants';
 import { queryKeys } from '@/lib/query-client';
 
-export function useMerchant() {
+/** Owner-only endpoint, so callers that may run as another role pass `enabled`. */
+export function useMerchant(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.merchant,
     queryFn: () => merchantsApi.get(),
+    enabled: options.enabled ?? true,
   });
 }
 
