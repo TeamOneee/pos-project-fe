@@ -33,8 +33,8 @@ import { resetDb } from '@/lib/api/mock/db';
 import { clearMockScenario, setMockScenario } from '@/lib/api/mock/scenarios';
 
 const OWNER = { email: 'owner@indomart.com', password: 'SecurePassword123!' };
-const ADMIN = { email: 'ani@example.com', password: 'password123' };
-const CASHIER_A = { email: 'budi@example.com', password: 'password123' };
+const ADMIN = { email: 'sari@indomart.com', password: 'password123' };
+const CASHIER_A = { email: 'budi@indomart.com', password: 'password123' };
 
 beforeEach(() => {
   resetDb();
@@ -84,7 +84,7 @@ describe('the seeded dataset', () => {
     expect(categories.every((category) => category.status === 'ACTIVE')).toBe(true);
   });
 
-  it('gives one cashier per outlet plus an owner and an admin', async () => {
+  it('staffs an owner, an admin and three cashiers', async () => {
     const users = await usersApi.list();
     const roles = users.map((user) => user.role).sort();
 
@@ -94,6 +94,11 @@ describe('the seeded dataset', () => {
       true
     );
     expect(users.find((user) => user.role === 'ADMIN')?.outletId).toBeNull();
+
+    // The brief puts two cashiers at Outlet A and none at Outlet C.
+    const atOutletA = users.filter((user) => user.outletId === 'otl_a');
+    expect(atOutletA.map((user) => user.name).sort()).toEqual(['Ani Wijaya', 'Budi Santoso']);
+    expect(users.some((user) => user.outletId === 'otl_c')).toBe(false);
   });
 });
 
@@ -157,13 +162,17 @@ describe('the Owner dashboard', () => {
     expect(dashboard.periodComparison.currentPeriod.totalRevenue).toBe(15_750_000);
   });
 
-  it('agrees with the entity screens on every count', async () => {
+  it('reports the counts the brief specifies, seeded rows notwithstanding', async () => {
     const dashboard = await dashboardApi.owner();
 
     expect(dashboard.summary.totalOutlets).toBe(3);
-    expect(dashboard.summary.totalEmployees).toBe(5);
     expect(dashboard.merchantOverview.totalCategories).toBe(8);
     expect(dashboard.merchantOverview.merchantName).toBe('IndoMart Retail');
+
+    // The brief's own figures: 12 employees and 156 products, against the five
+    // users and twelve products it seeds. Served as written, deliberately.
+    expect(dashboard.summary.totalEmployees).toBe(12);
+    expect(dashboard.summary.totalProducts).toBe(156);
   });
 
   it('splits revenue across outlets so the parts sum to the whole', async () => {
@@ -279,7 +288,7 @@ describe('the error cases the UI has to design for', () => {
     const error = await usersApi
       .create({
         name: 'Someone Else',
-        email: 'budi@example.com',
+        email: 'budi@indomart.com',
         password: 'password123',
         role: 'CASHIER',
         outlet_id: 'otl_a',
@@ -476,12 +485,13 @@ describe('transactions', () => {
     expect(transactions.items.every((entry) => entry.outletId === 'otl_a')).toBe(true);
   });
 
-  it('shows the Owner every outlet', async () => {
+  it('shows the Owner every outlet that has sales', async () => {
     await signIn(OWNER);
     const transactions = await transactionsApi.list({ limit: 50 });
 
+    // Outlet C has no cashier in the brief, so it has no seeded sales.
     const outlets = new Set(transactions.items.map((entry) => entry.outletId));
-    expect(outlets.size).toBe(3);
+    expect([...outlets].sort()).toEqual(['otl_a', 'otl_b']);
   });
 
   it('reproduces the totals quoted in the contract', async () => {
@@ -521,7 +531,7 @@ describe('the cart', () => {
 
   it('totals lines in integer rupiah', async () => {
     await cartApi.addItem({ product_id: 'prd_cc1500', quantity: 2 });
-    const cart = await cartApi.addItem({ product_id: 'prd_inc001', quantity: 3 });
+    const cart = await cartApi.addItem({ product_id: 'prd_im001', quantity: 3 });
 
     // 2 x 15.000 + 3 x 3.500
     expect(cart.subtotal).toBe(40_500);

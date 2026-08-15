@@ -1238,10 +1238,6 @@ const dashboardHandlers: Route[] = [
       requireRole('OWNER');
       const database = getDb();
 
-      const activeOutlets = database.outlets.filter((outlet) => outlet.status === 'ACTIVE');
-      const activeUsers = database.users.filter((user) => user.status === 'ACTIVE');
-      const activeProducts = database.products.filter((product) => product.status === 'ACTIVE');
-
       const recent = [...database.transactions]
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .slice(0, 5)
@@ -1265,11 +1261,12 @@ const dashboardHandlers: Route[] = [
             total_orders: DASHBOARD_FIGURES.totalTransactions,
             average_order_value: DASHBOARD_FIGURES.averageOrderValue,
             total_products_sold: DASHBOARD_FIGURES.totalProductsSold,
-            // Counts come from the dataset, so the dashboard can never disagree
-            // with the outlet, staff and catalog screens.
-            total_outlets: activeOutlets.length,
-            total_employees: activeUsers.length,
-            total_products: activeProducts.length,
+            // The brief's literal counts, which read 12 employees and 156
+            // products against the five users and twelve products it seeds.
+            // See the note on DASHBOARD_FIGURES.
+            total_outlets: DASHBOARD_FIGURES.totalOutlets,
+            total_employees: DASHBOARD_FIGURES.totalEmployees,
+            total_products: DASHBOARD_FIGURES.totalProducts,
             revenue_growth: DASHBOARD_FIGURES.revenueGrowth,
             transactions_growth: DASHBOARD_FIGURES.transactionsGrowth,
           },
@@ -1313,10 +1310,10 @@ const dashboardHandlers: Route[] = [
           recent_transactions: recent,
           merchant_overview: {
             merchant_name: database.merchant.name,
-            total_outlets_active: activeOutlets.length,
-            total_employees_active: activeUsers.length,
-            total_products_active: activeProducts.length,
-            total_categories: database.categories.length,
+            total_outlets_active: DASHBOARD_FIGURES.totalOutlets,
+            total_employees_active: DASHBOARD_FIGURES.totalEmployees,
+            total_products_active: DASHBOARD_FIGURES.totalProducts,
+            total_categories: DASHBOARD_FIGURES.totalCategories,
             last_ai_analysis: LAST_AI_ANALYSIS,
             ai_available_today: true,
           },

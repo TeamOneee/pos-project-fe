@@ -77,7 +77,7 @@ EXPO_PUBLIC_API_MODE=live   # fetch against EXPO_PUBLIC_API_URL
 
 Copy `.env.example` to `.env` and restart the dev server — `EXPO_PUBLIC_*` values are inlined at build time. Switching modes swaps the transport and nothing else: same clients, same schemas, same hooks, same errors.
 
-Mock mode signs in with the seeded accounts — `owner@indomart.com` / `SecurePassword123!`, and `ani@example.com`, `budi@example.com`, `siti@example.com`, `dewi@example.com`, all `password123`.
+The dataset is [docs/design-brief.md](docs/design-brief.md) §6 — IndoMart Retail, three outlets, five users, eight categories, twelve products — reproduced verbatim in `lib/api/mock/dataset.ts`, which carries a note on each place the brief leaves something open. Sign in with `owner@indomart.com` / `SecurePassword123!`, or `sari@indomart.com`, `budi@indomart.com`, `ani@indomart.com`, `rudi@indomart.com`, all `password123`.
 
 ### Two things happen at the boundary, and nowhere else
 
