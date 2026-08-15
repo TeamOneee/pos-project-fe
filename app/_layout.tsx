@@ -12,6 +12,9 @@ import * as React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider } from '@/components/auth/auth-provider';
+import { SessionExpiredDialog } from '@/components/auth/session-expired-dialog';
+import { ShellProvider } from '@/components/shell/shell-context';
 import { ThemeProvider, useTheme } from '@/components/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { useInterFonts } from '@/lib/fonts';
@@ -37,7 +40,13 @@ export default function RootLayout() {
         <ThemeProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <ToastProvider>
-              <AppShell />
+              {/* Auth sits under the query client because the session is a
+                  query, and above everything that reads a role. */}
+              <AuthProvider>
+                <ShellProvider>
+                  <RootChrome />
+                </ShellProvider>
+              </AuthProvider>
             </ToastProvider>
           </GestureHandlerRootView>
         </ThemeProvider>
@@ -50,7 +59,7 @@ export default function RootLayout() {
  * Lives inside ThemeProvider so the status bar and stack chrome follow the
  * resolved theme, and so the splash hides only once the theme is known.
  */
-function AppShell() {
+function RootChrome() {
   const { theme, hydrated } = useTheme();
 
   React.useEffect(() => {
@@ -64,9 +73,17 @@ function AppShell() {
   return (
     <>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
       </Stack>
+
+      {/* Raised by any 401 on a session that was working. Outside the router so
+          it survives whatever route is mounted underneath. */}
+      <SessionExpiredDialog />
+
       {/* Native portal target for dialogs, selects and tooltips. */}
       <PortalHost />
     </>
