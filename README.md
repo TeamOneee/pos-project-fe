@@ -211,6 +211,25 @@ Three deliberate departures from the brief, all documented at the point of decis
 - **Remove (×) is always visible**, not revealed on hover. The primary form factor is a tablet, which has no hover.
 - **The low-stock threshold is a constant**, not the merchant's. See below.
 
+## Checkout (S-17 … S-19)
+
+**The duplicate-transaction guard is a lock, not a disabled button.** [use-checkout.ts](features/checkout/use-checkout.ts) checks a ref before anything else happens, because React state updates are asynchronous and both a `disabled` prop and a reducer guard can be raced by two events in the same tick. The modal being undismissable during processing is the visible half of that; the ref is the actual mechanism.
+
+**The idempotency key is minted per attempt and held across retries.** That is what makes "Coba Lagi" safe after a dropped connection: the server either recognises the key and returns the sale it already made, or has never seen it and makes one. Exactly one transaction either way.
+
+It is deliberately *not* derived from the payload. Two customers buying the same single item are two sales, and a payload-derived key would collapse them into one. Accepting a price change mints a fresh key, because at that point a genuinely different request is being sent.
+
+**S-18c never says the sale failed.** A timeout means the request may well have gone through, so it reads "status unknown", tells the cashier not to charge again, and points at the transaction history.
+
+**"Gunakan Harga Baru" resubmits through the items path** rather than the cart path. The cart holds the price captured when the line was added — which is exactly what the server rejected — while `{ items: [...] }` prices at the server's current values.
+
+### Receipt
+
+80mm (302px) monospaced, generated as HTML from a pure function so the on-screen breakdown, the printed sheet and the shared file cannot drift apart. It reads no design token: a thermal printer has one colour and no webfont.
+
+- **Native** — `expo-print` for printing, `expo-print` → PDF → `expo-sharing` for sharing.
+- **Web** — the receipt is written into an off-screen iframe and that frame is printed, rather than hiding the SPA behind a `@media print` rule. The receipt carries its own `@page { size: 80mm auto }`, which only applies to the document being printed, and anything portalled outside the root escapes a whole-page print rule. Sharing uses the Web Share API where it exists and the button is disabled where it does not (desktop Chrome).
+
 ## Things worth knowing
 
 **Money never touches a float.** The API sends `"15750000.00"`; `parseMoney` turns it into the integer `15750000` at the boundary and it stays an integer. `formatIDR` is the only way money reaches the screen, and it never emits a decimal separator. See `lib/money.ts`.

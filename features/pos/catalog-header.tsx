@@ -6,7 +6,8 @@
  */
 
 import { Search } from 'lucide-react-native';
-import { Pressable, ScrollView, View } from 'react-native';
+import type * as React from 'react';
+import { Pressable, ScrollView, View, type TextInput } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,8 @@ type CatalogHeaderProps = {
   /** Null is the "Semua" chip, which is active by default. */
   activeCategoryId: string | null;
   onCategoryChange: (categoryId: string | null) => void;
+  /** Focus returns here after a completed sale (S-19). */
+  inputRef?: React.RefObject<TextInput | null>;
 };
 
 export function CatalogHeader({
@@ -29,11 +32,13 @@ export function CatalogHeader({
   categories,
   activeCategoryId,
   onCategoryChange,
+  inputRef,
 }: CatalogHeaderProps) {
   return (
     <View className="gap-md border-b border-border bg-canvas p-lg">
       <View className="justify-center">
         <Input
+          ref={inputRef}
           value={query}
           onChangeText={onQueryChange}
           placeholder="Cari produk atau SKU…"

@@ -33,6 +33,8 @@ type CartPanelProps = {
   onRemove: (productId: string) => void;
   onClear: () => void;
   onPay: () => void;
+  /** Products checkout rejected for stock; their lines are tinted (S-18a). */
+  flaggedProductIds?: string[];
   /** Hides the header on mobile, where the sheet supplies its own. */
   showHeader?: boolean;
 };
@@ -46,6 +48,7 @@ export function CartPanel({
   onRemove,
   onClear,
   onPay,
+  flaggedProductIds,
   showHeader = true,
 }: CartPanelProps) {
   const empty = lines.length === 0;
@@ -54,12 +57,13 @@ export function CartPanel({
     ({ item }: { item: CartLine }) => (
       <CartLineRow
         line={item}
+        flagged={flaggedProductIds?.includes(item.productId) ?? false}
         onIncrement={onIncrement}
         onDecrement={onDecrement}
         onRemove={onRemove}
       />
     ),
-    [onIncrement, onDecrement, onRemove]
+    [flaggedProductIds, onIncrement, onDecrement, onRemove]
   );
 
   return (

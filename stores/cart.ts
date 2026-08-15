@@ -31,6 +31,11 @@ type CartState = {
   /** Seeds the cart from the server's, once, when the POS screen opens. */
   hydrate: (lines: CartLine[]) => void;
   /**
+   * Rewrites unit prices after the server rejects a checkout with
+   * PRICE_CHANGED and the cashier accepts the new ones.
+   */
+  applyPrices: (priceByProduct: Record<string, Rupiah>) => void;
+  /**
    * Refreshes the stock ceilings after inventory refetches, trimming any line
    * that no longer fits. Quantities are otherwise left alone — the cashier's
    * local edits stay authoritative.
@@ -95,6 +100,15 @@ export const useCartStore = create<CartState>()((set) => ({
   clear: () => set({ lines: [] }),
 
   hydrate: (lines) => set({ lines: lines.filter((line) => line.quantity > 0) }),
+
+  applyPrices: (priceByProduct) =>
+    set((state) => ({
+      lines: state.lines.map((line) =>
+        priceByProduct[line.productId] === undefined
+          ? line
+          : { ...line, unitPrice: Math.trunc(priceByProduct[line.productId] ?? line.unitPrice) }
+      ),
+    })),
 
   syncAvailability: (stockByProduct) =>
     set((state) => ({

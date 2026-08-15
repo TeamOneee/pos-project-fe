@@ -18,20 +18,34 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { formatIDR, lineTotal } from '@/lib/money';
 import { formatCount } from '@/lib/number';
+import { cn } from '@/lib/utils';
 import type { CartLine } from '@/stores/cart';
 
 type CartLineRowProps = {
   line: CartLine;
+  /** Tinted after checkout rejected this line for stock (S-18a). */
+  flagged?: boolean;
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
   onRemove: (productId: string) => void;
 };
 
-function CartLineRowComponent({ line, onIncrement, onDecrement, onRemove }: CartLineRowProps) {
+function CartLineRowComponent({
+  line,
+  flagged = false,
+  onIncrement,
+  onDecrement,
+  onRemove,
+}: CartLineRowProps) {
   const atCeiling = line.quantity >= line.availableStock;
 
   return (
-    <View className="flex-row items-start gap-md border-b border-border px-lg py-md">
+    <View
+      className={cn(
+        'flex-row items-start gap-md border-b border-border px-lg py-md',
+        flagged && 'bg-danger-subtle'
+      )}
+    >
       <View className="min-w-0 flex-1 gap-xs">
         <Text variant="body-strong" numberOfLines={2}>
           {line.name}
@@ -114,6 +128,7 @@ export const CartLineRow = React.memo(
   CartLineRowComponent,
   (previous, next) =>
     previous.line.productId === next.line.productId &&
+    previous.flagged === next.flagged &&
     previous.line.quantity === next.line.quantity &&
     previous.line.unitPrice === next.line.unitPrice &&
     previous.line.availableStock === next.line.availableStock &&

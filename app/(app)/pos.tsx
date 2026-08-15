@@ -1,21 +1,19 @@
 /**
- * S-16 · Cashier POS.
+ * S-16 · Cashier POS, and the checkout flow on top of it (S-17 … S-19).
  *
  * Chromeless at every breakpoint — no sidebar, no icon rail, no bottom tabs.
  * It is the screen the product exists for, it needs the whole viewport, and it
  * carries its own top bar. AppShell knows this route by name.
  *
- * The layout is two panels at tablet and desktop, and a grid with a cart sheet
- * at mobile. Tablet landscape is the primary form factor.
- *
  * Everything the cashier touches reads from the Zustand cart, which updates
  * synchronously. The server is caught up afterwards on a debounce — see
- * use-cart-sync.ts.
+ * use-cart-sync.ts. Checkout is a separate machine with its own lock, in
+ * use-checkout.ts.
  */
 
 import { Link } from 'expo-router';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth/auth-provider';
@@ -24,6 +22,9 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
+import { PaymentDialog } from '@/features/checkout/payment-dialog';
+import { SuccessDialog } from '@/features/checkout/success-dialog';
+import { useCheckout } from '@/features/checkout/use-checkout';
 import { CartPanel } from '@/features/pos/cart-panel';
 import { CartSheet, MobileCartBar } from '@/features/pos/cart-sheet';
 import { CatalogHeader } from '@/features/pos/catalog-header';
@@ -32,9 +33,14 @@ import { stockMap, usePosCatalog, type PosProduct } from '@/features/pos/pos-cat
 import { ProductGrid } from '@/features/pos/product-grid';
 import { DEFAULT_LOW_STOCK_THRESHOLD } from '@/features/pos/stock';
 import { useCartSync } from '@/features/pos/use-cart-sync';
+import { usePosIdentity } from '@/features/pos/use-pos-identity';
+import { printReceipt } from '@/features/receipt/print-receipt';
+import { buildReceipt, type ReceiptData } from '@/features/receipt/receipt-data';
+import { receiptHtml } from '@/features/receipt/receipt-html';
+import { isShareAvailable, shareReceipt } from '@/features/receipt/share-receipt';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import { useOutlet } from '@/hooks/use-outlets';
 import { formatTime } from '@/lib/date';
+import { formatIDR } from '@/lib/money';
 import { selectItemCount, selectSubtotal, useCartStore } from '@/stores/cart';
 
 /** Columns per breakpoint, from the spec. */
@@ -44,10 +50,17 @@ export default function PosScreen() {
   const { outletId } = useAuth();
   const breakpoint = useBreakpoint();
   const { toast } = useToast();
+  const identity = usePosIdentity();
 
   const [query, setQuery] = React.useState('');
   const [categoryId, setCategoryId] = React.useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [paymentOpen, setPaymentOpen] = React.useState(false);
+  /** Lines checkout rejected for stock; tinted until the cashier adjusts them. */
+  const [flagged, setFlagged] = React.useState<string[]>([]);
+  const [receipt, setReceipt] = React.useState<ReceiptData | null>(null);
+
+  const searchRef = React.useRef<TextInput>(null);
 
   const { catalog, isPending, isError } = usePosCatalog(outletId);
 
@@ -58,10 +71,13 @@ export default function PosScreen() {
   const increment = useCartStore((state) => state.increment);
   const decrement = useCartStore((state) => state.decrement);
   const removeLine = useCartStore((state) => state.removeLine);
+  const applyPrices = useCartStore((state) => state.applyPrices);
   const syncAvailability = useCartStore((state) => state.syncAvailability);
 
   const stockByProduct = React.useMemo(() => stockMap(catalog.products), [catalog.products]);
-  const { clear } = useCartSync({ enabled: true, stockByProduct });
+  const { clear, cartId } = useCartSync({ enabled: true, stockByProduct });
+
+  const checkout = useCheckout({ cartId, lines, total: subtotal });
 
   // Inventory refetches after a sale elsewhere; the ceilings follow.
   React.useEffect(() => {
@@ -77,6 +93,88 @@ export default function PosScreen() {
     () => Object.fromEntries(lines.map((line) => [line.productId, line.quantity])),
     [lines]
   );
+
+  /* --- checkout ---------------------------------------------------------- */
+
+  // The receipt has to be built from the cart that produced the sale, before
+  // "Transaksi Baru" empties it.
+  const snapshot = React.useRef({ lines, identity });
+  React.useEffect(() => {
+    snapshot.current = { lines, identity };
+  }, [lines, identity]);
+
+  const { status, result } = checkout.state;
+
+  React.useEffect(() => {
+    if (status !== 'success' || !result) return;
+
+    const { lines: soldLines, identity: who } = snapshot.current;
+    setReceipt(
+      buildReceipt({
+        transaction: result.transaction,
+        items: result.items,
+        cartLines: soldLines,
+        merchantName: who.merchantName,
+        outletName: who.outletName,
+        cashierName: who.cashierName,
+        method: checkout.state.method,
+        received: checkout.state.received,
+      })
+    );
+    setFlagged([]);
+  }, [status, result, checkout.state.method, checkout.state.received]);
+
+  const startNewTransaction = React.useCallback(() => {
+    clear();
+    checkout.reset();
+    setReceipt(null);
+    setPaymentOpen(false);
+    setFlagged([]);
+    // Back where the next sale starts.
+    searchRef.current?.focus();
+  }, [clear, checkout]);
+
+  const adjustCart = React.useCallback(
+    (productIds: string[]) => {
+      setFlagged(productIds);
+      setPaymentOpen(false);
+      // The cart is about to change, so this attempt is over — a later submit
+      // gets a fresh idempotency key.
+      checkout.reset();
+    },
+    [checkout]
+  );
+
+  const acceptNewPrices = React.useCallback(() => {
+    const failure = checkout.state.failure;
+    if (failure?.kind !== 'price_changed') return;
+
+    applyPrices(
+      Object.fromEntries(failure.items.map((item) => [item.productId, item.currentPrice]))
+    );
+    checkout.acceptNewPrices();
+  }, [checkout, applyPrices]);
+
+  const handlePrint = React.useCallback(() => {
+    if (receipt) void printReceipt(receiptHtml(receipt));
+  }, [receipt]);
+
+  const handleShare = React.useCallback(async () => {
+    if (!receipt) return;
+
+    const summary = `${receipt.merchantName} · ${receipt.transactionNumber} · ${formatIDR(receipt.total)}`;
+    const outcome = await shareReceipt(receiptHtml(receipt), summary);
+
+    if (outcome === 'unsupported') {
+      toast({
+        title: 'Berbagi tidak tersedia',
+        description: 'Peramban ini tidak mendukung berbagi. Gunakan Cetak Struk.',
+        variant: 'info',
+      });
+    }
+  }, [receipt, toast]);
+
+  /* --- cart -------------------------------------------------------------- */
 
   /**
    * Stable across renders: it reads the cart through getState rather than
@@ -107,19 +205,16 @@ export default function PosScreen() {
         unitPrice: product.price,
         availableStock: product.stock,
       });
+      // Editing a flagged line resolves its complaint.
+      setFlagged((current) => current.filter((id) => id !== product.productId));
     },
     [addLine, toast]
   );
 
-  const handlePay = React.useCallback(() => {
-    // S-17 (payment modal) is the next slice; the cart and total it needs are
-    // already correct here.
-    toast({
-      title: 'Pembayaran belum tersedia',
-      description: 'Layar pembayaran (S-17) menyusul pada tahap berikutnya.',
-      variant: 'info',
-    });
-  }, [toast]);
+  const openPayment = React.useCallback(() => {
+    setSheetOpen(false);
+    setPaymentOpen(true);
+  }, []);
 
   const cartProps = {
     lines,
@@ -129,7 +224,8 @@ export default function PosScreen() {
     onDecrement: decrement,
     onRemove: removeLine,
     onClear: clear,
-    onPay: handlePay,
+    onPay: openPayment,
+    flaggedProductIds: flagged,
   };
 
   const empty = emptyKind(catalog.products.length, filtered.length);
@@ -143,6 +239,7 @@ export default function PosScreen() {
         categories={catalog.categories}
         activeCategoryId={categoryId}
         onCategoryChange={setCategoryId}
+        inputRef={searchRef}
       />
 
       {isPending ? (
@@ -173,7 +270,7 @@ export default function PosScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
-      <PosTopBar outletId={outletId} />
+      <PosTopBar outletName={identity.outletName} hasOutletName={identity.hasOutletName} />
 
       {breakpoint === 'mobile' ? (
         <View className="flex-1">
@@ -193,18 +290,38 @@ export default function PosScreen() {
           </View>
         </View>
       )}
+
+      <PaymentDialog
+        open={paymentOpen && checkout.state.status !== 'success'}
+        onClose={() => setPaymentOpen(false)}
+        checkout={checkout}
+        total={subtotal}
+        quantities={quantities}
+        onAdjustCart={adjustCart}
+        onAcceptNewPrices={acceptNewPrices}
+      />
+
+      <SuccessDialog
+        open={checkout.state.status === 'success'}
+        receipt={receipt}
+        onNewTransaction={startNewTransaction}
+        onPrint={handlePrint}
+        onShare={() => void handleShare()}
+        canShare={isShareAvailable()}
+      />
     </SafeAreaView>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function PosTopBar({ outletId }: { outletId: string | null }) {
-  // The cashier needs their outlet's name here. The contract scopes
-  // GET /outlets/{id} to the Owner, so this can fail against a real backend —
-  // the badge simply does not render when it does. Worth a backend ticket: a
-  // cashier has no endpoint that reliably names their own outlet.
-  const outlet = useOutlet(outletId ?? undefined);
+function PosTopBar({
+  outletName,
+  hasOutletName,
+}: {
+  outletName: string;
+  hasOutletName: boolean;
+}) {
   const time = useClock();
 
   return (
@@ -213,9 +330,9 @@ function PosTopBar({ outletId }: { outletId: string | null }) {
         <Text variant="body-strong" numberOfLines={1}>
           Kasir
         </Text>
-        {outlet.data && (
+        {hasOutletName && (
           <Badge variant="neutral">
-            <Text numberOfLines={1}>{outlet.data.name}</Text>
+            <Text numberOfLines={1}>{outletName}</Text>
           </Badge>
         )}
       </View>
