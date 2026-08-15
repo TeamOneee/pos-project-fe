@@ -68,7 +68,7 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
     // asChild so the className lands on a Pressable this file authored.
     // Styling expo-router's Link directly is not reliable — NativeWind's
     // transform applies where the JSX is written, and Link's is not here.
-    <Link href={item.href as never} asChild>
+    <Link href={item.href} asChild>
       <Pressable
         role="link"
         accessibilityState={{ selected: active }}

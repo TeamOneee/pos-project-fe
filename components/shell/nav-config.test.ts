@@ -5,7 +5,7 @@
  */
 
 import { activeHref, navFor, navItemsFor } from '@/components/shell/nav-config';
-import { canAccessRoute, ROLES } from '@/lib/auth/permissions';
+import { canAccessRoute, isGuardedRoute, ROLES } from '@/lib/auth/permissions';
 
 describe('the nav never contradicts the matrix', () => {
   it.each(ROLES)('gives %s only routes it can open', (role) => {
@@ -14,6 +14,15 @@ describe('the nav never contradicts the matrix', () => {
     expect(items.length).toBeGreaterThan(0);
     items.forEach((item) => {
       expect(canAccessRoute(role, item.href)).toBe(true);
+    });
+  });
+
+  it.each(ROLES)('points %s at real routes, not typos', (role) => {
+    // canAccessRoute lets unknown paths through, so "allowed" alone would not
+    // catch `/analytiks`. Every nav destination must match a route rule.
+    // typedRoutes cannot be relied on for this — see the note in nav-config.ts.
+    navItemsFor(role).forEach((item) => {
+      expect(isGuardedRoute(item.href)).toBe(true);
     });
   });
 

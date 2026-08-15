@@ -40,7 +40,7 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
-        <Link href={item.href as never} asChild>
+        <Link href={item.href} asChild>
           <Pressable
             role="link"
             // The label is the only thing naming this icon on touch, where

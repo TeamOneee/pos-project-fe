@@ -76,7 +76,7 @@ export function BottomTabs({ role }: { role: Role }) {
 
           <View className="gap-xs">
             {overflow.map((item) => (
-              <Link key={item.href} href={item.href as never} asChild>
+              <Link key={item.href} href={item.href} asChild>
                 <Pressable
                   role="link"
                   onPress={() => setOverflowOpen(false)}
@@ -104,7 +104,7 @@ export function BottomTabs({ role }: { role: Role }) {
 
 function TabLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
-    <Link href={item.href as never} asChild>
+    <Link href={item.href} asChild>
       <Pressable
         role="link"
         accessibilityState={{ selected: active }}
