@@ -120,6 +120,48 @@ The backend has no `Product.sku`, `Category.status`, `Transaction.status` or `Pa
 
 The mock enforces the role matrix in `claude.md`, which is stricter than the contract's `Access:` lines in three places: catalog writes are Admin-only, Admin has no access to transactions at all, and checkout is Cashier-only. A forbidden call answers 403 in mock mode, so the router's 403 path is exercisable before the backend exists.
 
+## Auth, shell and role gating
+
+### The role matrix is the single source of truth
+
+[lib/auth/permissions.ts](lib/auth/permissions.ts) is the only transcription of CLAUDE.md's role matrix. The sidebar config and the route guard both read from it, so a role's capabilities are stated once:
+
+```ts
+can('OWNER', 'catalog', 'manage')      // false — the Owner is read-only there
+canAccessRoute('ADMIN', '/transactions') // false — Admin has no transaction access
+landingRoute('CASHIER')                // '/pos'
+```
+
+Adding a screen means adding a route rule, not scattering `role === 'OWNER'` through JSX. `nav-config.test.ts` fails if a nav item ever points somewhere its role would be shown a 403.
+
+### Shell
+
+Three trees, not one tree with responsive classes — the navigation genuinely changes shape:
+
+| Breakpoint | Navigation |
+|---|---|
+| Desktop ≥1280 | 248px sidebar: merchant name, grouped nav, user chip footer |
+| Tablet 768–1279 | 72px icon rail with tooltips |
+| Mobile <768 | Bottom tab bar, five items max |
+
+The Owner has ten nav items, so mobile shows the first four plus **Lainnya**, which opens the rest in a sheet. Admin and Cashier fit within five and get no overflow.
+
+The top bar is 64px: the page title (the active nav item's label, or `useTopBarTitle` to override) and a portal slot for contextual controls — `<TopBarActions>` renders an outlet or period selector into it without the shell knowing what those are.
+
+**The cashier POS is chromeless at every breakpoint.** No sidebar, no rail, no tabs; it carries its own top bar. `AppShell` knows that route by name.
+
+### Sessions
+
+Tokens go to `expo-secure-store` on native — the iOS keychain and Android EncryptedSharedPreferences. On web they go to `sessionStorage`, which dies with the tab and is never shared across tabs.
+
+**That is not an httpOnly equivalent, and it cannot be.** Only a `Set-Cookie` header can create an httpOnly cookie, and the backend does not issue one. The token remains readable by any script on the origin, which is the exact risk httpOnly exists to remove. Closing it needs `POST /auth/login` to set an httpOnly, Secure, SameSite=Strict cookie and accept it on later requests; the client would then stop handling tokens entirely. [lib/auth/token-storage.ts](lib/auth/token-storage.ts) is the only file that would change.
+
+Any 401 on a session that was working raises the expired-session modal — one message, one **Masuk** button, no dismiss. Failed sign-ins are exempt, so a wrong password at the login screen does not claim the session expired.
+
+### Login reveals nothing
+
+The API answers 401 for both an unknown email and a wrong password, and [login-error.ts](features/auth/login-error.ts) keeps it that way: one banner reading "Email atau password salah.", both inputs marked, no field-level message, and the server's own message never echoed. Anything finer would let someone enumerate which emails have accounts.
+
 ## Things worth knowing
 
 **Money never touches a float.** The API sends `"15750000.00"`; `parseMoney` turns it into the integer `15750000` at the boundary and it stays an integer. `formatIDR` is the only way money reaches the screen, and it never emits a decimal separator. See `lib/money.ts`.
