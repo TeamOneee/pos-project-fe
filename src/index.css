@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens (single source: design-tokens.cjs).
+ *
+ * Colours are channel triplets rather than hex so Tailwind opacity modifiers
+ * work: bg-accent/10, border-border-strong/50, and so on.
+ */
+@layer base {
+  :root {
+    /* Surfaces */
+    --canvas: 247 248 250; /* #F7F8FA */
+    --surface: 255 255 255; /* #FFFFFF */
+    --surface-raised: 255 255 255; /* #FFFFFF */
+    --subtle: 241 243 246; /* #F1F3F6 */
+
+    /* Borders */
+    --border: 228 231 236; /* #E4E7EC */
+    --border-strong: 205 210 218; /* #CDD2DA */
+
+    /* Foreground */
+    --fg: 16 24 40; /* #101828 */
+    --fg-muted: 90 99 118; /* #5A6376 */
+    --fg-subtle: 138 148 166; /* #8A94A6 */
+
+    /* Accent */
+    --accent: 79 70 229; /* #4F46E5 */
+    --accent-hover: 67 56 202; /* #4338CA */
+    --accent-subtle: 238 240 254; /* #EEF0FE */
+
+    /* Status */
+    --success: 22 163 74; /* #16A34A */
+    --success-subtle: 236 253 243; /* #ECFDF3 */
+    --warning: 217 119 6; /* #D97706 */
+    --warning-subtle: 255 250 235; /* #FFFAEB */
+    --danger: 220 38 38; /* #DC2626 */
+    --danger-subtle: 254 243 242; /* #FEF3F2 */
+    --info: 2 132 199; /* #0284C7 */
+  }
+
+  .dark {
+    /* Surfaces */
+    --canvas: 11 13 17; /* #0B0D11 */
+    --surface: 20 23 29; /* #14171D */
+    --surface-raised: 27 31 39; /* #1B1F27 */
+    --subtle: 27 31 39; /* #1B1F27 */
+
+    /* Borders */
+    --border: 39 43 52; /* #272B34 */
+    --border-strong: 58 64 76; /* #3A404C */
+
+    /* Foreground */
+    --fg: 242 244 247; /* #F2F4F7 */
+    --fg-muted: 152 162 179; /* #98A2B3 */
+    --fg-subtle: 107 115 133; /* #6B7385 */
+
+    /* Accent */
+    --accent: 99 102 241; /* #6366F1 */
+    --accent-hover: 129 140 248; /* #818CF8 */
+    --accent-subtle: 30 27 75; /* #1E1B4B */
+
+    /* Status */
+    --success: 34 197 94; /* #22C55E */
+    --success-subtle: 5 46 22; /* #052E16 */
+    --warning: 245 158 11; /* #F59E0B */
+    --warning-subtle: 59 37 6; /* #3B2506 */
+    --danger: 239 68 68; /* #EF4444 */
+    --danger-subtle: 59 10 10; /* #3B0A0A */
+    --info: 56 189 248; /* #38BDF8 */
+  }
+}
+
+@layer base {
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: rgb(var(--canvas));
+    color: rgb(var(--fg));
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  *:focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+}

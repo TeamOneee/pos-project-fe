@@ -1,12 +1,10 @@
 node_modules
-.expo
 dist
-web-build
 coverage
 package-lock.json
 
-# Generated from design-tokens.js by `npm run tokens`.
-global.css
+# Generated from design-tokens.cjs by `npm run tokens`.
+src/index.css
 
 # The product spec — leave its formatting alone.
 claude.md

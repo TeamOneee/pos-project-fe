@@ -1,29 +1,9 @@
 # Dependencies
 node_modules/
 
-# Expo
-.expo/
+# Build output
 dist/
-dist-ios/
-dist-android/
-web-build/
-expo-env.d.ts
-
-# Native builds
-/ios
-/android
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# Testing
-coverage/
+dist-ssr/
 
 # Environment
 .env
@@ -45,6 +25,9 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 *.log
+
+# Testing
+coverage/
 
 # TypeScript
 *.tsbuildinfo
