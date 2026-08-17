@@ -9,7 +9,9 @@
  *
  * The deactivated-category rule matters: a product can be ACTIVE while the
  * category it belongs to is not, and the backend will happily return it. It
- * must not appear in the grid or the chip row.
+ * must not appear in the grid or the chip row. That rule is shared with the
+ * catalog screen, which warns the Admin about the same products — see
+ * lib/catalog-visibility.
  */
 
 import * as React from 'react';
@@ -20,6 +22,7 @@ import { useProducts } from '@/hooks/use-products';
 import type { Category } from '@/services/categories';
 import type { InventoryItem } from '@/services/inventory';
 import type { Product } from '@/services/products';
+import { activeCategoryIndex, isVisibleToCashier } from '@/lib/catalog-visibility';
 import type { Rupiah } from '@/lib/money';
 
 export type PosProduct = {
@@ -53,19 +56,17 @@ export function buildCatalog(
   categories: Category[],
   inventory: InventoryItem[]
 ): PosCatalog {
-  const activeCategories = new Map(
-    categories.filter((category) => category.status === 'ACTIVE').map((c) => [c.categoryId, c])
-  );
+  const activeCategories = activeCategoryIndex(categories);
 
   const stockByProduct = new Map(inventory.map((row) => [row.productId, row.quantity]));
 
   const visible = products.flatMap<PosProduct>((product) => {
-    if (product.status !== 'ACTIVE') return [];
+    // Inactive product, no category, or a deactivated one: not sellable here.
+    // The catalog screen labels the same products from the same rule.
+    if (!isVisibleToCashier(product, activeCategories)) return [];
 
-    // No category, or a deactivated one, means the product is not sellable
-    // here even though the product itself is active.
-    if (!product.categoryId) return [];
-    const category = activeCategories.get(product.categoryId);
+    // Guaranteed present by the rule above; narrowing for the type checker.
+    const category = activeCategories.get(product.categoryId ?? '');
     if (!category) return [];
 
     return [
