@@ -90,7 +90,9 @@ describe('S-14 · admin stock dashboard', () => {
     });
 
     await act(async () => {
-      within(dialog).getByRole('button', { name: /simpan perubahan/i }).click();
+      within(dialog)
+        .getByRole('button', { name: /simpan perubahan/i })
+        .click();
     });
 
     // The dashboard refetches because the write invalidated ['dashboard'].
