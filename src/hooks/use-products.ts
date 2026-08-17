@@ -3,10 +3,16 @@
  *
  * Lists are paginated; `placeholderData` keeps the previous page on screen
  * while the next one loads, so paging does not flash a skeleton.
+ *
+ * Every write below goes through `useGuardedMutation` with the `catalog: manage`
+ * requirement, so the matrix — not the screen that happened to render a button —
+ * decides whether a request is ever sent. For the Owner these hooks exist and
+ * reject; there is no code path from an Owner session to a POST /products.
  */
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useGuardedMutation, type Requirement } from '@/hooks/use-guarded-mutation';
 import {
   productsApi,
   type CreateProductInput,
@@ -14,6 +20,9 @@ import {
   type UpdateProductInput,
 } from '@/services/products';
 import { queryKeys } from '@/lib/query-client';
+
+/** The catalog is one resource in the matrix: products and categories together. */
+const MANAGE_CATALOG: Requirement = { resource: 'catalog', access: 'manage' };
 
 export function useProducts(filters: ProductFilters = {}) {
   return useQuery({
@@ -46,7 +55,7 @@ function useProductInvalidation() {
 export function useCreateProduct() {
   const invalidate = useProductInvalidation();
 
-  return useMutation({
+  return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: (input: CreateProductInput) => productsApi.create(input),
     onSuccess: invalidate,
   });
@@ -60,7 +69,7 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const invalidate = useProductInvalidation();
 
-  return useMutation({
+  return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: ({ productId, input }: { productId: string; input: UpdateProductInput }) =>
       productsApi.update(productId, input),
     onSuccess: () => {
@@ -73,7 +82,7 @@ export function useUpdateProduct() {
 export function useDeactivateProduct() {
   const invalidate = useProductInvalidation();
 
-  return useMutation({
+  return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: (productId: string) => productsApi.deactivate(productId),
     onSuccess: invalidate,
   });
