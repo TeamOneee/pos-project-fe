@@ -114,7 +114,8 @@ describe('money is parsed to integer rupiah at the boundary', () => {
 
 describe('a malformed payload fails at the boundary', () => {
   it('rejects a response missing a required field', async () => {
-    const { name: _name, ...withoutName } = PRODUCT_PAYLOAD;
+    const withoutName = { ...PRODUCT_PAYLOAD };
+    delete (withoutName as Record<string, unknown>).name;
     setTransport(stub(envelope(withoutName)));
 
     await expect(productsApi.get('prd_1')).rejects.toBeInstanceOf(ApiError);
@@ -137,7 +138,8 @@ describe('a malformed payload fails at the boundary', () => {
 
   it('accepts fields the backend does not send yet', async () => {
     // sku is a known backend gap: absent upstream, still present in the type.
-    const { sku: _sku, ...withoutSku } = PRODUCT_PAYLOAD;
+    const withoutSku = { ...PRODUCT_PAYLOAD };
+    delete (withoutSku as Record<string, unknown>).sku;
     setTransport(stub(envelope(withoutSku)));
 
     const product = await productsApi.get('prd_1');

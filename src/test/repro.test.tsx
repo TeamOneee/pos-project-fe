@@ -1,7 +1,7 @@
 import '@/api';
 
 import { act, render, waitFor } from '@testing-library/react';
-import { beforeEach, describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 
 import App from '@/App';
 import { authApi } from '@/services';
@@ -16,6 +16,11 @@ class MockResizeObserver {
 let caughtErrors: unknown[] = [];
 const originalOnError = window.onerror;
 
+afterEach(() => {
+  // Left in place, the handler swallows errors raised by every later file.
+  window.onerror = originalOnError;
+});
+
 beforeEach(async () => {
   caughtErrors = [];
   window.onerror = (message) => {
@@ -26,7 +31,7 @@ beforeEach(async () => {
   window.history.pushState({}, '', '/');
   const result = await authApi.login({
     email: 'owner@indomart.com',
-    password: 'SecurePassword123!',
+    password: 'password123',
   });
   setToken(result.accessToken);
 });

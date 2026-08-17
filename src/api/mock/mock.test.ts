@@ -33,7 +33,7 @@ import { mockTransport } from '@/api/mock/adapter';
 import { resetDb } from '@/api/mock/db';
 import { clearMockScenario, setMockScenario } from '@/api/mock/scenarios';
 
-const OWNER = { email: 'owner@indomart.com', password: 'SecurePassword123!' };
+const OWNER = { email: 'owner@indomart.com', password: 'password123' };
 const ADMIN = { email: 'sari@indomart.com', password: 'password123' };
 const CASHIER_A = { email: 'budi@indomart.com', password: 'password123' };
 
