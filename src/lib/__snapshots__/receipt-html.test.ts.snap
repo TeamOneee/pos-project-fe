@@ -1,0 +1,291 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`receipt output > prints a cash sale 1`] = `
+"<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TRX-20260813-003</title>
+<style>
+  /* 80mm roll, no printer margins. */
+  @page { size: 80mm auto; margin: 0; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  body {
+    width: 302px;
+    padding: 12px;
+    box-sizing: border-box;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .center { text-align: center; }
+  .bold { font-weight: 700; }
+  .muted { color: #333; }
+
+  header { text-align: center; margin-bottom: 8px; }
+  header .merchant { font-size: 15px; font-weight: 700; }
+
+  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+
+  .item { margin-bottom: 6px; }
+  .item-name { word-break: break-word; }
+  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+
+  .total { font-size: 15px; font-weight: 700; }
+
+  footer { text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="merchant">IndoMart Retail</div>
+    <div class="muted">Outlet A - Mall Central</div>
+  </header>
+
+  <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
+  <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
+  <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+
+  <div class="divider"></div>
+
+  
+      <div class="item">
+        <div class="item-name">Coca Cola 1.5L</div>
+        <div class="item-row">
+          <span>2 × Rp 15.000</span>
+          <span>Rp 30.000</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-name">Chitato Sapi Panggang</div>
+        <div class="item-row">
+          <span>1 × Rp 12.500</span>
+          <span>Rp 12.500</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-name">Oreo Original 133g</div>
+        <div class="item-row">
+          <span>1 × Rp 10.000</span>
+          <span>Rp 10.000</span>
+        </div>
+      </div>
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Subtotal</span><span>Rp 52.500</span></div>
+  <div class="row total"><span>Total</span><span>Rp 52.500</span></div>
+
+  <div class="divider"></div>
+
+  
+      <div class="row"><span>Tunai</span><span>Rp 100.000</span></div>
+      <div class="row"><span>Kembalian</span><span>Rp 47.500</span></div>
+
+  <footer>Terima kasih atas kunjungan Anda</footer>
+</body>
+</html>"
+`;
+
+exports[`receipt output > prints a non-cash sale 1`] = `
+"<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TRX-20260813-003</title>
+<style>
+  /* 80mm roll, no printer margins. */
+  @page { size: 80mm auto; margin: 0; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  body {
+    width: 302px;
+    padding: 12px;
+    box-sizing: border-box;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .center { text-align: center; }
+  .bold { font-weight: 700; }
+  .muted { color: #333; }
+
+  header { text-align: center; margin-bottom: 8px; }
+  header .merchant { font-size: 15px; font-weight: 700; }
+
+  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+
+  .item { margin-bottom: 6px; }
+  .item-name { word-break: break-word; }
+  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+
+  .total { font-size: 15px; font-weight: 700; }
+
+  footer { text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="merchant">IndoMart Retail</div>
+    <div class="muted">Outlet A - Mall Central</div>
+  </header>
+
+  <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
+  <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
+  <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+
+  <div class="divider"></div>
+
+  
+      <div class="item">
+        <div class="item-name">Coca Cola 1.5L</div>
+        <div class="item-row">
+          <span>2 × Rp 15.000</span>
+          <span>Rp 30.000</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-name">Chitato Sapi Panggang</div>
+        <div class="item-row">
+          <span>1 × Rp 12.500</span>
+          <span>Rp 12.500</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-name">Oreo Original 133g</div>
+        <div class="item-row">
+          <span>1 × Rp 10.000</span>
+          <span>Rp 10.000</span>
+        </div>
+      </div>
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Subtotal</span><span>Rp 52.500</span></div>
+  <div class="row total"><span>Total</span><span>Rp 52.500</span></div>
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Metode</span><span>Non-Tunai</span></div>
+
+  <footer>Terima kasih atas kunjungan Anda</footer>
+</body>
+</html>"
+`;
+
+exports[`receipt output > prints a reprint, where the cash handed over is not recorded 1`] = `
+"<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TRX-20260813-003</title>
+<style>
+  /* 80mm roll, no printer margins. */
+  @page { size: 80mm auto; margin: 0; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  body {
+    width: 302px;
+    padding: 12px;
+    box-sizing: border-box;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .center { text-align: center; }
+  .bold { font-weight: 700; }
+  .muted { color: #333; }
+
+  header { text-align: center; margin-bottom: 8px; }
+  header .merchant { font-size: 15px; font-weight: 700; }
+
+  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+
+  .row { display: flex; justify-content: space-between; gap: 8px; }
+
+  .item { margin-bottom: 6px; }
+  .item-name { word-break: break-word; }
+  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+
+  .total { font-size: 15px; font-weight: 700; }
+
+  footer { text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="merchant">IndoMart Retail</div>
+    <div class="muted">Outlet A - Mall Central</div>
+  </header>
+
+  <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
+  <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
+  <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+
+  <div class="divider"></div>
+
+  
+      <div class="item">
+        <div class="item-name">Coca Cola 1.5L</div>
+        <div class="item-row">
+          <span>2 × Rp 15.000</span>
+          <span>Rp 30.000</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-name">Chitato Sapi Panggang</div>
+        <div class="item-row">
+          <span>1 × Rp 12.500</span>
+          <span>Rp 12.500</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-name">Oreo Original 133g</div>
+        <div class="item-row">
+          <span>1 × Rp 10.000</span>
+          <span>Rp 10.000</span>
+        </div>
+      </div>
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Subtotal</span><span>Rp 52.500</span></div>
+  <div class="row total"><span>Total</span><span>Rp 52.500</span></div>
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Metode</span><span>Tunai</span></div>
+
+  <footer>Terima kasih atas kunjungan Anda</footer>
+</body>
+</html>"
+`;
