@@ -61,7 +61,7 @@ export function MerchantSummaryCard({
 
           <Link
             to="/ai-insights"
-            className="inline-flex min-h-touch items-center justify-center gap-sm self-start rounded-md bg-subtle px-md py-sm outline-none transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-accent"
+            className="inline-flex min-h-touch items-center justify-center gap-sm self-start rounded-md bg-subtle px-md py-sm outline-none transition-colors hover:bg-border focus-ring"
           >
             <Text variant="body-strong">Lihat Insight</Text>
           </Link>

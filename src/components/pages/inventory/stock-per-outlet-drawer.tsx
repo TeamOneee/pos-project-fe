@@ -139,7 +139,7 @@ function DrawerBody({
                         currentStock: row.quantity,
                       })
                     }
-                    className="min-h-touch rounded-md px-sm outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+                    className="min-h-touch rounded-md px-sm outline-none hover:bg-subtle focus-ring"
                   >
                     <Text variant="body-strong" tone="accent">
                       Sesuaikan
@@ -167,7 +167,7 @@ function DrawerBody({
         <button
           type="button"
           onClick={onClose}
-          className="min-h-touch self-start rounded-md px-sm outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+          className="min-h-touch self-start rounded-md px-sm outline-none hover:bg-subtle focus-ring"
         >
           <Text variant="body-strong" tone="muted">
             Tutup

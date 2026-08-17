@@ -113,7 +113,10 @@ function ToastViewport() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed left-0 right-0 top-0 z-50 flex items-center gap-sm px-lg pt-3">
+    // Top-right, stacked downwards: success is confirmation, not an interruption,
+    // so it stays out of the reading path. Full width on a phone, where there is
+    // no room to be off to one side.
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-col items-stretch gap-sm p-lg tablet:left-auto tablet:right-0 tablet:items-end">
       {toasts.map((item) => (
         <ToastItem key={item.id} toast={item} onDismiss={() => dismiss(item.id)} />
       ))}
@@ -144,10 +147,12 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         ) : null}
       </div>
 
+      {/* Full 44×44 target (rule 6); the negative margin keeps the toast from
+          growing to accommodate it. */}
       <button
         onClick={onDismiss}
         aria-label="Tutup notifikasi"
-        className="flex h-6 w-6 items-center justify-center rounded-sm"
+        className="-my-sm flex h-touch w-touch shrink-0 items-center justify-center rounded-md hover:bg-black/5 focus-ring"
       >
         <Icon as={X} size={16} className="text-fg-muted" />
       </button>

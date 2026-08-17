@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/form-field';
+import { MutationErrorBanner } from '@/components/ui/form-banner';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -212,6 +213,13 @@ function ProductForm({
       </DialogHeader>
 
       <div className="flex flex-col gap-lg">
+        {/* Form-level failures sit at the top of the body, not under a field. */}
+        <MutationErrorBanner
+          error={error}
+          fallback="Produk gagal disimpan."
+          handled={Object.keys(formState.errors).length > 0}
+        />
+
         <Controller
           control={control}
           name="name"
@@ -360,13 +368,6 @@ function ProductForm({
               {PRICE_HISTORY_NOTICE}
             </Text>
           </div>
-        )}
-
-        {/* A failure with no field to attach to still has to be visible. */}
-        {Boolean(error) && Object.keys(formState.errors).length === 0 && (
-          <Text variant="caption" tone="danger" role="alert">
-            {isApiError(error) ? error.message : 'Gagal menyimpan produk.'}
-          </Text>
         )}
       </div>
 

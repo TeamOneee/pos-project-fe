@@ -103,12 +103,19 @@ export default function LowStockPage() {
               </Text>
             </div>
           ) : alerts.length === 0 ? (
-            <div className="flex items-center justify-center py-3xl">
-              <Text variant="body" tone="muted">
+            // Filtered to one outlet with no matches is a different state from
+            // nothing being low anywhere: different copy, and a way back out.
+            <div className="flex flex-col items-center gap-md py-3xl">
+              <Text variant="body" tone="muted" className="text-center">
                 {outletId
                   ? 'Tidak ada produk menipis di outlet ini.'
-                  : 'Semua stok dalam kondisi aman.'}
+                  : 'Semua stok dalam kondisi aman. Tidak ada produk yang mendekati batas stok menipis.'}
               </Text>
+              {outletId && (
+                <Button variant="ghost" onClick={() => setOutletId(null)}>
+                  <Text>Lihat semua outlet</Text>
+                </Button>
+              )}
             </div>
           ) : (
             <LowStockTable

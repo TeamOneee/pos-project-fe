@@ -49,7 +49,7 @@ function CartLineRowComponent({
         <Text variant="body-strong" className="block">
           {line.name}
         </Text>
-        {/* Unit price × quantity, so the arithmetic is auditable at a glance. */}
+        {/* Unit price × quantity, so the arithmetic is checkable at a glance. */}
         <Text variant="caption" tone="muted" className="tabular-nums">
           {formatIDR(line.unitPrice)} × {formatCount(line.quantity)}
         </Text>
@@ -83,7 +83,7 @@ function CartLineRowComponent({
         type="button"
         aria-label={`Hapus ${line.name} dari keranjang`}
         onClick={() => onRemove(line.productId)}
-        className="flex h-touch w-touch shrink-0 items-center justify-center rounded-md outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+        className="flex h-touch w-touch shrink-0 items-center justify-center rounded-md outline-none hover:bg-subtle focus-ring"
       >
         <Icon as={X} size={18} className="text-fg-subtle" />
       </button>
@@ -117,7 +117,7 @@ function StepperButton({
 
 function cnStepper(disabled: boolean): string {
   return [
-    'flex h-touch w-touch items-center justify-center rounded-md border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent',
+    'flex h-touch w-touch items-center justify-center rounded-md border border-border focus-ring',
     disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-subtle',
   ].join(' ');
 }

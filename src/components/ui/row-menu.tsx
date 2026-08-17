@@ -70,7 +70,7 @@ export function RowMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-touch w-touch items-center justify-center rounded-md outline-none transition-colors hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+        className="flex h-touch w-touch items-center justify-center rounded-md outline-none transition-colors hover:bg-subtle focus-ring"
       >
         <Icon as={MoreHorizontal} size={18} className="text-fg-muted" />
       </button>

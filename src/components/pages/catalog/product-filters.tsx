@@ -78,7 +78,7 @@ export function ProductFilterBar({
             type="button"
             aria-label="Hapus pencarian"
             onClick={() => onQueryChange({ ...query, search: '' })}
-            className="absolute right-xs top-1/2 flex h-touch w-touch -translate-y-1/2 items-center justify-center rounded-md outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+            className="absolute right-xs top-1/2 flex h-touch w-touch -translate-y-1/2 items-center justify-center rounded-md outline-none hover:bg-subtle focus-ring"
           >
             <Icon as={X} size={16} className="text-fg-muted" />
           </button>
@@ -168,7 +168,7 @@ function ViewButton({
       aria-label={label}
       onClick={() => onSelect(view)}
       className={cn(
-        'flex h-touch w-touch items-center justify-center rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent',
+        'flex h-touch w-touch items-center justify-center rounded-sm outline-none transition-colors focus-ring',
         active ? 'bg-surface shadow-sm' : 'hover:bg-border'
       )}
     >

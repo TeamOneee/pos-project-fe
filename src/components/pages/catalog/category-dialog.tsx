@@ -20,12 +20,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/form-field';
+import { MutationErrorBanner } from '@/components/ui/form-banner';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { useCreateCategory, useUpdateCategory } from '@/hooks/use-categories';
 import type { Category } from '@/services/categories';
-import { fieldErrors, isApiError } from '@/api/errors';
+import { fieldErrors } from '@/api/errors';
 import { requiredString } from '@/lib/validation';
 
 const categoryFormSchema = z.object({ name: requiredString('Nama kategori', 100) });
@@ -66,7 +67,7 @@ function CategoryForm({ category, onDone }: { category: Category | null; onDone:
   const pending = create.isPending || update.isPending;
   const error = create.error ?? update.error;
 
-  const { control, handleSubmit, setError } = useForm<CategoryFormValues>({
+  const { control, handleSubmit, setError, formState } = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: { name: category?.name ?? '' },
   });
@@ -102,6 +103,12 @@ function CategoryForm({ category, onDone }: { category: Category | null; onDone:
         <DialogTitle>{editing ? 'Edit Kategori' : 'Tambah Kategori'}</DialogTitle>
       </DialogHeader>
 
+      <MutationErrorBanner
+        error={error}
+        fallback="Kategori gagal disimpan."
+        handled={Object.keys(formState.errors).length > 0}
+      />
+
       <Controller
         control={control}
         name="name"
@@ -123,12 +130,6 @@ function CategoryForm({ category, onDone }: { category: Category | null; onDone:
           </FormField>
         )}
       />
-
-      {error ? (
-        <Text variant="caption" tone="danger" role="alert">
-          {isApiError(error) ? error.message : 'Gagal menyimpan kategori.'}
-        </Text>
-      ) : null}
 
       <DialogFooter>
         <Button variant="secondary" onClick={onDone} disabled={pending}>

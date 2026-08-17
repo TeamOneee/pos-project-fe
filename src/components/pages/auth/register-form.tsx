@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { FormBanner } from '@/components/pages/auth/form-banner';
+import { FormBanner } from '@/components/ui/form-banner';
 import { useRegister } from '@/hooks/use-auth';
 import { isApiError, isDuplicateEmail } from '@/api/errors';
 import { landingRoute } from '@/lib/permissions';
@@ -102,7 +102,7 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-lg">
-        {bannerFor(register.error) && <FormBanner message={bannerFor(register.error) ?? ''} />}
+        {bannerFor(register.error) && <FormBanner title={bannerFor(register.error) ?? ''} />}
 
         <Text variant="label" tone="muted" className="uppercase">
           Data Bisnis

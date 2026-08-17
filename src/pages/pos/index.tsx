@@ -335,7 +335,7 @@ function PosTopBar({ outletName, hasOutletName }: { outletName: string; hasOutle
         </Text>
         <Link
           to="/transactions"
-          className="flex min-h-touch items-center justify-center px-md text-accent outline-none transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex min-h-touch items-center justify-center px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
         >
           <Text variant="body-strong">Riwayat</Text>
         </Link>

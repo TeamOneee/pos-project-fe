@@ -138,7 +138,7 @@ function ManageLink({
       type="button"
       onClick={() => onManage(outlet.outletId)}
       aria-label={`Kelola stok ${outlet.outletName}`}
-      className="flex min-h-touch flex-row items-center gap-xs self-start rounded-md px-sm outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+      className="flex min-h-touch flex-row items-center gap-xs self-start rounded-md px-sm outline-none hover:bg-subtle focus-ring"
     >
       <Text variant="body-strong" tone="accent">
         Kelola Stok

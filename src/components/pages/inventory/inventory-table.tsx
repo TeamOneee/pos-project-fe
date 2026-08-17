@@ -53,6 +53,11 @@ type InventoryTableProps = {
   onAdjust?: ((row: InventoryRow) => void) | undefined;
   onOpenStockPerOutlet: (row: InventoryRow) => void;
   emptyMessage: string;
+  /**
+   * Present when the empty table is the result of a filter rather than an empty
+   * outlet — the two states get different copy *and* different ways out.
+   */
+  onClearFilters?: (() => void) | undefined;
 };
 
 export function InventoryTable({
@@ -61,15 +66,21 @@ export function InventoryTable({
   onAdjust,
   onOpenStockPerOutlet,
   emptyMessage,
+  onClearFilters,
 }: InventoryTableProps) {
   const stacked = useBreakpoint() === 'mobile';
 
   if (rows.length === 0) {
     return (
-      <div className="flex items-center justify-center py-3xl">
-        <Text variant="body" tone="muted">
+      <div className="flex flex-col items-center gap-md py-3xl">
+        <Text variant="body" tone="muted" className="text-center">
           {emptyMessage}
         </Text>
+        {onClearFilters && (
+          <Button variant="ghost" onClick={onClearFilters}>
+            <Text>Hapus filter</Text>
+          </Button>
+        )}
       </div>
     );
   }
@@ -199,7 +210,7 @@ function ProductCell({ row, onOpen }: { row: InventoryRow; onOpen: () => void })
       type="button"
       onClick={onOpen}
       aria-label={`Lihat stok ${row.name} per outlet`}
-      className="flex min-w-0 flex-row items-center gap-md rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="flex min-w-0 flex-row items-center gap-md rounded-md text-left focus-ring"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-subtle">
         <Text variant="label" tone="muted">

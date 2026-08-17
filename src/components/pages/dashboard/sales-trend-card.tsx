@@ -6,10 +6,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useChartColors } from '@/lib/chart-colors';
+import { ChartFigure } from '@/components/pages/charts/chart-figure';
 import { ChartFrame } from '@/components/pages/charts/chart-frame';
 import { SalesTrendChart } from '@/components/pages/charts/sales-trend-chart';
 import type { OwnerDashboard } from '@/services/dashboard';
 import { formatIDR } from '@/lib/money';
+import { formatCount } from '@/lib/number';
 
 type SalesTrendCardProps = {
   trend: OwnerDashboard['salesTrend'];
@@ -33,11 +35,27 @@ export function SalesTrendCard({ trend, height, compact, className }: SalesTrend
       </CardHeader>
 
       <CardContent className="flex flex-col gap-md">
-        <ChartFrame height={height}>
-          {(width) => (
-            <SalesTrendChart points={points} width={width} height={height} compact={compact} />
-          )}
-        </ChartFrame>
+        <ChartFigure
+          summary={`Tren penjualan ${points.length} periode. Total omzet ${formatIDR(
+            trend.summary.totalRevenue
+          )}, tertinggi ${formatIDR(trend.summary.highestRevenue)}, terendah ${formatIDR(
+            trend.summary.lowestRevenue
+          )}.`}
+          rowLabels={points.map((point) => point.label)}
+          series={[
+            { label: 'Omzet', values: points.map((point) => formatIDR(point.revenue)) },
+            {
+              label: 'Transaksi',
+              values: points.map((point) => formatCount(point.transactions)),
+            },
+          ]}
+        >
+          <ChartFrame height={height}>
+            {(width) => (
+              <SalesTrendChart points={points} width={width} height={height} compact={compact} />
+            )}
+          </ChartFrame>
+        </ChartFigure>
 
         <div className="flex flex-row flex-wrap gap-md">
           <SummaryFigure label="Tertinggi" value={formatIDR(trend.summary.highestRevenue)} />

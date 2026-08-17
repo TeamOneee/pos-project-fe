@@ -17,6 +17,7 @@ import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { SummaryTiles } from '@/components/pages/analytics/summary-tiles';
 import { AovLineChart } from '@/components/pages/charts/aov-line-chart';
+import { ChartFigure, type ChartSeries } from '@/components/pages/charts/chart-figure';
 import { CHART_HEIGHT, ChartFrame } from '@/components/pages/charts/chart-frame';
 import { HourlyBarChart } from '@/components/pages/charts/hourly-bar-chart';
 import { ProductPerformanceChart } from '@/components/pages/charts/product-performance-chart';
@@ -90,6 +91,16 @@ export function SalesTrendPanel({ outlets }: CommonProps) {
           <ChartCard
             title="Tren Penjualan"
             height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
+            summary={`Tren penjualan harian, ${data.trend.length} titik data, dengan omzet dan jumlah transaksi per hari.`}
+            rowHeader="Tanggal"
+            rowLabels={data.trend.map((point) => formatDate(point.date))}
+            series={[
+              { label: 'Omzet', values: data.trend.map((point) => formatIDR(point.totalSales)) },
+              {
+                label: 'Transaksi',
+                values: data.trend.map((point) => formatCount(point.transactionCount)),
+              },
+            ]}
           >
             {(width, height) => (
               <SalesTrendChart
@@ -169,6 +180,19 @@ export function TimePatternPanel({ outlets }: CommonProps) {
                 title="Pola Waktu"
                 height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
                 className="desktop:flex-1"
+                summary={`Omzet per jam. Jam tersibuk: ${
+                  data.peakHours.length > 0
+                    ? data.peakHours.map((hour) => `${hour}.00`).join(', ')
+                    : 'belum ada'
+                }.`}
+                rowHeader="Jam"
+                rowLabels={data.patterns.map((point) => `${point.hour}.00`)}
+                series={[
+                  {
+                    label: 'Omzet',
+                    values: data.patterns.map((point) => formatIDR(point.revenue)),
+                  },
+                ]}
               >
                 {(width, height) => (
                   <HourlyBarChart
@@ -315,6 +339,21 @@ export function ProductPerformancePanel({ outlets }: CommonProps) {
             <ChartCard
               title="Performa Produk Terlaris"
               height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
+              summary={`Performa ${data.topSellers.length} produk terlaris, diurutkan berdasarkan ${
+                sortBy === 'REVENUE' ? 'omzet' : 'jumlah terjual'
+              }.`}
+              rowHeader="Produk"
+              rowLabels={data.topSellers.map((row) => row.productName)}
+              series={[
+                {
+                  label: 'Omzet',
+                  values: data.topSellers.map((row) => formatIDR(row.totalRevenue)),
+                },
+                {
+                  label: 'Terjual',
+                  values: data.topSellers.map((row) => formatCount(row.totalSold)),
+                },
+              ]}
             >
               {(width, height) => (
                 <ProductPerformanceChart
@@ -362,15 +401,27 @@ export function ProductPerformancePanel({ outlets }: CommonProps) {
   );
 }
 
+/**
+ * Every analytics chart goes through here, so every one of them carries a text
+ * alternative — the summary and the same figures as a table (ChartFigure).
+ */
 function ChartCard({
   title,
   height,
   className,
+  summary,
+  rowHeader,
+  rowLabels,
+  series,
   children,
 }: {
   title: string;
   height: number;
   className?: string;
+  summary: string;
+  rowHeader?: string;
+  rowLabels: string[];
+  series: ChartSeries[];
   children: (width: number, height: number) => React.ReactNode;
 }) {
   return (
@@ -379,7 +430,14 @@ function ChartCard({
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartFrame height={height}>{(width) => children(width, height)}</ChartFrame>
+        <ChartFigure
+          summary={summary}
+          rowLabels={rowLabels}
+          series={series}
+          {...(rowHeader ? { rowHeader } : {})}
+        >
+          <ChartFrame height={height}>{(width) => children(width, height)}</ChartFrame>
+        </ChartFigure>
       </CardContent>
     </Card>
   );

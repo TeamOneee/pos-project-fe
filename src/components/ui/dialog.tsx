@@ -17,7 +17,9 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-lg',
+      // No padding below tablet: the panel is a full-screen sheet there, and a
+      // gutter would leave a strip of dimmed page around it for no reason.
+      'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-0 tablet:p-lg',
       className
     )}
     {...props}
@@ -42,7 +44,15 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'z-50 flex w-full max-w-[480px] flex-col gap-lg rounded-lg border border-border bg-surface-raised p-xl shadow-lg',
+          /*
+           * Below tablet every modal is a full-screen sheet: the whole viewport,
+           * no radius, no border, and its own scroll. A centred 480px card on a
+           * 360px phone is a card with 12px of gutter and a cramped form in it.
+           * From tablet up the same component is the card it always was — the
+           * `max-w-*` a caller passes only applies there.
+           */
+          'z-50 flex h-full w-full flex-col gap-lg overflow-y-auto rounded-none border-0 bg-surface-raised p-lg shadow-lg',
+          'tablet:h-auto tablet:max-h-[90vh] tablet:max-w-[480px] tablet:rounded-lg tablet:border tablet:border-border tablet:p-xl',
           className
         )}
         {...props}
@@ -67,9 +77,21 @@ const DialogHeader = ({ className, ...props }: React.ComponentPropsWithoutRef<'d
 );
 DialogHeader.displayName = 'DialogHeader';
 
+/**
+ * Sticky on a full-screen sheet, static in a card.
+ *
+ * On a phone the form scrolls under the actions, so "Simpan" is reachable
+ * without scrolling to the bottom of a long body — and `mt-auto` pins it to the
+ * end of the sheet when the body is short. The negative margins let the bar span
+ * the sheet's full width while the panel keeps its padding.
+ */
 const DialogFooter = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => (
   <div
-    className={cn('flex flex-col-reverse gap-md tablet:flex-row tablet:justify-end', className)}
+    className={cn(
+      'sticky bottom-0 z-10 -mx-lg mt-auto flex flex-col-reverse gap-md border-t border-border bg-surface-raised px-lg py-md',
+      'tablet:static tablet:mx-0 tablet:mt-0 tablet:flex-row tablet:justify-end tablet:border-0 tablet:p-0',
+      className
+    )}
     {...props}
   />
 );

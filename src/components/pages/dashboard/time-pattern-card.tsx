@@ -8,9 +8,11 @@ import { Lightbulb } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { ChartFigure } from '@/components/pages/charts/chart-figure';
 import { ChartFrame } from '@/components/pages/charts/chart-frame';
 import { HourlyBarChart } from '@/components/pages/charts/hourly-bar-chart';
 import type { OwnerDashboard } from '@/services/dashboard';
+import { formatIDR } from '@/lib/money';
 
 export function TimePatternCard({
   pattern,
@@ -35,17 +37,28 @@ export function TimePatternCard({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-md">
-        <ChartFrame height={height}>
-          {(width) => (
-            <HourlyBarChart
-              points={points}
-              peakHours={pattern.peakHours}
-              width={width}
-              height={height}
-              compact={compact}
-            />
-          )}
-        </ChartFrame>
+        <ChartFigure
+          summary={`Omzet per jam sepanjang hari. Jam tersibuk: ${
+            pattern.peakHours.length > 0
+              ? pattern.peakHours.map((hour) => `${hour}.00`).join(', ')
+              : 'belum ada'
+          }.`}
+          rowHeader="Jam"
+          rowLabels={points.map((point) => `${point.hour}.00`)}
+          series={[{ label: 'Omzet', values: points.map((point) => formatIDR(point.revenue)) }]}
+        >
+          <ChartFrame height={height}>
+            {(width) => (
+              <HourlyBarChart
+                points={points}
+                peakHours={pattern.peakHours}
+                width={width}
+                height={height}
+                compact={compact}
+              />
+            )}
+          </ChartFrame>
+        </ChartFigure>
 
         <div className="flex flex-col gap-xs">
           {pattern.insights.map((insight) => (

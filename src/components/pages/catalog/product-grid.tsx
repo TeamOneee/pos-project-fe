@@ -45,7 +45,7 @@ export function ProductGrid({
                 type="button"
                 onClick={() => onOpenStock(product)}
                 aria-label={`Lihat stok ${product.name} per outlet`}
-                className="flex min-w-0 flex-1 flex-row items-center gap-md rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex min-w-0 flex-1 flex-row items-center gap-md rounded-md text-left focus-ring"
               >
                 <ProductThumb name={product.name} size={48} />
                 <span className="flex min-w-0 flex-col">

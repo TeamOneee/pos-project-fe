@@ -23,7 +23,8 @@ import { useToast } from '@/components/ui/toast';
 import { IfCan } from '@/components/pages/auth/if-can';
 import { StatusBadge } from '@/components/pages/catalog/catalog-badges';
 import { CategoryDialog } from '@/components/pages/catalog/category-dialog';
-import { DeactivateDialog } from '@/components/pages/catalog/deactivate-dialog';
+import { DeactivateDialog, HISTORY_PRESERVED } from '@/components/pages/catalog/deactivate-dialog';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useCan } from '@/hooks/use-can';
 import { useCategories, useDeactivateCategory } from '@/hooks/use-categories';
 import { useProducts } from '@/hooks/use-products';
@@ -40,6 +41,7 @@ const COUNT_LIMIT = 500;
 
 export default function CategoriesPage() {
   const editable = useCan('catalog', 'manage');
+  const stacked = useBreakpoint() === 'mobile';
   const { toast } = useToast();
 
   const [editorOpen, setEditorOpen] = React.useState(false);
@@ -100,6 +102,9 @@ export default function CategoriesPage() {
 
   const deactivatingCount = deactivating ? (counts.get(deactivating.categoryId) ?? 0) : 0;
 
+  const countLabel = (categoryId: string) =>
+    products.isPending ? '…' : formatCount(counts.get(categoryId) ?? 0);
+
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
@@ -150,6 +155,41 @@ export default function CategoriesPage() {
                 </Button>
               </IfCan>
             </div>
+          ) : stacked ? (
+            // Below tablet: the name and the count stay, status and menu demote
+            // to the second line (brief §7.3).
+            <div className="flex flex-col gap-md">
+              {rows.map((category) => (
+                <div
+                  key={category.categoryId}
+                  className={cn(
+                    'flex flex-col gap-sm rounded-md border border-border p-md',
+                    category.status !== 'ACTIVE' && 'opacity-60'
+                  )}
+                >
+                  <div className="flex flex-row items-center justify-between gap-md">
+                    <Text variant="body-strong" className="min-w-0 flex-1 truncate">
+                      {category.name}
+                    </Text>
+                    <Text variant="mono" tone="muted">
+                      {countLabel(category.categoryId)}
+                    </Text>
+                  </div>
+
+                  <div className="flex flex-row items-center justify-between gap-md">
+                    <div className="flex flex-row items-center gap-sm">
+                      <Text variant="caption" tone="subtle">
+                        Jumlah produk
+                      </Text>
+                      <StatusBadge status={category.status} />
+                    </div>
+                    {rowMenu ? (
+                      <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div>
               <div className="flex flex-row gap-md border-b border-border pb-sm">
@@ -175,7 +215,7 @@ export default function CategoriesPage() {
 
                   <div className="flex flex-1 justify-end">
                     <Text variant="mono" tone="muted">
-                      {products.isPending ? '…' : formatCount(counts.get(category.categoryId) ?? 0)}
+                      {countLabel(category.categoryId)}
                     </Text>
                   </div>
 
@@ -210,7 +250,8 @@ export default function CategoriesPage() {
           onOpenChange={(open) => {
             if (!open) setDeactivating(null);
           }}
-          title="Nonaktifkan kategori ini?"
+          title={`Nonaktifkan kategori ${deactivating?.name ?? 'ini'}?`}
+          preserved={`${HISTORY_PRESERVED} Produknya juga tetap ada dan bisa dipulihkan dengan mengaktifkan kategori ini kembali.`}
           pending={deactivate.isPending}
           error={deactivate.error}
           onConfirm={confirmDeactivate}

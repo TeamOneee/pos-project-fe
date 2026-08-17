@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/form-field';
+import { MutationErrorBanner } from '@/components/ui/form-banner';
 import { Icon } from '@/components/ui/icon';
 import { Label } from '@/components/ui/label';
 import {
@@ -42,7 +43,7 @@ import {
 } from '@/components/pages/inventory/product-search-select';
 import { StepperInput } from '@/components/pages/inventory/stepper-input';
 import { useInventoryForProduct, useTransferStock } from '@/hooks/use-inventory';
-import { insufficientStockDetails, isApiError } from '@/api/errors';
+import { insufficientStockDetails } from '@/api/errors';
 import { formatCount } from '@/lib/number';
 
 export function TransferStockDialog({
@@ -150,6 +151,14 @@ function TransferStockForm({
       </DialogHeader>
 
       <div className="flex flex-col gap-lg">
+        {/* The shortfall case has its own detailed panel below; this covers the
+            failures that have no per-field explanation. */}
+        <MutationErrorBanner
+          error={transfer.error}
+          fallback="Transfer stok gagal."
+          handled={Boolean(shortfall)}
+        />
+
         <FormField label="Produk" required error={errors.product}>
           <ProductSearchSelect
             value={product}
@@ -217,7 +226,7 @@ function TransferStockForm({
               <button
                 type="button"
                 onClick={() => setQuantity(available)}
-                className="min-h-touch self-start rounded-md px-sm outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+                className="min-h-touch self-start rounded-md px-sm outline-none hover:bg-subtle focus-ring"
               >
                 <Text variant="body-strong" tone="accent">
                   Transfer semua
@@ -279,10 +288,6 @@ function TransferStockForm({
               )}`}
             </Text>
           </div>
-        ) : transfer.isError ? (
-          <Text variant="caption" tone="danger" role="alert">
-            {isApiError(transfer.error) ? transfer.error.message : 'Gagal memindahkan stok.'}
-          </Text>
         ) : null}
       </div>
 

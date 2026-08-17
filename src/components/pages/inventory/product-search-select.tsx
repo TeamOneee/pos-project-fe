@@ -85,7 +85,7 @@ export function ProductSearchSelect({
             setQuery('');
             onChange(null);
           }}
-          className="flex h-touch w-touch shrink-0 items-center justify-center rounded-md outline-none hover:bg-border focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+          className="flex h-touch w-touch shrink-0 items-center justify-center rounded-md outline-none hover:bg-border focus-ring disabled:opacity-50"
         >
           <Icon as={X} size={16} className="text-fg-muted" />
         </button>

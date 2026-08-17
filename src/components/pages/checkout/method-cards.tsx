@@ -69,7 +69,7 @@ function MethodCard({
       disabled={disabled}
       onClick={onPress}
       className={cn(
-        'min-h-[96px] flex-1 flex-col items-center justify-center gap-xs rounded-lg border-2 p-md outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'min-h-[96px] flex-1 flex-col items-center justify-center gap-xs rounded-lg border-2 p-md focus-ring',
         selected ? 'border-accent bg-accent-subtle' : 'border-border bg-surface',
         !disabled && !selected && 'hover:border-border-strong',
         disabled && 'opacity-50'

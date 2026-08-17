@@ -1,9 +1,11 @@
 /**
- * The paging footer for a server-paginated list.
+ * The paging footer for a paginated list — products (S-11) and transactions
+ * (S-21).
  *
- * `GET /products` pages server-side, so the footer reports the window the server
- * actually returned rather than counting rows on screen — "Menampilkan 1–10 dari
- * 156" is the only place the user learns there are 146 more.
+ * It reports the window that was actually returned rather than counting rows on
+ * screen: "Menampilkan 1–10 dari 156" is the only place the user learns there are
+ * 146 more. The caller supplies the numbers, so it works the same whether the
+ * paging happened on the server or over an already-fetched list.
  */
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';

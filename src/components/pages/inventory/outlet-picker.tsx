@@ -117,7 +117,7 @@ function PillRow({
             aria-checked={active}
             onClick={() => onChange(outlet.outletId)}
             className={cn(
-              'min-h-touch rounded-full border px-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent',
+              'min-h-touch rounded-full border px-lg outline-none transition-colors focus-ring',
               active ? 'border-accent bg-accent' : 'border-border-strong bg-surface hover:bg-subtle'
             )}
           >

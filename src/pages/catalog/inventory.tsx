@@ -177,10 +177,20 @@ export default function InventoryPage() {
                   onOpenStockPerOutlet={(row) =>
                     setDrawerProduct({ productId: row.productId, name: row.name, sku: row.sku })
                   }
+                  // Two different empty states: an outlet with no stock rows at
+                  // all, and a filter that matched none of the rows it has.
                   emptyMessage={
                     allRows.length === 0
-                      ? 'Belum ada produk berstok di outlet ini.'
+                      ? 'Belum ada produk berstok di outlet ini. Tambahkan produk lewat menu Produk, lalu sesuaikan stoknya di sini.'
                       : 'Tidak ada produk yang cocok dengan filter.'
+                  }
+                  onClearFilters={
+                    allRows.length === 0
+                      ? undefined
+                      : () => {
+                          setQuery('');
+                          setCondition('ALL');
+                        }
                   }
                 />
               )}

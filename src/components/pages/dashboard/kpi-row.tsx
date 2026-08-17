@@ -46,7 +46,7 @@ export function KpiRow({ dashboard }: { dashboard: OwnerDashboard }) {
 function KpiTile({ label, value, delta }: { label: string; value: string; delta?: number }) {
   return (
     // 2×2 on mobile, four across from tablet up.
-    <Card className="min-w-[140px] flex-1 basis-[calc(50%-8px)] tablet:basis-0">
+    <Card className="min-w-[140px] flex-1 basis-full tablet:basis-0">
       <CardContent className="flex flex-col gap-sm pt-lg">
         <Text variant="label" tone="muted">
           {label}

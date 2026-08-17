@@ -54,7 +54,8 @@ export function ProductIdentity({
         type="button"
         onClick={() => onOpenStock(product)}
         aria-label={`Lihat stok ${product.name} per outlet`}
-        className="flex min-w-0 flex-row items-center gap-md rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        // A 44px target: this is the row's primary control on a phone.
+        className="flex min-h-touch min-w-0 flex-row items-center gap-md rounded-md text-left focus-ring"
       >
         <ProductThumb name={product.name} />
         <Text variant="body-strong" className="min-w-0 truncate underline-offset-2 hover:underline">

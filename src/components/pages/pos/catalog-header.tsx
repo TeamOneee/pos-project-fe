@@ -86,7 +86,7 @@ function CategoryChip({
       aria-selected={active}
       onClick={onPress}
       className={cn(
-        'min-h-touch shrink-0 justify-center rounded-full px-lg outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'min-h-touch shrink-0 justify-center rounded-full px-lg focus-ring',
         active ? 'bg-accent' : 'border border-border bg-surface hover:bg-subtle'
       )}
     >

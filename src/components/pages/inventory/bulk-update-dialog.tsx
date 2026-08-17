@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { MutationErrorBanner } from '@/components/ui/form-banner';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -236,6 +237,14 @@ function BulkUpdateForm({
       </DialogHeader>
 
       <div className="flex flex-col gap-lg">
+        {/* A batch that was rejected outright reports at the top; per-row
+            failures report on their own rows, under the partial-result banner. */}
+        <MutationErrorBanner
+          error={bulk.error}
+          fallback="Update massal gagal disimpan."
+          handled={outcomes !== null}
+        />
+
         {outcomes && attemptedCount > 0 && (
           <div
             role="alert"
@@ -390,7 +399,7 @@ function BulkUpdateForm({
                   aria-label={`Hapus ${row.name} dari daftar`}
                   disabled={bulk.isPending}
                   onClick={() => removeRow(row.key)}
-                  className="flex h-touch w-touch shrink-0 items-center justify-center self-end rounded-md outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 tablet:self-start"
+                  className="flex h-touch w-touch shrink-0 items-center justify-center self-end rounded-md outline-none hover:bg-subtle focus-ring disabled:opacity-50 tablet:self-start"
                 >
                   <Icon as={X} size={16} className="text-fg-muted" />
                 </button>
@@ -411,7 +420,7 @@ function BulkUpdateForm({
               <button
                 type="button"
                 onClick={() => setAdding(false)}
-                className="mt-sm min-h-touch rounded-md px-sm outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+                className="mt-sm min-h-touch rounded-md px-sm outline-none hover:bg-subtle focus-ring"
               >
                 <Text variant="body" tone="muted">
                   Batal tambah produk
@@ -423,7 +432,7 @@ function BulkUpdateForm({
               type="button"
               onClick={() => setAdding(true)}
               disabled={bulk.isPending}
-              className="flex min-h-touch flex-row items-center gap-sm border-b border-border px-sm outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+              className="flex min-h-touch flex-row items-center gap-sm border-b border-border px-sm outline-none hover:bg-subtle focus-ring disabled:opacity-50"
             >
               <Icon as={Plus} size={16} className="text-accent" />
               <Text variant="body-strong" tone="accent">
@@ -432,12 +441,6 @@ function BulkUpdateForm({
             </button>
           )}
         </div>
-
-        {bulk.isError && !outcomes && (
-          <Text variant="caption" tone="danger" role="alert">
-            {isApiError(bulk.error) ? bulk.error.message : 'Gagal memperbarui stok.'}
-          </Text>
-        )}
       </div>
 
       <DialogFooter className="tablet:items-center tablet:justify-between">

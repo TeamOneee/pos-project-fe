@@ -28,7 +28,7 @@ import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import type { RowMenuItem } from '@/components/ui/row-menu';
 import { IfCan } from '@/components/pages/auth/if-can';
-import { DeactivateDialog } from '@/components/pages/catalog/deactivate-dialog';
+import { DeactivateDialog, HISTORY_PRESERVED } from '@/components/pages/catalog/deactivate-dialog';
 import { ProductDialog } from '@/components/pages/catalog/product-dialog';
 import {
   EMPTY_QUERY,
@@ -39,7 +39,7 @@ import {
 } from '@/components/pages/catalog/product-filters';
 import { ProductGrid } from '@/components/pages/catalog/product-grid';
 import { ProductTable, type CatalogRow } from '@/components/pages/catalog/product-table';
-import { PaginationFooter } from '@/components/pages/catalog/pagination-footer';
+import { PaginationFooter } from '@/components/ui/pagination-footer';
 import {
   AdjustStockDialog,
   type AdjustTarget,
@@ -254,17 +254,17 @@ export default function ProductsPage() {
           onOpenChange={(open) => {
             if (!open) setDeactivating(null);
           }}
-          title="Nonaktifkan produk ini?"
+          // The record is named in the title, not just in the body.
+          title={`Nonaktifkan ${deactivating?.name ?? 'produk ini'}?`}
+          preserved={`${HISTORY_PRESERVED} Stok per outlet juga tidak berubah, dan produk bisa diaktifkan kembali dari layar ini.`}
           pending={deactivate.isPending}
           error={deactivate.error}
           onConfirm={confirmDeactivate}
         >
           <Text variant="body">
-            {`${deactivating?.name ?? 'Produk ini'} akan hilang dari katalog kasir dan tidak bisa dijual lagi.`}
-          </Text>
-          <Text variant="body" tone="muted">
-            Stok dan riwayat transaksinya tetap tersimpan, dan produk bisa diaktifkan kembali dari
-            layar ini.
+            {`${deactivating?.name ?? 'Produk ini'}${
+              deactivating?.sku ? ` (${deactivating.sku})` : ''
+            } akan hilang dari katalog kasir dan tidak bisa dijual lagi.`}
           </Text>
         </DeactivateDialog>
       </IfCan>

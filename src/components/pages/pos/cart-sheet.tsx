@@ -80,7 +80,7 @@ export function CartSheet({ open, onOpenChange, ...cart }: CartSheetProps) {
             type="button"
             aria-label="Tutup keranjang"
             onClick={() => onOpenChange(false)}
-            className="flex h-touch w-touch items-center justify-center rounded-md outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex h-touch w-touch items-center justify-center rounded-md outline-none hover:bg-subtle focus-ring"
           >
             <Icon as={ChevronDown} size={20} className="text-fg-muted" />
           </button>

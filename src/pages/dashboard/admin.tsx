@@ -169,7 +169,7 @@ function StockDashboardSkeleton() {
     <div className="flex flex-col gap-lg">
       <div className="flex flex-row flex-wrap gap-lg">
         {[0, 1, 2, 3].map((index) => (
-          <Card key={index} className="min-w-[140px] flex-1 basis-[calc(50%-8px)] tablet:basis-0">
+          <Card key={index} className="min-w-[140px] flex-1 basis-full tablet:basis-0">
             <CardContent className="flex flex-col gap-sm pt-lg">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-8 w-20" />

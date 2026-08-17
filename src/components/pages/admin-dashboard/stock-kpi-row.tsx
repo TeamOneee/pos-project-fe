@@ -100,7 +100,7 @@ function KpiTile({
     </Card>
   );
 
-  const sizing = 'min-w-[140px] flex-1 basis-[calc(50%-8px)] tablet:basis-0';
+  const sizing = 'min-w-[140px] flex-1 basis-full tablet:basis-0';
 
   if (!onPress) return <div className={sizing}>{body}</div>;
 
@@ -109,10 +109,7 @@ function KpiTile({
       type="button"
       onClick={onPress}
       aria-label={`${label}: ${value}. ${hint ?? ''}`.trim()}
-      className={cn(
-        sizing,
-        'rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-accent'
-      )}
+      className={cn(sizing, 'rounded-lg text-left focus-ring')}
     >
       {body}
     </button>

@@ -112,7 +112,7 @@ function StepButton({
       onClick={onClick}
       className={cn(
         'flex shrink-0 items-center justify-center rounded-md border border-border-strong bg-surface',
-        'outline-none transition-colors hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent',
+        'outline-none transition-colors hover:bg-subtle focus-ring',
         'disabled:cursor-not-allowed disabled:opacity-50',
         large ? 'h-[48px] w-[48px]' : 'h-touch w-touch'
       )}

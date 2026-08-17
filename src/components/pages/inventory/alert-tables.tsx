@@ -245,7 +245,7 @@ function ProductButton({ product, onOpen }: { product: AlertProduct; onOpen: () 
       type="button"
       onClick={onOpen}
       aria-label={`Lihat stok ${product.name} per outlet`}
-      className="min-w-0 max-w-full rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="min-w-0 max-w-full rounded-md text-left focus-ring"
     >
       <Text variant="body-strong" className="block truncate underline-offset-2 hover:underline">
         {product.name}

@@ -45,7 +45,7 @@ function ProductTileComponent({ product, inCart, threshold, onPress }: ProductTi
       style={{ height: TILE_HEIGHT }}
       className={cn(
         'flex w-full flex-col justify-between rounded-lg border border-border bg-surface p-md text-left',
-        'transition-transform outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.97]',
+        'transition-transform focus-ring active:scale-[0.97]',
         soldOut
           ? // Inert, not just dimmed: no press state at all.
             'cursor-not-allowed opacity-45'

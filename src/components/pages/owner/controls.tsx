@@ -106,7 +106,7 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(option)}
             className={cn(
-              'min-h-touch shrink-0 justify-center rounded-sm px-md outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              'min-h-touch shrink-0 justify-center rounded-sm px-md focus-ring',
               active ? 'bg-surface shadow-sm' : 'text-fg-muted hover:bg-border'
             )}
           >
@@ -183,7 +183,7 @@ export function FreshnessCaption({
         aria-busy={refreshing || undefined}
         disabled={refreshing}
         onClick={onRefresh}
-        className="flex h-touch w-touch items-center justify-center rounded-md outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-touch w-touch items-center justify-center rounded-md outline-none hover:bg-subtle focus-ring disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon
           as={RefreshCw}

@@ -20,12 +20,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/form-field';
+import { MutationErrorBanner } from '@/components/ui/form-banner';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { StockDeltaChip } from '@/components/pages/inventory/stock-delta';
 import { StepperInput } from '@/components/pages/inventory/stepper-input';
 import { useAdjustInventory, useInventoryForProduct } from '@/hooks/use-inventory';
-import { isApiError } from '@/api/errors';
 import { formatCount } from '@/lib/number';
 
 /**
@@ -176,6 +176,8 @@ function AdjustStockForm({
       </DialogHeader>
 
       <div className="flex flex-col gap-lg">
+        <MutationErrorBanner error={adjust.error} fallback="Perubahan stok gagal disimpan." />
+
         {/* Read-only summary: which product, at which outlet. */}
         <div className="flex flex-col gap-xs rounded-md bg-subtle p-lg">
           <Text variant="h3">{target.productName}</Text>
@@ -247,12 +249,6 @@ function AdjustStockForm({
             </FormField>
           )}
         />
-
-        {adjust.isError && (
-          <Text variant="caption" tone="danger" role="alert">
-            {isApiError(adjust.error) ? adjust.error.message : 'Gagal menyimpan perubahan stok.'}
-          </Text>
-        )}
       </div>
 
       <DialogFooter>
@@ -271,10 +267,8 @@ function AdjustStockForm({
 export function cnTextarea(invalid: boolean): string {
   return [
     'rounded-md border bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle',
-    'outline-none transition-colors focus:ring-2',
-    invalid
-      ? 'border-danger focus:border-danger focus:ring-danger/20'
-      : 'border-border focus:border-accent focus:ring-accent/20',
+    'transition-colors focus-ring-always',
+    invalid ? 'border-danger focus:border-danger' : 'border-border-interactive focus:border-accent',
     'disabled:bg-subtle disabled:text-fg-muted disabled:cursor-not-allowed',
   ].join(' ');
 }

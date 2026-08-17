@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { AovLineChart } from '@/components/pages/charts/aov-line-chart';
+import { ChartFigure } from '@/components/pages/charts/chart-figure';
 import { ChartFrame } from '@/components/pages/charts/chart-frame';
 import { DeltaChip } from '@/components/pages/owner/delta-chip';
 import type { OwnerDashboard } from '@/services/dashboard';
@@ -42,9 +43,17 @@ export function AovTrendCard({
           <DeltaChip value={trend.growthPercentage} label="AOV" />
         </div>
 
-        <ChartFrame height={height}>
-          {(width) => <AovLineChart points={points} width={width} height={height} />}
-        </ChartFrame>
+        <ChartFigure
+          summary={`Tren nilai rata-rata transaksi, ${points.length} periode. Terakhir ${formatIDR(
+            trend.currentAov
+          )}.`}
+          rowLabels={points.map((point) => point.label)}
+          series={[{ label: 'AOV', values: points.map((point) => formatIDR(point.aov)) }]}
+        >
+          <ChartFrame height={height}>
+            {(width) => <AovLineChart points={points} width={width} height={height} />}
+          </ChartFrame>
+        </ChartFigure>
       </CardContent>
     </Card>
   );
@@ -90,7 +99,7 @@ export function RecentTransactionsCard({
 
         <Link
           to="/transactions"
-          className="flex min-h-touch items-center outline-none hover:text-accent-hover focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex min-h-touch items-center outline-none hover:text-accent-hover focus-ring"
         >
           <Text variant="body-strong" tone="accent">
             Lihat semua transaksi →
