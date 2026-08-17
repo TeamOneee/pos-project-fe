@@ -54,6 +54,17 @@ export const transactionSchema = z
     total: money,
     status: gapField(transactionStatusSchema, 'COMPLETED'),
     created_at: isoDateTime.optional(),
+    /**
+     * How many lines the sale had.
+     *
+     * S-21 has an Item column, and `GET /transactions` does not serve one — the
+     * contract's list payload stops at the totals. This is the mirror image of
+     * the usual gap: the screen needs it, the contract omits it, and the mock
+     * serves it so the column is real. Against a backend that does not, it stays
+     * null and the column shows "—" rather than a fabricated count. Worth a
+     * backend ticket: counting lines server-side is a join it already does.
+     */
+    item_count: z.number().int().nullable().optional(),
     payment: paymentSchema.nullable().optional(),
     outlet: z
       .object({ outlet_id: id, name: z.string() })
@@ -76,6 +87,8 @@ export const transactionSchema = z
     total: value.total,
     status: value.status,
     createdAt: value.created_at ?? null,
+    /** Null when the backend does not count lines for a list row. */
+    itemCount: value.item_count ?? null,
     payment: value.payment ?? null,
     outlet: value.outlet ?? null,
     cashier: value.cashier ?? null,

@@ -10,10 +10,12 @@ import {
 } from '@/services/users';
 import { queryKeys } from '@/lib/query-client';
 
-export function useUsers(filters: UserFilters = {}) {
+/** Owner-only endpoint, so callers that may run as another role pass `enabled`. */
+export function useUsers(filters: UserFilters = {}, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.users(filters),
     queryFn: () => usersApi.list(filters),
+    enabled: options.enabled ?? true,
   });
 }
 

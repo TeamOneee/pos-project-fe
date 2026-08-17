@@ -162,6 +162,11 @@ function transactionView(transaction: WireTransaction) {
 
   return {
     ...transaction,
+    // S-21's Item column. Not in the contract's list payload — see the note on
+    // `item_count` in services/transactions.ts — so the mock serves it.
+    item_count: database.transactionItems.filter(
+      (item) => item.transaction_id === transaction.transaction_id
+    ).length,
     outlet: outlet ? { outlet_id: outlet.outlet_id, name: outlet.name } : null,
     cashier: cashier ? { user_id: cashier.user_id, name: cashier.name } : null,
   };

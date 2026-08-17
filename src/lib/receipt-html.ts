@@ -32,11 +32,17 @@ export function receiptHtml(receipt: ReceiptData): string {
     )
     .join('');
 
+  // A reprint from S-22 knows the method but not what was handed over — cash
+  // received is not persisted — so it names the method instead of claiming the
+  // sale was non-cash. At checkout, where `received` is always known for a cash
+  // sale, this renders exactly as it did before.
   const cashRows =
-    receipt.method === 'CASH' && receipt.received !== null
-      ? `
+    receipt.method === 'CASH'
+      ? receipt.received !== null
+        ? `
       <div class="row"><span>Tunai</span><span>${formatIDR(receipt.received)}</span></div>
       <div class="row"><span>Kembalian</span><span>${formatIDR(receipt.change ?? 0)}</span></div>`
+        : `<div class="row"><span>Metode</span><span>Tunai</span></div>`
       : `<div class="row"><span>Metode</span><span>Non-Tunai</span></div>`;
 
   return `<!doctype html>

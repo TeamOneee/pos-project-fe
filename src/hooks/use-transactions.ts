@@ -11,17 +11,32 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '@/components/pages/auth/auth-provider';
 import {
   transactionsApi,
   type CheckoutInput,
   type TransactionFilters,
 } from '@/services/transactions';
 import { queryKeys } from '@/lib/query-client';
+import { scopeTransactionFilters } from '@/lib/transaction-scope';
 
+/**
+ * The list, scoped to what the session may see before the request is built.
+ *
+ * A Cashier's `outlet_id` is overwritten with their own outlet here rather than
+ * being left to the screen — the filter control being hidden is a UI decision,
+ * and this is the one that holds even for a crafted filter object. The scoped
+ * filters are also the query key, so one session's page can never be served from
+ * another scope's cache entry.
+ */
 export function useTransactions(filters: TransactionFilters = {}) {
+  const { role, outletId } = useAuth();
+  const scoped = scopeTransactionFilters(filters, role, outletId);
+
   return useQuery({
-    queryKey: queryKeys.transactions(filters),
-    queryFn: () => transactionsApi.list(filters),
+    queryKey: queryKeys.transactions(scoped.filters),
+    queryFn: () => transactionsApi.list(scoped.filters),
+    enabled: scoped.enabled,
     placeholderData: keepPreviousData,
   });
 }
