@@ -27,10 +27,18 @@ DialogOverlay.displayName = 'DialogOverlay';
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideClose?: boolean }
->(({ className, children, hideClose = false, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    hideClose?: boolean;
+    /**
+     * Repositions the panel inside the overlay. A right-hand drawer is the same
+     * modal with the same focus trap, only pinned to an edge, so it overrides
+     * the centring here rather than reimplementing the primitive.
+     */
+    overlayClassName?: string;
+  }
+>(({ className, children, hideClose = false, overlayClassName, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay>
+    <DialogOverlay className={overlayClassName}>
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
