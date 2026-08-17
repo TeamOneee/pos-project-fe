@@ -75,10 +75,13 @@ const NAV: Record<Role, NavSection[]> = {
     },
   ],
 
+  // No Analitik, no AI Insight and no Riwayat: the matrix closes all three to
+  // the Admin, and the stock dashboard is where they land instead.
   ADMIN: [
     {
       title: 'Operasional',
       items: [
+        { href: '/dashboard', label: 'Dashboard Stok', icon: LayoutDashboard, exact: true },
         { href: '/inventory', label: 'Inventori', icon: Boxes, exact: true },
         { href: '/inventory/low-stock', label: 'Stok Menipis', icon: TriangleAlert },
       ],
