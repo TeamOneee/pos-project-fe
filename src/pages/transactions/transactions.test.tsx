@@ -18,8 +18,8 @@ import App from '@/App';
 import { resetDb } from '@/api/mock/db';
 import { setToken } from '@/api/token';
 import { isApiError } from '@/api/errors';
-import { authApi, transactionsApi } from '@/services';
-import { buildReceipt, receiptFromTransaction } from '@/lib/receipt-data';
+import { authApi, mintCheckoutRequestId, transactionsApi } from '@/services';
+import { receiptFromCheckout, receiptFromDto } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
 
 class MockResizeObserver {
@@ -29,8 +29,15 @@ class MockResizeObserver {
 }
 
 /** trx_004 belongs to Outlet B; budi is a cashier at Outlet A. */
-const OTHER_OUTLET_TRANSACTION = 'trx_004';
-const OWN_OUTLET_TRANSACTION = 'trx_003';
+/**
+ * §5.2 (OD-003) scopes a Cashier to **their own sales**, not to their outlet:
+ * `operator_user_id` is forced in the service. So the pair below is Budi's own
+ * sale and one he may not see — and `trx_002` is Ani's at the *same* outlet,
+ * which is what makes the rule operator-level rather than outlet-level.
+ */
+const OWN_TRANSACTION = 'trx_001';
+const COLLEAGUE_TRANSACTION = 'trx_002';
+const OTHER_OUTLET_TRANSACTION = 'trx_003';
 
 async function signInAs(email: string) {
   resetDb();
@@ -39,10 +46,9 @@ async function signInAs(email: string) {
 }
 
 async function openTransactions(path = '/transactions') {
-  render(<App />);
+  window.history.pushState({}, '', path);
   await act(async () => {
-    window.history.pushState({}, '', path);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
   });
 }
 
@@ -58,7 +64,8 @@ describe('S-21 · transaction history', () => {
     await openTransactions();
 
     expect(await screen.findByRole('combobox', { name: 'Outlet' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Kasir' })).toBeInTheDocument();
+    // No Kasir filter: §5.2 takes a date range and an outlet, and nothing else.
+    expect(screen.queryByRole('combobox', { name: 'Kasir' })).toBeNull();
   });
 
   it('summarises the filtered set above the table', async () => {
@@ -77,16 +84,20 @@ describe('S-21 · transaction history', () => {
     await signInAs('budi@indomart.com');
     await openTransactions();
 
-    expect(await screen.findByText('Transaksi di Outlet A - Mall Central.')).toBeInTheDocument();
+    // The outlet cannot be named to a cashier — §2.2 closes GET /outlets to
+    // them — so the scope line says what it can.
+    expect(await screen.findByText('Transaksi di outlet Anda.')).toBeInTheDocument();
 
     // No outlet filter at all, not a disabled one.
     expect(screen.queryByRole('combobox', { name: 'Outlet' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Kasir' })).toBeNull();
 
     // Every sale at the outlet, including a colleague's: trx_003 is Ani's.
-    expect(await screen.findByText('TRX-20260813-003')).toBeInTheDocument();
+    expect(await screen.findByText('TRX-20260813-001')).toBeInTheDocument();
     // Outlet B's sales are absent.
-    expect(screen.queryByText('TRX-20260813-004')).toBeNull();
+    // Ani's sale at the same outlet, and Rudi's at another: neither is Budi's.
+    expect(screen.queryByText('TRX-20260813-002')).toBeNull();
+    expect(screen.queryByText('TRX-20260813-003')).toBeNull();
   });
 
   it('finds a transaction by number', async () => {
@@ -115,12 +126,12 @@ describe('S-21 · transaction history', () => {
 describe('S-22 · transaction detail', () => {
   it('opens as a drawer on a deep link, with no way to alter the sale', async () => {
     await signInAs('owner@indomart.com');
-    await openTransactions(`/transactions/${OWN_OUTLET_TRANSACTION}`);
+    await openTransactions(`/transactions/${OWN_TRANSACTION}`);
 
     const drawer = await screen.findByRole('dialog');
 
     // The drawer mounts before its query resolves; wait for the sale itself.
-    expect(await within(drawer).findByText('TRX-20260813-003')).toBeInTheDocument();
+    expect(await within(drawer).findByText('TRX-20260813-001')).toBeInTheDocument();
     expect(within(drawer).getByText('SELESAI')).toBeInTheDocument();
     expect(
       within(drawer).getByText('Harga yang ditampilkan adalah harga saat transaksi terjadi.')
@@ -136,15 +147,15 @@ describe('S-22 · transaction detail', () => {
     }
   });
 
-  it('refuses another outlet’s transaction to a Cashier', async () => {
+  it('refuses a sale that is not the Cashier’s own', async () => {
     await signInAs('budi@indomart.com');
     await openTransactions(`/transactions/${OTHER_OUTLET_TRANSACTION}`);
 
     const drawer = await screen.findByRole('dialog');
     expect(
-      await within(drawer).findByText(
-        'Transaksi ini milik outlet lain, jadi tidak bisa ditampilkan di sini.'
-      )
+      // §5.2 disguises another scope's sale as a 404 rather than a 403, so the
+      // screen must not claim to know the transaction exists elsewhere.
+      await within(drawer).findByText('Nomor transaksi ini tidak ada, atau sudah tidak tersedia.')
     ).toBeInTheDocument();
   });
 });
@@ -160,10 +171,19 @@ describe('the two conditions this work is done against', () => {
       .catch((error: unknown) => error);
 
     expect(isApiError(refusal)).toBe(true);
-    expect(isApiError(refusal) && refusal.kind).toBe('forbidden');
+    // Disguised as "not found" (§5.2), which is the point: a cashier cannot
+    // even learn that another outlet's transaction exists.
+    expect(isApiError(refusal) && refusal.kind).toBe('not_found');
+
+    // Nor is a colleague's sale at the same outlet readable (OD-003).
+    const colleague = await transactionsApi
+      .get(COLLEAGUE_TRANSACTION)
+      .then(() => null)
+      .catch((error: unknown) => error);
+    expect(isApiError(colleague) && colleague.kind).toBe('not_found');
 
     // And the list cannot be widened: a crafted outlet filter is rewritten.
-    const listed = await transactionsApi.list({ outlet_id: 'otl_b', limit: 100 });
+    const listed = await transactionsApi.list({ outlet_id: 'otl_b', size: 100 });
     expect(listed.items.length).toBeGreaterThan(0);
     // The mock scopes a Cashier server-side too, so nothing from Outlet B lands.
     expect(listed.items.every((row) => row.outletId === 'otl_a')).toBe(true);
@@ -174,29 +194,21 @@ describe('the two conditions this work is done against', () => {
 
     // A real sale, so both receipts describe the same transaction.
     const checkout = await transactionsApi.checkout({
-      items: [{ product_id: 'prd_cc1500', quantity: 2 }],
+      checkout_request_id: mintCheckoutRequestId(),
+      outlet_id: 'otl_a',
       payment_method: 'QRIS',
+      items: [{ product_id: 'prd_cc1500', quantity: 2 }],
     });
 
-    const atCheckout = buildReceipt({
-      transaction: checkout.transaction,
-      items: checkout.items,
-      cartLines: [],
+    const atCheckout = receiptFromCheckout({
+      transaction: checkout,
       merchantName: 'IndoMart Retail',
       outletName: 'Outlet A - Mall Central',
-      cashierName: 'Budi Santoso',
-      method: 'NON_CASH',
       received: null,
     });
 
-    const stored = await transactionsApi.get(checkout.transaction.transactionId);
-    const onReprint = receiptFromTransaction({
-      transaction: stored.transaction,
-      items: stored.items,
-      merchantName: 'IndoMart Retail',
-      outletName: 'Outlet A - Mall Central',
-      cashierName: 'Budi Santoso',
-    });
+    // The reprint reads §5.4's ReceiptDto, which carries its own header fields.
+    const onReprint = receiptFromDto(await transactionsApi.receipt(checkout.transactionId));
 
     // Same renderer, same data, same document.
     expect(receiptHtml(onReprint)).toBe(receiptHtml(atCheckout));

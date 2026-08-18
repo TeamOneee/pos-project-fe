@@ -79,8 +79,10 @@ export default function ProductsPage() {
   const products = useProducts({
     ...(search ? { search } : {}),
     ...(query.categoryId ? { category_id: query.categoryId } : {}),
-    ...(query.status ? { status: query.status } : {}),
-    page,
+    // §3.2 filters on the boolean, not on the ACTIVE/INACTIVE enum.
+    ...(query.status ? { is_active: query.status === 'ACTIVE' } : {}),
+    // §0 pages from zero; the footer counts from one.
+    page: page - 1,
     size: PAGE_LIMIT,
   });
   const categories = useCategories();
@@ -104,12 +106,10 @@ export default function ProductsPage() {
         product,
         // Only meaningful for a product that is itself active — an inactive
         // product is already absent from the POS for its own reasons.
-        hiddenByCategory:
-          product.isActive && isHiddenByCategory(product, activeCategories),
+        hiddenByCategory: product.isActive && isHiddenByCategory(product, activeCategories),
       })),
     [products.data, activeCategories]
   );
-
 
   const openStock = (product: Product) =>
     setDrawerProduct({ productId: product.productId, name: product.name });
@@ -216,7 +216,7 @@ export default function ProductsPage() {
               )}
 
               <PaginationFooter
-                page={products.data?.page ?? page}
+                page={page}
                 limit={products.data?.size ?? PAGE_LIMIT}
                 total={total}
                 shown={rows.length}

@@ -35,10 +35,7 @@ export function ProductGrid({
   return (
     <div className="grid grid-cols-1 gap-md tablet:grid-cols-2 desktop:grid-cols-3">
       {rows.map(({ product, hiddenByCategory }) => (
-        <Card
-          key={product.productId}
-          className={cn('h-full', !product.isActive && 'opacity-60')}
-        >
+        <Card key={product.productId} className={cn('h-full', !product.isActive && 'opacity-60')}>
           <CardContent className="flex flex-col gap-md pt-lg">
             <div className="flex flex-row items-start justify-between gap-sm">
               <button

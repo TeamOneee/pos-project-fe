@@ -39,10 +39,10 @@ async function signInAs(email: string) {
 
 async function openAt(path: string, width: number) {
   window.innerWidth = width;
-  render(<App />);
+  window.history.pushState({}, '', path);
+
   await act(async () => {
-    window.history.pushState({}, '', path);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
     window.dispatchEvent(new Event('resize'));
   });
   await act(async () => {
@@ -62,10 +62,10 @@ describe('tables become stacked cards below 768px', () => {
 
     // The product is still there…
     expect(await screen.findByText('Coca Cola 1.5L')).toBeInTheDocument();
-    // …but the table header row is gone: SKU, Harga and Status demote to a
+    // …but the table header row is gone: Kategori, Harga and Status demote to a
     // caption line inside each card. ("Kategori" is not a usable probe — the
     // mobile tab bar has a nav item by that name.)
-    expect(screen.queryByText('SKU')).toBeNull();
+    expect(screen.queryByText('Batas Stok')).toBeNull();
     expect(screen.queryByText('Aksi')).toBeNull();
   });
 
@@ -73,7 +73,8 @@ describe('tables become stacked cards below 768px', () => {
     await signInAs('sari@indomart.com');
     await openAt('/products', TABLET);
 
-    expect(await screen.findByText('SKU')).toBeInTheDocument();
+    // §3.4 has no SKU; Kategori is the column that took its place.
+    expect(await screen.findByText('Kategori')).toBeInTheDocument();
     expect(screen.getByText('Kategori')).toBeInTheDocument();
   });
 
@@ -130,7 +131,7 @@ describe('modals below 768px', () => {
 
 describe('dashboard grids collapse to one column', () => {
   /**
-   * Queried by class rather than by label: "Total Produk" and "Stok Menipis" also
+   * Queried by class rather than by label: "Produk Aktif" and "Stok Menipis" also
    * appear as column headings in the per-outlet table below, so a text lookup
    * finds four tiles and four table cells.
    */
@@ -140,7 +141,7 @@ describe('dashboard grids collapse to one column', () => {
     await signInAs('sari@indomart.com');
     await openAt('/dashboard', MOBILE);
 
-    await screen.findAllByText('Total Produk');
+    await screen.findAllByText('Produk Aktif');
     const tiles = kpiTiles();
 
     expect(tiles.length).toBeGreaterThanOrEqual(4);
@@ -152,7 +153,7 @@ describe('dashboard grids collapse to one column', () => {
     await signInAs('sari@indomart.com');
     await openAt('/dashboard', MOBILE);
 
-    await screen.findAllByText('Total Produk');
+    await screen.findAllByText('Produk Aktif');
 
     // Document order is the reading order, so the stacked column follows the row
     // the tiles were specified in.
@@ -160,8 +161,8 @@ describe('dashboard grids collapse to one column', () => {
       .slice(0, 4)
       .map((tile) => tile.textContent ?? '');
 
-    expect(order[0]).toContain('Total Produk');
-    expect(order[1]).toContain('Total Stok');
+    expect(order[0]).toContain('Produk Aktif');
+    expect(order[1]).toContain('Produk Berstok');
     expect(order[2]).toContain('Stok Menipis');
     expect(order[3]).toContain('Stok Habis');
   });

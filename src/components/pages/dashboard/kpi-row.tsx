@@ -19,13 +19,7 @@ import type { DashboardSummary } from '@/services/dashboard';
 import { formatIDR } from '@/lib/money';
 import { formatCount } from '@/lib/number';
 
-export function KpiRow({
-  summary,
-  deltas,
-}: {
-  summary: DashboardSummary;
-  deltas: PeriodDeltas;
-}) {
+export function KpiRow({ summary, deltas }: { summary: DashboardSummary; deltas: PeriodDeltas }) {
   return (
     <div className="flex flex-row flex-wrap gap-lg">
       <KpiTile label="Total Omzet" value={formatIDR(summary.omzet)} delta={deltas.omzet} />
@@ -43,15 +37,7 @@ export function KpiRow({
   );
 }
 
-function KpiTile({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: string;
-  delta: number | null;
-}) {
+function KpiTile({ label, value, delta }: { label: string; value: string; delta: number | null }) {
   return (
     // Stacked on mobile, across from tablet up.
     <Card className="min-w-[140px] flex-1 basis-full tablet:basis-0">

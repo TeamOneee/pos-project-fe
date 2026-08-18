@@ -54,7 +54,7 @@ export function TransactionTable({
             type="button"
             onClick={() => onOpen(transaction)}
             aria-label={`Lihat transaksi ${transaction.transactionNumber}`}
-            className="flex flex-col gap-sm rounded-md border border-border p-md text-left focus-ring"
+            className="flex min-h-touch flex-col gap-sm rounded-md border border-border p-md text-left focus-ring"
           >
             <div className="flex flex-row items-center justify-between gap-md">
               <Text variant="mono" tone="accent">

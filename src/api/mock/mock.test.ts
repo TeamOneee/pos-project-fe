@@ -1,29 +1,32 @@
 /**
- * The mock adapter, driven through the real domain clients.
+ * The mock, driven through the real domain clients.
  *
- * Nothing here reaches into the in-memory store directly — every assertion goes
- * through the same call a screen would make, so what is verified is the data
- * the screens will actually receive.
+ * Every request here goes transport → envelope → zod schema, so a mock response
+ * that does not match docs/07-iterasi-1-api-contract.md fails as a parse error
+ * rather than passing quietly. That is what makes these tests worth having:
+ * they check the contract, not the mock's own opinion of it.
  */
 
 import { z } from 'zod';
 
 import { request, setTransport } from '@/api/client';
-import { aiInsightsApi } from '@/services/ai-insights';
-import { analyticsApi } from '@/services/analytics';
 import { authApi } from '@/services/auth';
-import { cartApi } from '@/services/cart';
+import { catalogApi } from '@/services/catalog';
 import { categoriesApi } from '@/services/categories';
 import { dashboardApi } from '@/services/dashboard';
+import { insightsApi } from '@/services/insights';
 import { inventoryApi } from '@/services/inventory';
+import { merchantApi } from '@/services/merchant';
 import { outletsApi } from '@/services/outlets';
 import { productsApi } from '@/services/products';
-import { transactionsApi } from '@/services/transactions';
-import { usersApi } from '@/services/users';
+import { staffApi } from '@/services/staff';
+import { mintCheckoutRequestId, transactionsApi } from '@/services/transactions';
 import {
+  conflictCondition,
   insufficientStockDetails,
   isDuplicateEmail,
   isForbidden,
+  isInsufficientStock,
   isPriceChanged,
   isUnauthorized,
   priceChangedDetails,
@@ -31,14 +34,20 @@ import {
 } from '@/api/errors';
 import { mockTransport } from '@/api/mock/adapter';
 import { resetDb } from '@/api/mock/db';
+import { clearMockSession } from '@/api/mock/handlers';
 import { clearMockScenario, setMockScenario } from '@/api/mock/scenarios';
 
 const OWNER = { email: 'owner@indomart.com', password: 'password123' };
 const ADMIN = { email: 'sari@indomart.com', password: 'password123' };
 const CASHIER_A = { email: 'budi@indomart.com', password: 'password123' };
+const CASHIER_B = { email: 'rudi@indomart.com', password: 'password123' };
+
+/** A period wide enough to cover every seeded sale. */
+const PERIOD = { date_from: '2026-08-01T00:00:00+07:00', date_to: '2026-08-31T23:59:59+07:00' };
 
 beforeEach(() => {
   resetDb();
+  clearMockSession();
   clearMockScenario();
   setTransport(mockTransport);
 });
@@ -47,246 +56,296 @@ afterAll(() => setTransport(null));
 
 const signIn = (credentials: { email: string; password: string }) => authApi.login(credentials);
 
+/**
+ * The failure a call is expected to produce.
+ *
+ * `.catch()` widens the result to "the payload or the error", which then needs
+ * narrowing at every assertion; this keeps the expectation in one place.
+ */
+async function failing(promise: Promise<unknown>): Promise<ApiError> {
+  try {
+    await promise;
+    throw new Error('expected the request to fail, but it succeeded');
+  } catch (error) {
+    return error as ApiError;
+  }
+}
+
+/** A fresh checkout body. §5.2 requires the id, the outlet and the method. */
+function checkoutInput(items: { product_id: string; quantity: number }[], outletId = 'otl_a') {
+  return {
+    checkout_request_id: mintCheckoutRequestId(),
+    outlet_id: outletId,
+    payment_method: 'CASH' as const,
+    items,
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 
 describe('the seeded dataset', () => {
   beforeEach(() => signIn(OWNER));
 
-  it('is IndoMart Retail with three outlets, five users, eight categories', async () => {
-    const [outlets, users, categories] = await Promise.all([
+  it('is IndoMart Retail with three outlets and five staff', async () => {
+    const [merchant, outlets, staff] = await Promise.all([
+      merchantApi.get(),
       outletsApi.list(),
-      usersApi.list(),
-      categoriesApi.list(),
+      staffApi.list(),
     ]);
 
-    expect(outlets).toHaveLength(3);
-    expect(users).toHaveLength(5);
-    expect(categories).toHaveLength(8);
-    expect(outlets.map((outlet) => outlet.name)).toContain('Outlet A - Mall Central');
+    expect(merchant.name).toBe('IndoMart Retail');
+    // §2.4: the merchant carries a timezone and no low-stock threshold.
+    expect(merchant.timezone).toBe('Asia/Jakarta');
+    expect(outlets.total).toBe(3);
+    expect(staff.total).toBe(5);
   });
 
-  it('has twelve products, priced in integer rupiah', async () => {
-    const products = await productsApi.list({ limit: 50 });
+  it('prices products in integer rupiah and carries a base threshold', async () => {
+    const products = await productsApi.list({ size: 100 });
 
-    expect(products.total).toBe(12);
-    expect(products.items.every((product) => Number.isInteger(product.price))).toBe(true);
-
-    const cola = products.items.find((product) => product.sku === 'CC-1500');
-    expect(cola?.name).toBe('Coca Cola 1.5L');
-    expect(cola?.price).toBe(15000);
-  });
-
-  it('serves the fields the backend is still missing', async () => {
-    const products = await productsApi.list({ limit: 50 });
-    const categories = await categoriesApi.list();
-
-    // Product.sku and Category.status are both known backend gaps.
-    expect(products.items.every((product) => product.sku.length > 0)).toBe(true);
-    expect(categories.every((category) => category.status === 'ACTIVE')).toBe(true);
+    expect(products.total).toBeGreaterThan(10);
+    for (const product of products.items) {
+      expect(Number.isInteger(product.price)).toBe(true);
+      expect(Number.isInteger(product.lowStockThreshold)).toBe(true);
+    }
   });
 
   it('staffs an owner, an admin and three cashiers', async () => {
-    const users = await usersApi.list();
-    const roles = users.map((user) => user.role).sort();
+    const staff = await staffApi.list({ size: 100 });
+    const byRole = staff.items.reduce<Record<string, number>>((counts, member) => {
+      counts[member.role] = (counts[member.role] ?? 0) + 1;
+      return counts;
+    }, {});
 
-    expect(roles).toEqual(['ADMIN', 'CASHIER', 'CASHIER', 'CASHIER', 'OWNER']);
-    // A cashier is always bound to an outlet; admin and owner never are.
-    expect(users.filter((user) => user.role === 'CASHIER').every((user) => user.outletId)).toBe(
-      true
-    );
-    expect(users.find((user) => user.role === 'ADMIN')?.outletId).toBeNull();
+    expect(byRole).toEqual({ OWNER: 1, ADMIN: 1, CASHIER: 3 });
+  });
 
-    // The brief puts two cashiers at Outlet A and none at Outlet C.
-    const atOutletA = users.filter((user) => user.outletId === 'otl_a');
-    expect(atOutletA.map((user) => user.name).sort()).toEqual(['Ani Wijaya', 'Budi Santoso']);
-    expect(users.some((user) => user.outletId === 'otl_c')).toBe(false);
+  it('holds an inactive category with an active product still inside it', async () => {
+    const categories = await categoriesApi.list({ size: 100 });
+    const inactive = categories.items.filter((category) => !category.isActive);
+
+    expect(inactive.length).toBeGreaterThan(0);
+
+    const products = await productsApi.list({ category_id: inactive[0]!.categoryId, size: 100 });
+    expect(products.items.some((product) => product.isActive)).toBe(true);
   });
 });
 
 describe('stock levels', () => {
-  it('produces eight low-stock and three out-of-stock rows', async () => {
-    await signIn(ADMIN);
-    const dashboard = await dashboardApi.admin();
+  beforeEach(() => signIn(ADMIN));
 
-    expect(dashboard.summary.lowStockProductsCount).toBe(8);
-    expect(dashboard.summary.outOfStockProductsCount).toBe(3);
-    expect(dashboard.lowStockAlerts).toHaveLength(8);
-    expect(dashboard.outOfStockAlerts).toHaveLength(3);
+  it('resolves the effective threshold from the outlet override, then the product', async () => {
+    const rows = await inventoryApi.list({ product_id: 'prd_cc1500', size: 100 });
+
+    const outletA = rows.items.find((row) => row.outletId === 'otl_a');
+    const outletC = rows.items.find((row) => row.outletId === 'otl_c');
+
+    // Outlet C overrides Coca Cola to 50; Outlet A inherits the product's 10.
+    expect(outletA?.lowStockThresholdOverride).toBeNull();
+    expect(outletA?.effectiveLowStockThreshold).toBe(10);
+    expect(outletC?.lowStockThresholdOverride).toBe(50);
+    expect(outletC?.effectiveLowStockThreshold).toBe(50);
   });
 
-  it('matches the figures the contract quotes', async () => {
-    await signIn(ADMIN);
-    const alerts = await inventoryApi.lowStock('otl_a');
+  it('agrees with the server verdict on every row', async () => {
+    const rows = await inventoryApi.list({ size: 100 });
 
-    const cola = alerts.find((alert) => alert.sku === 'CC-1500');
-    expect(cola?.currentStock).toBe(5);
-    expect(cola?.threshold).toBe(10);
-    expect(cola?.outletName).toBe('Outlet A - Mall Central');
+    for (const row of rows.items) {
+      expect(row.isLowStock).toBe(row.quantity <= row.effectiveLowStockThreshold);
+    }
   });
 
-  it('values stock in integer rupiah computed from live quantities', async () => {
-    await signIn(ADMIN);
-    const before = await dashboardApi.admin();
+  it('lists the same rows through the low-stock report', async () => {
+    const [report, rows] = await Promise.all([
+      dashboardApi.lowStock(),
+      inventoryApi.list({ low_stock_only: true, size: 100 }),
+    ]);
 
-    const inventory = await inventoryApi.list({ outlet_id: 'otl_a', limit: 50 });
-    const cola = inventory.items.find((item) => item.product?.sku === 'CC-1500');
+    expect(report.items).toHaveLength(rows.total);
+  });
 
-    await inventoryApi.adjust(cola?.inventoryId ?? '', {
-      quantity: 105,
-      reason: 'Restock from supplier',
-    });
+  it('splits the report into low and out-of-stock on quantity alone', async () => {
+    const report = await dashboardApi.lowStock();
+    const out = report.items.filter((item) => item.quantity === 0);
 
-    const after = await dashboardApi.admin();
-
-    // 100 more units at 15.000 each.
-    expect(after.summary.totalStockValue - before.summary.totalStockValue).toBe(1_500_000);
-    expect(Number.isInteger(after.summary.totalStockValue)).toBe(true);
+    expect(out.length).toBeGreaterThan(0);
+    expect(out.length).toBeLessThan(report.items.length);
   });
 });
 
 describe('the Owner dashboard', () => {
   beforeEach(() => signIn(OWNER));
 
-  it('arrives complete in a single response', async () => {
-    const dashboard = await dashboardApi.owner();
+  it('reports a summary derived from the seeded sales', async () => {
+    const [summary, transactions] = await Promise.all([
+      dashboardApi.summary(PERIOD),
+      transactionsApi.list({ ...PERIOD, size: 100 }),
+    ]);
 
-    expect(dashboard.summary.totalRevenue).toBe(15_750_000);
-    expect(dashboard.summary.totalTransactions).toBe(1250);
-    expect(dashboard.summary.averageOrderValue).toBe(12_600);
-    expect(dashboard.summary.revenueGrowth).toBe(12.5);
-    expect(dashboard.summary.transactionsGrowth).toBe(8.3);
-    expect(dashboard.salesTrend.labels).toHaveLength(7);
-    expect(dashboard.outletPerformance).toHaveLength(3);
-    expect(dashboard.topProducts.byRevenue.length).toBeGreaterThan(0);
-    expect(dashboard.underperformingProducts.length).toBeGreaterThan(0);
-    expect(dashboard.recentTransactions.length).toBeGreaterThan(0);
-    expect(dashboard.periodComparison.currentPeriod.totalRevenue).toBe(15_750_000);
+    expect(summary.transactionCount).toBe(transactions.total);
+    // §6.4: the average is the omzet over the count, truncated.
+    expect(summary.averageTransactionValue).toBe(
+      Math.trunc(summary.omzet / summary.transactionCount)
+    );
   });
 
-  it('reports the counts the brief specifies, seeded rows notwithstanding', async () => {
-    const dashboard = await dashboardApi.owner();
+  it('sums the sales trend to the period omzet', async () => {
+    const [summary, trend] = await Promise.all([
+      dashboardApi.summary(PERIOD),
+      dashboardApi.salesTrend({ ...PERIOD, bucket: 'DAY' }),
+    ]);
 
-    expect(dashboard.summary.totalOutlets).toBe(3);
-    expect(dashboard.merchantOverview.totalCategories).toBe(8);
-    expect(dashboard.merchantOverview.merchantName).toBe('IndoMart Retail');
-
-    // The brief's own figures: 12 employees and 156 products, against the five
-    // users and twelve products it seeds. Served as written, deliberately.
-    expect(dashboard.summary.totalEmployees).toBe(12);
-    expect(dashboard.summary.totalProducts).toBe(156);
+    const total = trend.points.reduce((sum, point) => sum + point.omzet, 0);
+    expect(total).toBe(summary.omzet);
   });
 
   it('splits revenue across outlets so the parts sum to the whole', async () => {
-    const dashboard = await dashboardApi.owner();
+    const [summary, comparison] = await Promise.all([
+      dashboardApi.summary(PERIOD),
+      dashboardApi.outletComparison(PERIOD),
+    ]);
 
-    const total = dashboard.outletPerformance.reduce((sum, outlet) => sum + outlet.totalRevenue, 0);
-    const transactions = dashboard.outletPerformance.reduce(
-      (sum, outlet) => sum + outlet.totalTransactions,
-      0
+    const total = comparison.items.reduce((sum, item) => sum + item.omzet, 0);
+    expect(total).toBe(summary.omzet);
+  });
+
+  it('ranks the same products from both ends of one response', async () => {
+    const ranked = await dashboardApi.topProducts({ ...PERIOD, limit: 100 });
+
+    expect(ranked.topSelling.length).toBeGreaterThan(0);
+    expect(ranked.topSelling[0]?.omzet).toBeGreaterThanOrEqual(ranked.leastSelling[0]?.omzet ?? 0);
+  });
+
+  it('buckets the trading day by hour', async () => {
+    const pattern = await dashboardApi.timePattern(PERIOD);
+
+    for (const point of pattern.points) {
+      expect(point.hourOfDay).toBeGreaterThanOrEqual(0);
+      expect(point.hourOfDay).toBeLessThan(24);
+    }
+  });
+
+  it('rejects a period the wrong way round', async () => {
+    const error = await failing(
+      dashboardApi.summary({ date_from: PERIOD.date_to, date_to: PERIOD.date_from })
     );
 
-    expect(total).toBe(dashboard.summary.totalRevenue);
-    expect(transactions).toBe(dashboard.summary.totalTransactions);
+    expect(error.kind).toBe('validation');
+  });
+});
+
+describe('the Admin dashboard', () => {
+  beforeEach(() => signIn(ADMIN));
+
+  it('reports stock and catalogue counts and no revenue at all', async () => {
+    const operations = await dashboardApi.operations();
+
+    expect(operations.inventoryItemCount).toBeGreaterThan(0);
+    expect(operations.activeProductCount).toBeGreaterThan(0);
+    expect(operations.inactiveCategoryCount).toBeGreaterThan(0);
+    // The point of the endpoint: nothing financial is on it.
+    expect(Object.keys(operations)).not.toContain('omzet');
   });
 
-  it('emits no decimal strings anywhere in the payload', async () => {
-    const dashboard = await dashboardApi.owner();
+  it('narrows to one outlet on request', async () => {
+    const [all, one] = await Promise.all([
+      dashboardApi.operations(),
+      dashboardApi.operations({ outlet_id: 'otl_a' }),
+    ]);
 
-    expect(JSON.stringify(dashboard)).not.toMatch(/"\d+\.\d\d"/);
-  });
-
-  it('sums the daily trend to the period revenue', async () => {
-    const dashboard = await dashboardApi.owner();
-
-    const summed = dashboard.salesTrend.revenue.reduce((sum, value) => sum + value, 0);
-    expect(summed).toBe(15_750_000);
+    expect(one.outletId).toBe('otl_a');
+    expect(one.inventoryItemCount).toBeLessThan(all.inventoryItemCount);
   });
 });
 
 describe('authentication and role gating', () => {
   it('rejects a bad password with 401', async () => {
-    const error = await signIn({ email: OWNER.email, password: 'wrong' }).catch(
-      (caught: unknown) => caught
-    );
-
+    const error = await signIn({ ...OWNER, password: 'wrong' }).catch((caught: unknown) => caught);
     expect(isUnauthorized(error)).toBe(true);
   });
 
-  it('rejects an unknown email with 401', async () => {
-    const error = await signIn({ email: 'nobody@example.com', password: 'x' }).catch(
+  it('rejects an unknown email with the same 401', async () => {
+    const error = await signIn({ email: 'nobody@indomart.com', password: 'password123' }).catch(
       (caught: unknown) => caught
     );
-
     expect(isUnauthorized(error)).toBe(true);
   });
 
   it('answers 401 when there is no session at all', async () => {
-    const error = await outletsApi.list().catch((caught: unknown) => caught);
-
+    const error = await productsApi.list().catch((caught: unknown) => caught);
     expect(isUnauthorized(error)).toBe(true);
   });
 
+  it('returns claims rather than a user object', async () => {
+    const result = await signIn(CASHIER_A);
+
+    expect(result.role).toBe('CASHIER');
+    expect(result.outletId).toBe('otl_a');
+    expect(result.expiresIn).toBe(900);
+    // §1.2: no name, no email, no user object.
+    expect(Object.keys(result)).not.toContain('user');
+  });
+
   it('keeps staff management to the Owner', async () => {
-    await signIn(CASHIER_A);
-    const error = await usersApi.list().catch((caught: unknown) => caught);
-
+    await signIn(ADMIN);
+    const error = await staffApi.list().catch((caught: unknown) => caught);
     expect(isForbidden(error)).toBe(true);
   });
 
-  it('keeps the Owner read-only on the catalog', async () => {
+  it('lets the Owner manage the catalog, which §3.2 allows', async () => {
     await signIn(OWNER);
-    const error = await productsApi
-      .create({ name: 'X', sku: 'X-1', price: '1000.00', category_id: 'cat_beverages' })
-      .catch((caught: unknown) => caught);
 
-    // The role matrix makes catalog writes Admin-only, stricter than the contract.
-    expect(isForbidden(error)).toBe(true);
-  });
-
-  it('keeps the Owner read-only on inventory', async () => {
-    await signIn(OWNER);
-    const error = await inventoryApi
-      .adjust('inv_otl_a_prd_cc1500', { quantity: 20, reason: 'test' })
-      .catch((caught: unknown) => caught);
-
-    expect(isForbidden(error)).toBe(true);
+    const category = await categoriesApi.create({ name: 'Kategori Owner' });
+    expect(category.isActive).toBe(true);
   });
 
   it('closes transactions to the Admin entirely', async () => {
     await signIn(ADMIN);
     const error = await transactionsApi.list().catch((caught: unknown) => caught);
-
     expect(isForbidden(error)).toBe(true);
   });
 
-  it('limits a cashier to their own outlet', async () => {
-    await signIn(CASHIER_A);
-    const error = await inventoryApi
-      .list({ outlet_id: 'otl_b' })
-      .catch((caught: unknown) => caught);
+  it('closes the business dashboard to the Admin', async () => {
+    await signIn(ADMIN);
+    const error = await dashboardApi.summary(PERIOD).catch((caught: unknown) => caught);
+    expect(isForbidden(error)).toBe(true);
+  });
 
+  it('keeps insight to the Owner', async () => {
+    await signIn(ADMIN);
+    const error = await insightsApi.get().catch((caught: unknown) => caught);
+    expect(isForbidden(error)).toBe(true);
+  });
+
+  it('forces a cashier onto their own outlet in the catalogue', async () => {
+    await signIn(CASHIER_A);
+
+    const error = await catalogApi.list({ outlet_id: 'otl_b' }).catch((caught: unknown) => caught);
     expect(isForbidden(error)).toBe(true);
 
-    const own = await inventoryApi.list({ outlet_id: 'otl_a' });
+    const own = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
     expect(own.items.length).toBeGreaterThan(0);
   });
+});
 
-  it('keeps analytics and AI to the Owner', async () => {
-    await signIn(ADMIN);
-    const [analyticsError, aiError] = await Promise.all([
-      analyticsApi.timePattern().catch((caught: unknown) => caught),
-      aiInsightsApi.get().catch((caught: unknown) => caught),
-    ]);
+describe('the cashier catalogue', () => {
+  beforeEach(() => signIn(CASHIER_A));
 
-    expect(isForbidden(analyticsError)).toBe(true);
-    expect(isForbidden(aiError)).toBe(true);
+  it('excludes inactive products and inactive categories', async () => {
+    const catalog = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    const ids = catalog.items.map((item) => item.productId);
+
+    // prd_old01 is deactivated; prd_rk016 sits in an inactive category.
+    expect(ids).not.toContain('prd_old01');
+    expect(ids).not.toContain('prd_rk016');
   });
 
-  it('keeps the Owner dashboard away from the Admin', async () => {
-    await signIn(ADMIN);
-    const error = await dashboardApi.owner().catch((caught: unknown) => caught);
+  it('carries the outlet stock the cart needs as a ceiling', async () => {
+    const catalog = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    const cola = catalog.items.find((item) => item.productId === 'prd_cc1500');
 
-    expect(isForbidden(error)).toBe(true);
+    expect(cola?.stockQuantity).toBe(5);
+    expect(cola?.price).toBe(15000);
   });
 });
 
@@ -294,13 +353,12 @@ describe('the error cases the UI has to design for', () => {
   it('409s on a duplicate email, naming the field', async () => {
     await signIn(OWNER);
 
-    const error = await usersApi
+    const error = await staffApi
       .create({
-        name: 'Someone Else',
+        name: 'Duplicate',
         email: 'budi@indomart.com',
         password: 'password123',
-        role: 'CASHIER',
-        outlet_id: 'otl_a',
+        role: 'ADMIN',
       })
       .catch((caught: unknown) => caught);
 
@@ -310,249 +368,359 @@ describe('the error cases the UI has to design for', () => {
   it('400s when a cashier is created without an outlet', async () => {
     await signIn(OWNER);
 
-    const error = await usersApi
-      .create({ name: 'A', email: 'a@example.com', password: 'password123', role: 'CASHIER' })
-      .catch((caught: unknown) => caught);
+    const error = await failing(
+      staffApi.create({
+        name: 'Kasir',
+        email: 'kasir@indomart.com',
+        password: 'password123',
+        role: 'CASHIER',
+      })
+    );
 
-    expect((error as ApiError).status).toBe(400);
-    expect((error as ApiError).message).toContain('outlet_id is required');
+    expect(error.kind).toBe('validation');
   });
 
-  it('400s with the shortfall when the cart exceeds stock', async () => {
-    await signIn(CASHIER_A);
+  it('400s when an admin is created with one', async () => {
+    await signIn(OWNER);
 
-    const error = await cartApi
-      .addItem({ product_id: 'prd_cc1500', quantity: 99 })
-      .catch((caught: unknown) => caught);
+    const error = await failing(
+      staffApi.create({
+        name: 'Admin',
+        email: 'admin2@indomart.com',
+        password: 'password123',
+        role: 'ADMIN',
+        outlet_id: 'otl_a',
+      })
+    );
 
-    expect(insufficientStockDetails(error)).toEqual([
-      { productId: 'prd_cc1500', productName: 'Coca Cola 1.5L', requested: 99, available: 5 },
-    ]);
+    expect(error.kind).toBe('validation');
   });
 
-  it('409s with PRICE_CHANGED when a price moves under an open cart', async () => {
+  it('409s with the shortfall when the basket exceeds stock', async () => {
     await signIn(CASHIER_A);
-    const cart = await cartApi.addItem({ product_id: 'prd_cc1500', quantity: 1 });
 
-    // The Admin reprices the product while the cashier's cart is open.
-    await signIn(ADMIN);
-    await productsApi.update('prd_cc1500', { price: '18000.00' });
+    const error = await failing(
+      transactionsApi.checkout(checkoutInput([{ product_id: 'prd_cc1500', quantity: 99 }]))
+    );
 
+    expect(isInsufficientStock(error)).toBe(true);
+    expect(insufficientStockDetails(error)[0]).toMatchObject({ itemIndex: 0, available: 5 });
+  });
+
+  it('409s with PRICE_CHANGED when the expected price is stale', async () => {
     await signIn(CASHIER_A);
+
     const error = await transactionsApi
-      .checkout({ cart_id: cart.cartId })
+      .checkout({
+        ...checkoutInput([{ product_id: 'prd_cc1500', quantity: 1 }]),
+        items: [{ product_id: 'prd_cc1500', quantity: 1, expected_unit_price: '9000.00' }],
+      })
       .catch((caught: unknown) => caught);
 
     expect(isPriceChanged(error)).toBe(true);
-    expect(priceChangedDetails(error)).toEqual([
-      {
-        code: 'PRICE_CHANGED',
-        productId: 'prd_cc1500',
-        productName: 'Coca Cola 1.5L',
-        cartPrice: 15000,
-        currentPrice: 18000,
-      },
-    ]);
+    expect(priceChangedDetails(error)[0]?.currentPrice).toBe(15000);
+  });
+
+  it('409s when the product has been deactivated under the basket', async () => {
+    await signIn(ADMIN);
+    await productsApi.deactivate('prd_cc1500');
+
+    await signIn(CASHIER_A);
+    const error = await transactionsApi
+      .checkout(checkoutInput([{ product_id: 'prd_cc1500', quantity: 1 }]))
+      .catch((caught: unknown) => caught);
+
+    expect(conflictCondition(error)).toBe('PRODUCT_INACTIVE');
   });
 
   it('times out when the server stops answering', async () => {
     await signIn(OWNER);
     setMockScenario('timeout');
 
-    // A short deadline rather than the 15s default, so the suite stays quick.
-    const error = await request({
-      method: 'GET',
-      path: '/outlets',
-      schema: z.unknown(),
-      timeoutMs: 50,
-    }).catch((caught: unknown) => caught);
+    // A short deadline, so the assertion is about the timeout path rather than
+    // about how long the suite is willing to wait.
+    const error = await failing(
+      request({ method: 'GET', path: '/products', schema: z.unknown(), timeoutMs: 20 })
+    );
 
-    expect((error as ApiError).kind).toBe('timeout');
-  });
-
-  it('can force any error on demand, once', async () => {
-    await signIn(OWNER);
-    setMockScenario('server_error', { once: true });
-
-    const failed = await outletsApi.list().catch((caught: unknown) => caught);
-    expect((failed as ApiError).kind).toBe('server');
-
-    // One-shot: the next call goes through normally.
-    await expect(outletsApi.list()).resolves.toHaveLength(3);
-  });
-
-  it('answers 501 for the out-of-scope cancel endpoint', async () => {
-    await signIn(CASHIER_A);
-
-    const error = await request({
-      method: 'POST',
-      path: '/transactions/trx_001/cancel',
-      schema: z.unknown(),
-    }).catch((caught: unknown) => caught);
-
-    expect((error as ApiError).kind).toBe('not_implemented');
+    expect(error.kind).toBe('timeout');
   });
 });
 
 describe('checkout', () => {
   beforeEach(() => signIn(CASHIER_A));
 
-  it('creates a sale, moves stock and empties the cart', async () => {
-    await cartApi.addItem({ product_id: 'prd_cc1500', quantity: 2 });
-    const cart = await cartApi.get();
+  it('creates a sale and moves stock', async () => {
+    const before = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    const stockBefore =
+      before.items.find((item) => item.productId === 'prd_ks250')?.stockQuantity ?? 0;
 
-    const result = await transactionsApi.checkout({ cart_id: cart.cartId });
+    const sale = await transactionsApi.checkout(
+      checkoutInput([{ product_id: 'prd_ks250', quantity: 2 }])
+    );
 
-    expect(result.isDuplicate).toBe(false);
-    expect(result.transaction.total).toBe(30_000);
-    expect(result.items).toHaveLength(1);
-    expect(result.receipt?.receiptNumber).toMatch(/^RC-/);
+    expect(sale.status).toBe('COMPLETED');
+    expect(sale.items).toHaveLength(1);
+    expect(sale.operator.role).toBe('CASHIER');
 
-    const stock = await inventoryApi.getForProduct('otl_a', 'prd_cc1500');
-    expect(stock.quantity).toBe(3);
+    const after = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    const stockAfter =
+      after.items.find((item) => item.productId === 'prd_ks250')?.stockQuantity ?? 0;
 
-    const emptied = await cartApi.get();
-    expect(emptied.items).toHaveLength(0);
+    expect(stockAfter).toBe(stockBefore - 2);
   });
 
   it('keeps total equal to subtotal — there is nothing else to add', async () => {
-    const result = await transactionsApi.checkout({
-      items: [{ product_id: 'prd_cc1500', quantity: 2 }],
-    });
+    const sale = await transactionsApi.checkout(
+      checkoutInput([
+        { product_id: 'prd_ks250', quantity: 2 },
+        { product_id: 'prd_or133', quantity: 1 },
+      ])
+    );
 
-    expect(result.transaction.total).toBe(result.transaction.subtotal);
+    expect(sale.total).toBe(sale.subtotal);
+    expect(sale.total).toBe(18000 * 2 + 10000);
+  });
+
+  it('snapshots the product name onto the line', async () => {
+    const sale = await transactionsApi.checkout(
+      checkoutInput([{ product_id: 'prd_ks250', quantity: 1 }])
+    );
+
+    expect(sale.items[0]?.name).toBe('Kopi Susu Botol 250ml');
   });
 
   it('returns the existing sale when the same request is repeated', async () => {
-    const input = { items: [{ product_id: 'prd_cc1500', quantity: 2 }] };
+    const input = checkoutInput([{ product_id: 'prd_ks250', quantity: 1 }]);
 
     const first = await transactionsApi.checkout(input);
-    const second = await transactionsApi.checkout(input);
+    const replay = await transactionsApi.checkout(input);
 
-    expect(first.isDuplicate).toBe(false);
-    expect(second.isDuplicate).toBe(true);
-    expect(second.transaction.transactionId).toBe(first.transaction.transactionId);
-    expect(second.transaction.transactionNumber).toBe(first.transaction.transactionNumber);
+    expect(replay.transactionId).toBe(first.transactionId);
   });
 
-  it('does not charge or decrement stock twice on a replay', async () => {
-    const input = { items: [{ product_id: 'prd_cc1500', quantity: 2 }] };
+  it('does not decrement stock twice on a replay', async () => {
+    const input = checkoutInput([{ product_id: 'prd_ks250', quantity: 1 }]);
 
     await transactionsApi.checkout(input);
     await transactionsApi.checkout(input);
-    await transactionsApi.checkout(input);
 
-    // Stock moved once: 5 - 2 = 3.
-    const stock = await inventoryApi.getForProduct('otl_a', 'prd_cc1500');
-    expect(stock.quantity).toBe(3);
+    const catalog = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    const stock = catalog.items.find((item) => item.productId === 'prd_ks250')?.stockQuantity;
 
-    const transactions = await transactionsApi.list({ limit: 50 });
-    const created = transactions.items.filter((entry) => entry.total === 30_000);
-    expect(created).toHaveLength(1);
+    // Seeded at 12; exactly one unit sold.
+    expect(stock).toBe(11);
   });
 
-  it('treats a different payload as a different sale', async () => {
-    const first = await transactionsApi.checkout({
-      items: [{ product_id: 'prd_cc1500', quantity: 1 }],
-    });
-    const second = await transactionsApi.checkout({
-      items: [{ product_id: 'prd_cc1500', quantity: 2 }],
+  it('409s when one request id carries two different payloads', async () => {
+    const id = mintCheckoutRequestId();
+
+    await transactionsApi.checkout({
+      ...checkoutInput([{ product_id: 'prd_ks250', quantity: 1 }]),
+      checkout_request_id: id,
     });
 
-    expect(second.transaction.transactionId).not.toBe(first.transaction.transactionId);
+    const error = await transactionsApi
+      .checkout({
+        ...checkoutInput([{ product_id: 'prd_ks250', quantity: 2 }]),
+        checkout_request_id: id,
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(conflictCondition(error)).toBe('IDEMPOTENCY_CONFLICT');
   });
 
   it('refuses to oversell, leaving stock untouched', async () => {
-    const error = await transactionsApi
-      .checkout({ items: [{ product_id: 'prd_cc1500', quantity: 50 }] })
-      .catch((caught: unknown) => caught);
+    await transactionsApi
+      .checkout(checkoutInput([{ product_id: 'prd_cc1500', quantity: 99 }]))
+      .catch(() => null);
 
-    expect(insufficientStockDetails(error)[0]?.available).toBe(5);
+    const catalog = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    const stock = catalog.items.find((item) => item.productId === 'prd_cc1500')?.stockQuantity;
 
-    const stock = await inventoryApi.getForProduct('otl_a', 'prd_cc1500');
-    expect(stock.quantity).toBe(5);
+    expect(stock).toBe(5);
   });
 
-  it('records a payment method and a status', async () => {
-    const result = await transactionsApi.checkout({
-      items: [{ product_id: 'prd_cc1500', quantity: 1 }],
+  it('records a confirmed payment with a method', async () => {
+    const sale = await transactionsApi.checkout({
+      ...checkoutInput([{ product_id: 'prd_ks250', quantity: 1 }]),
       payment_method: 'QRIS',
     });
 
-    // Both are backend gaps the mock fills.
-    expect(result.transaction.payment?.method).toBe('QRIS');
-    expect(result.transaction.status).toBe('COMPLETED');
+    expect(sale.payment.method).toBe('QRIS');
+    expect(sale.payment.status).toBe('CONFIRMED');
+  });
+
+  it('can be recovered by its request id after a dropped response', async () => {
+    const input = checkoutInput([{ product_id: 'prd_ks250', quantity: 1 }]);
+    const sale = await transactionsApi.checkout(input);
+
+    const found = await transactionsApi.statusFor(input.checkout_request_id);
+    expect(found.transactionId).toBe(sale.transactionId);
+  });
+
+  it('404s for a request id that never landed', async () => {
+    const error = await failing(transactionsApi.statusFor(mintCheckoutRequestId()));
+
+    expect(error.kind).toBe('not_found');
   });
 });
 
 describe('transactions', () => {
-  it('shows a cashier only their own outlet', async () => {
+  it('shows a cashier only their own sales', async () => {
     await signIn(CASHIER_A);
-    const transactions = await transactionsApi.list({ limit: 50 });
+    const mine = await transactionsApi.list({ size: 100 });
 
-    expect(transactions.items.length).toBeGreaterThan(0);
-    expect(transactions.items.every((entry) => entry.outletId === 'otl_a')).toBe(true);
+    expect(mine.items.length).toBeGreaterThan(0);
+    for (const row of mine.items) expect(row.operatorName).toBe('Budi Santoso');
+  });
+
+  it('shows two cashiers at one outlet different lists', async () => {
+    await signIn(CASHIER_A);
+    const budi = await transactionsApi.list({ size: 100 });
+
+    await signIn(CASHIER_B);
+    const rudi = await transactionsApi.list({ size: 100 });
+
+    const overlap = budi.items.filter((row) =>
+      rudi.items.some((other) => other.transactionId === row.transactionId)
+    );
+    expect(overlap).toHaveLength(0);
   });
 
   it('shows the Owner every outlet that has sales', async () => {
     await signIn(OWNER);
-    const transactions = await transactionsApi.list({ limit: 50 });
+    const all = await transactionsApi.list({ size: 100 });
 
-    // Outlet C has no cashier in the brief, so it has no seeded sales.
-    const outlets = new Set(transactions.items.map((entry) => entry.outletId));
-    expect([...outlets].sort()).toEqual(['otl_a', 'otl_b']);
+    const outlets = new Set(all.items.map((row) => row.outletId));
+    expect(outlets.size).toBeGreaterThan(1);
   });
 
-  it('reproduces the totals quoted in the contract', async () => {
+  it('finds a sale by its exact number and nothing less', async () => {
     await signIn(OWNER);
-    const detail = await transactionsApi.get('trx_001');
+    const all = await transactionsApi.list({ size: 100 });
+    const target = all.items[0]!;
 
-    expect(detail.transaction.transactionNumber).toBe('TRX-20260813-001');
-    expect(detail.transaction.total).toBe(150_000);
-    expect(detail.transaction.subtotal).toBe(150_000);
+    const found = await transactionsApi.search(target.transactionNumber);
+    expect(found.transactionId).toBe(target.transactionId);
 
-    const lineSum = detail.items.reduce((sum, item) => sum + item.subtotal, 0);
-    expect(lineSum).toBe(detail.transaction.total);
+    // §5.2 is an exact match: a prefix finds nothing.
+    const error = await failing(transactionsApi.search(target.transactionNumber.slice(0, 8)));
+    expect(error.kind).toBe('not_found');
   });
 
   it('filters by date range', async () => {
     await signIn(OWNER);
-    const transactions = await transactionsApi.list({
-      start_date: '2026-08-13',
-      end_date: '2026-08-13',
-      limit: 50,
+
+    const narrow = await transactionsApi.list({
+      date_from: '2026-08-13T00:00:00+07:00',
+      date_to: '2026-08-13T23:59:59+07:00',
+      size: 100,
     });
 
-    expect(transactions.items.length).toBeGreaterThan(0);
-    expect(transactions.items.every((entry) => entry.createdAt?.startsWith('2026-08-13'))).toBe(
-      true
-    );
+    const from = Date.parse('2026-08-13T00:00:00+07:00');
+    const to = Date.parse('2026-08-13T23:59:59+07:00');
+
+    expect(narrow.total).toBeGreaterThan(0);
+    // Compared as instants, not as strings: the range carries a +07:00 offset
+    // and the timestamps are stored in UTC, so a sale at 01:40 local reads as
+    // the previous calendar day in its own text.
+    for (const row of narrow.items) {
+      const at = Date.parse(row.createdAt);
+      expect(at).toBeGreaterThanOrEqual(from);
+      expect(at).toBeLessThanOrEqual(to);
+    }
+  });
+
+  it('serves a printable receipt with the header fields only it carries', async () => {
+    await signIn(OWNER);
+    const all = await transactionsApi.list({ size: 100 });
+
+    const receipt = await transactionsApi.receipt(all.items[0]!.transactionId);
+
+    expect(receipt.merchantName).toBe('IndoMart Retail');
+    expect(receipt.outletName).not.toBe('');
+    expect(receipt.items.length).toBeGreaterThan(0);
   });
 });
 
-describe('the cart', () => {
-  beforeEach(() => signIn(CASHIER_A));
+describe('stock adjustment', () => {
+  beforeEach(() => signIn(ADMIN));
 
-  it('is empty until something is added', async () => {
-    const error = await cartApi.get().catch((caught: unknown) => caught);
-    expect((error as ApiError).kind).toBe('not_found');
+  it('applies a signed delta and reports both sides of the move', async () => {
+    const result = await inventoryApi.adjust({
+      outlet_id: 'otl_a',
+      product_id: 'prd_cc1500',
+      delta: 7,
+      reason: 'Restock dari supplier',
+    });
+
+    expect(result.quantityBefore).toBe(5);
+    expect(result.quantityAfter).toBe(12);
   });
 
-  it('totals lines in integer rupiah', async () => {
-    await cartApi.addItem({ product_id: 'prd_cc1500', quantity: 2 });
-    const cart = await cartApi.addItem({ product_id: 'prd_im001', quantity: 3 });
+  it('rejects a zero delta and a missing reason', async () => {
+    const zero = await failing(
+      inventoryApi.adjust({ outlet_id: 'otl_a', product_id: 'prd_cc1500', delta: 0, reason: 'x' })
+    );
+    expect(zero.kind).toBe('validation');
 
-    // 2 x 15.000 + 3 x 3.500
-    expect(cart.subtotal).toBe(40_500);
-    expect(cart.totalItems).toBe(2);
-    expect(cart.items.every((item) => Number.isInteger(item.unitPrice))).toBe(true);
+    const noReason = await failing(
+      inventoryApi.adjust({ outlet_id: 'otl_a', product_id: 'prd_cc1500', delta: 1, reason: '  ' })
+    );
+    expect(noReason.kind).toBe('validation');
   });
 
-  it('clears on request', async () => {
-    await cartApi.addItem({ product_id: 'prd_cc1500', quantity: 1 });
-    const cleared = await cartApi.clear();
+  it('refuses to go negative, and writes nothing when it would', async () => {
+    const error = await failing(
+      inventoryApi.adjust({
+        outlet_id: 'otl_a',
+        product_id: 'prd_cc1500',
+        delta: -99,
+        reason: 'Rusak',
+      })
+    );
 
-    expect(cleared.items).toHaveLength(0);
-    expect(cleared.subtotal).toBe(0);
+    expect(error.kind).toBe('conflict');
+
+    const rows = await inventoryApi.list({ outlet_id: 'otl_a', product_id: 'prd_cc1500' });
+    expect(rows.items[0]?.quantity).toBe(5);
+  });
+
+  it('writes a movement the ledger can show', async () => {
+    await inventoryApi.adjust({
+      outlet_id: 'otl_a',
+      product_id: 'prd_cc1500',
+      delta: 3,
+      reason: 'Stock opname',
+    });
+
+    const movements = await inventoryApi.movements({ product_id: 'prd_cc1500' });
+
+    expect(movements.items[0]?.type).toBe('ADJUSTMENT');
+    expect(movements.items[0]?.reason).toBe('Stock opname');
+  });
+});
+
+describe('insight', () => {
+  beforeEach(() => signIn(OWNER));
+
+  it('returns the latest job and one result per type', async () => {
+    const response = await insightsApi.get();
+
+    expect(response.analysisJob.status).toBe('READY');
+    expect(response.insights.length).toBeGreaterThan(0);
+    expect(new Set(response.insights.map((insight) => insight.type)).size).toBe(
+      response.insights.length
+    );
+  });
+
+  it('queues a job on the first trigger of the day and reuses it after', async () => {
+    const first = await insightsApi.trigger();
+    const second = await insightsApi.trigger();
+
+    expect(second.jobId).toBe(first.jobId);
+    // §7.2: the second call is a 200, not a second 202.
+    expect(second.isNewJob).toBe(false);
   });
 });

@@ -99,10 +99,7 @@ export function UnderperformingCard({
 }) {
   // Weakest first: this card is read from the top like the other one, so the
   // worst seller has to be the first row rather than the last.
-  const rows = React.useMemo(
-    () => [...products].sort((a, b) => a.omzet - b.omzet),
-    [products]
-  );
+  const rows = React.useMemo(() => [...products].sort((a, b) => a.omzet - b.omzet), [products]);
 
   return (
     <Card className={className}>

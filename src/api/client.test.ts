@@ -4,6 +4,10 @@
  * That is the point: these are the same domain clients the app uses in mock
  * mode, fed hand-written contract payloads. If they behave identically here,
  * nothing above the transport depends on which mode is active.
+ *
+ * Everything below is shaped by docs/07-iterasi-1-api-contract.md — §0 for the
+ * envelopes, pagination and money, §0.1 for the error conditions, §5.2 for
+ * checkout.
  */
 
 import { z } from 'zod';
@@ -11,21 +15,23 @@ import { z } from 'zod';
 import { request, setTransport } from '@/api/client';
 import { dashboardApi } from '@/services/dashboard';
 import { productsApi } from '@/services/products';
+import { staffApi } from '@/services/staff';
 import { transactionsApi } from '@/services/transactions';
-import { usersApi } from '@/services/users';
 import {
   ApiError,
+  conflictCondition,
   fieldErrors,
   insufficientStockDetails,
   isDuplicateEmail,
   isInsufficientStock,
   isPriceChanged,
+  isRateLimited,
   isUnauthorized,
   priceChangedDetails,
 } from '@/api/errors';
 import type { ApiRawResponse, Transport } from '@/api/transport';
 
-/** Wrap a payload the way the contract's §2 envelope does. */
+/** Wrap a payload the way §0's success envelope does. */
 function envelope(data: unknown, status = 200): ApiRawResponse {
   return { status, body: { success: true, statusCode: status, message: 'ok', data } };
 }
@@ -41,216 +47,294 @@ function stub(response: ApiRawResponse): Transport {
   return () => Promise.resolve(response);
 }
 
+/** §0: `content` / zero-based `page` / `size` / `total_elements` / `total_pages`. */
+function pageOf(content: unknown[], overrides: Record<string, number> = {}) {
+  return {
+    content,
+    page: 0,
+    size: 20,
+    total_elements: content.length,
+    total_pages: 1,
+    ...overrides,
+  };
+}
+
 afterEach(() => setTransport(null));
 
+/** §3.4 `ProductDto`. Note what is absent: there is no `sku` in this contract. */
 const PRODUCT_PAYLOAD = {
-  product_id: 'prd_1',
+  id: 'prd_1',
   merchant_id: 'mrc_1',
   category_id: 'cat_1',
+  category_name: 'Beverages',
   name: 'Coca Cola 1.5L',
-  sku: 'CC-1500',
   price: '15000.00',
-  status: 'ACTIVE',
+  low_stock_threshold: 10,
+  is_active: true,
   created_at: '2026-08-13T14:30:00.000Z',
   updated_at: '2026-08-13T14:30:00.000Z',
-  category: { category_id: 'cat_1', name: 'Beverages' },
+};
+
+const PERIOD = { date_from: '2026-08-01T00:00:00+07:00', date_to: '2026-08-13T23:59:59+07:00' };
+
+const META = {
+  data_updated_at: '2026-08-13T09:55:00+07:00',
+  freshness_status: 'FRESH',
+  timezone: 'Asia/Jakarta',
+  period_start: PERIOD.date_from,
+  period_end: PERIOD.date_to,
 };
 
 describe('money is parsed to integer rupiah at the boundary', () => {
   it('turns the API decimal string into an exact integer', async () => {
-    setTransport(stub(envelope(PRODUCT_PAYLOAD)));
+    setTransport(stub(envelope(pageOf([PRODUCT_PAYLOAD]))));
 
-    const product = await productsApi.get('prd_1');
+    const page = await productsApi.list();
 
-    expect(product.price).toBe(15000);
-    expect(typeof product.price).toBe('number');
+    expect(page.items[0]?.price).toBe(15000);
+    expect(typeof page.items[0]?.price).toBe('number');
   });
 
   it('never lets a decimal string through to the caller', async () => {
+    setTransport(stub(envelope(pageOf([{ ...PRODUCT_PAYLOAD, price: '1250750.00' }]))));
+
+    const page = await productsApi.list();
+
+    expect(page.items[0]?.price).toBe(1250750);
+  });
+
+  it('parses every money field of the dashboard summary', async () => {
     setTransport(
       stub(
         envelope({
-          items: [PRODUCT_PAYLOAD],
-          total: 1,
-          page: 1,
-          limit: 10,
-          total_pages: 1,
+          omzet: '4500000.00',
+          transaction_count: 128,
+          average_transaction_value: '35156.00',
+          ...META,
         })
       )
     );
 
-    const result = await productsApi.list();
+    const summary = await dashboardApi.summary(PERIOD);
 
-    expect(JSON.stringify(result)).not.toContain('15000.00');
-    expect(result.items[0]?.price).toBe(15000);
-  });
-
-  it('parses every money field of the Owner dashboard', async () => {
-    setTransport(stub(envelope(OWNER_DASHBOARD_PAYLOAD)));
-
-    const dashboard = await dashboardApi.owner();
-
-    expect(dashboard.summary.totalRevenue).toBe(15750000);
-    expect(dashboard.summary.averageOrderValue).toBe(12600);
-    expect(dashboard.salesTrend.revenue).toEqual([2100000, 1800000]);
-    expect(dashboard.outletPerformance[0]?.totalRevenue).toBe(7250000);
-    expect(dashboard.aovTrend.values.every(Number.isInteger)).toBe(true);
-  });
-
-  it('keeps percentages as floats — they are not money', async () => {
-    setTransport(stub(envelope(OWNER_DASHBOARD_PAYLOAD)));
-
-    const dashboard = await dashboardApi.owner();
-
-    expect(dashboard.summary.revenueGrowth).toBe(12.5);
+    expect(summary.omzet).toBe(4500000);
+    expect(summary.averageTransactionValue).toBe(35156);
+    expect(summary.transactionCount).toBe(128);
   });
 
   it('fails loudly on a fractional rupiah rather than rounding it', async () => {
-    setTransport(stub(envelope({ ...PRODUCT_PAYLOAD, price: '15000.50' })));
+    setTransport(stub(envelope(pageOf([{ ...PRODUCT_PAYLOAD, price: '15000.50' }]))));
 
-    await expect(productsApi.get('prd_1')).rejects.toMatchObject({ kind: 'parse' });
+    await expect(productsApi.list()).rejects.toMatchObject({ kind: 'parse' });
+  });
+
+  it('lifts the inline dashboard meta into one object', async () => {
+    setTransport(
+      stub(
+        envelope({
+          omzet: '0.00',
+          transaction_count: 0,
+          average_transaction_value: '0.00',
+          ...META,
+          freshness_status: 'STALE',
+        })
+      )
+    );
+
+    const summary = await dashboardApi.summary(PERIOD);
+
+    // §6.1: a STALE read is still a 200 carrying the last aggregate.
+    expect(summary.meta.freshness).toBe('STALE');
+    expect(summary.meta.timezone).toBe('Asia/Jakarta');
+    expect(summary.meta.periodStart).toBe(PERIOD.date_from);
   });
 });
 
 describe('a malformed payload fails at the boundary', () => {
   it('rejects a response missing a required field', async () => {
-    const withoutName = { ...PRODUCT_PAYLOAD };
-    delete (withoutName as Record<string, unknown>).name;
-    setTransport(stub(envelope(withoutName)));
+    const withoutPrice: Record<string, unknown> = { ...PRODUCT_PAYLOAD };
+    delete withoutPrice.price;
+    setTransport(stub(envelope(pageOf([withoutPrice]))));
 
-    await expect(productsApi.get('prd_1')).rejects.toBeInstanceOf(ApiError);
+    await expect(productsApi.list()).rejects.toMatchObject({ kind: 'parse' });
   });
 
   it('rejects a field of the wrong type instead of rendering undefined', async () => {
-    setTransport(stub(envelope({ ...PRODUCT_PAYLOAD, price: { amount: 15000 } })));
+    setTransport(stub(envelope(pageOf([{ ...PRODUCT_PAYLOAD, low_stock_threshold: 'ten' }]))));
 
-    const error = await productsApi.get('prd_1').catch((caught: unknown) => caught);
-
-    expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).kind).toBe('parse');
+    await expect(productsApi.list()).rejects.toMatchObject({ kind: 'parse' });
   });
 
   it('rejects a body that is not an envelope at all', async () => {
-    setTransport(stub({ status: 200, body: '<html>gateway</html>' }));
+    setTransport(stub({ status: 200, body: [PRODUCT_PAYLOAD] }));
 
-    await expect(productsApi.get('prd_1')).rejects.toMatchObject({ kind: 'parse' });
+    await expect(productsApi.list()).rejects.toMatchObject({ kind: 'parse' });
   });
 
-  it('accepts fields the backend does not send yet', async () => {
-    // sku is a known backend gap: absent upstream, still present in the type.
-    const withoutSku = { ...PRODUCT_PAYLOAD };
-    delete (withoutSku as Record<string, unknown>).sku;
-    setTransport(stub(envelope(withoutSku)));
+  it('rejects the old page shape, so a stale backend cannot go unnoticed', async () => {
+    setTransport(
+      stub(envelope({ items: [PRODUCT_PAYLOAD], total: 1, page: 1, limit: 20, total_pages: 1 }))
+    );
 
-    const product = await productsApi.get('prd_1');
+    await expect(productsApi.list()).rejects.toMatchObject({ kind: 'parse' });
+  });
+});
 
-    expect(product.sku).toBe('');
-    expect(product.price).toBe(15000);
+describe('204 responses', () => {
+  it('reads a no-content success rather than failing on the missing envelope', async () => {
+    setTransport(stub({ status: 204, body: null }));
+
+    const result = await request({
+      method: 'DELETE',
+      path: '/inventory/prd_1/outlets/otl_a/low-stock-threshold',
+      schema: z.null(),
+    });
+
+    expect(result).toBeNull();
   });
 });
 
 describe('error envelopes become typed ApiErrors', () => {
   it('maps 401 to unauthorized', async () => {
-    setTransport(stub(failure(401, 'Invalid email or password')));
+    setTransport(stub(failure(401, 'Autentikasi gagal')));
 
-    const error = await usersApi.list().catch((caught: unknown) => caught);
+    const error = await productsApi.list().catch((caught: unknown) => caught);
 
+    expect(error).toBeInstanceOf(ApiError);
     expect(isUnauthorized(error)).toBe(true);
-    expect((error as ApiError).message).toBe('Invalid email or password');
   });
 
-  it.each([
-    [403, 'forbidden'],
-    [404, 'not_found'],
-    [409, 'conflict'],
-    [400, 'validation'],
-    [500, 'server'],
-    [501, 'not_implemented'],
-  ])('maps %i to %s', async (status, kind) => {
-    setTransport(stub(failure(status, 'failed')));
+  it('maps 429 to rate limited', async () => {
+    setTransport(stub(failure(429, 'Terlalu banyak permintaan')));
 
-    const error = await usersApi.list().catch((caught: unknown) => caught);
+    const error = await productsApi.list().catch((caught: unknown) => caught);
 
-    expect((error as ApiError).kind).toBe(kind);
+    expect(isRateLimited(error)).toBe(true);
   });
 
   it('exposes field errors for a form to consume', async () => {
     setTransport(
       stub(
-        failure(409, 'Email already registered', [
-          { field: 'email', message: 'Email owner@indomart.com is already used' },
+        failure(400, 'Validasi gagal', [
+          { field: 'name', message: 'Name should not be empty' },
+          { field: 'low_stock_threshold', message: 'must not be negative' },
         ])
       )
     );
 
-    const error = await usersApi.list().catch((caught: unknown) => caught);
+    const error = await productsApi
+      .create({ name: '', price: '0.00', category_id: 'cat_1', low_stock_threshold: -1 })
+      .catch((caught: unknown) => caught);
 
-    expect(isDuplicateEmail(error)).toBe(true);
     expect(fieldErrors(error)).toEqual([
-      { field: 'email', message: 'Email owner@indomart.com is already used' },
+      { field: 'name', message: 'Name should not be empty' },
+      { field: 'low_stock_threshold', message: 'must not be negative' },
     ]);
   });
 
-  it('exposes the shortfall behind an insufficient-stock 400', async () => {
+  it('recognises a duplicate email from the 409 template', async () => {
+    setTransport(stub(failure(409, 'Email sudah terdaftar')));
+
+    const error = await staffApi
+      .create({ name: 'Sari', email: 'sari@indomart.com', password: 'InitPass1!', role: 'ADMIN' })
+      .catch((caught: unknown) => caught);
+
+    expect(isDuplicateEmail(error)).toBe(true);
+    expect(conflictCondition(error)).toBe('EMAIL_ALREADY_REGISTERED');
+  });
+});
+
+describe('checkout conflicts (§5.2)', () => {
+  const INPUT = {
+    checkout_request_id: 'a3f5c9d2-1e4b-4a2c-9f21-000000000001',
+    outlet_id: 'otl_a',
+    payment_method: 'CASH' as const,
+    items: [{ product_id: 'prd_1', quantity: 2 }],
+  };
+
+  it('reads the shortfall out of an insufficient-stock 409', async () => {
     setTransport(
       stub(
-        failure(400, 'Insufficient stock for product: Coca Cola 1.5L', [
-          { product_id: 'prd_1', product_name: 'Coca Cola 1.5L', requested: 5, available: 3 },
+        failure(409, 'Stok tidak mencukupi', [
+          { field: 'items[1].product_id', message: 'stock=0, requested=1' },
         ])
       )
     );
 
-    const error = await transactionsApi
-      .checkout({ items: [{ product_id: 'prd_1', quantity: 5 }] })
-      .catch((caught: unknown) => caught);
+    const error = await transactionsApi.checkout(INPUT).catch((caught: unknown) => caught);
 
     expect(isInsufficientStock(error)).toBe(true);
     expect(insufficientStockDetails(error)).toEqual([
-      { productId: 'prd_1', productName: 'Coca Cola 1.5L', requested: 5, available: 3 },
+      { field: 'items[1].product_id', itemIndex: 1, available: 0, requested: 1 },
     ]);
   });
 
-  it('parses price-changed money into integers too', async () => {
+  it('parses the new price out of a price-changed 409 as integer rupiah', async () => {
     setTransport(
       stub(
-        failure(409, 'Cart validation failed', [
-          {
-            code: 'PRICE_CHANGED',
-            product_id: 'prd_1',
-            product_name: 'Coca Cola 1.5L',
-            cart_price: '15000.00',
-            current_price: '18000.00',
-          },
+        failure(409, 'Harga produk berubah', [
+          { field: 'items[0].product_id', message: 'current_price=9000.00' },
         ])
       )
     );
 
-    const error = await transactionsApi
-      .checkout({ cart_id: 'cart_1' })
-      .catch((caught: unknown) => caught);
+    const error = await transactionsApi.checkout(INPUT).catch((caught: unknown) => caught);
 
     expect(isPriceChanged(error)).toBe(true);
     expect(priceChangedDetails(error)).toEqual([
-      {
-        code: 'PRICE_CHANGED',
-        productId: 'prd_1',
-        productName: 'Coca Cola 1.5L',
-        cartPrice: 15000,
-        currentPrice: 18000,
-      },
+      { field: 'items[0].product_id', itemIndex: 0, currentPrice: 9000 },
     ]);
+  });
+
+  it('separates the named 409s that share a status code', async () => {
+    setTransport(stub(failure(409, 'Kategori produk tidak aktif')));
+    let error = await transactionsApi.checkout(INPUT).catch((caught: unknown) => caught);
+    expect(conflictCondition(error)).toBe('CATEGORY_INACTIVE');
+
+    setTransport(stub(failure(409, 'Konflik idempotency checkout')));
+    error = await transactionsApi.checkout(INPUT).catch((caught: unknown) => caught);
+    expect(conflictCondition(error)).toBe('IDEMPOTENCY_CONFLICT');
+  });
+
+  it('puts the request id in the body, not in a header', async () => {
+    const seen: unknown[] = [];
+    setTransport((sent) => {
+      seen.push(sent.body);
+      return Promise.resolve(
+        envelope({
+          transaction_id: 'trx_1',
+          transaction_number: 'TRX-20260813-001',
+          status: 'COMPLETED',
+          outlet_id: 'otl_a',
+          operator: { user_id: 'usr_1', role: 'CASHIER', name: 'Budi' },
+          items: [],
+          subtotal: '0.00',
+          total: '0.00',
+          payment: {
+            method: 'CASH',
+            status: 'CONFIRMED',
+            paid_at: '2026-08-13T14:30:00+07:00',
+          },
+          created_at: '2026-08-13T14:30:00+07:00',
+        })
+      );
+    });
+
+    await transactionsApi.checkout(INPUT);
+
+    expect(seen[0]).toMatchObject({ checkout_request_id: INPUT.checkout_request_id });
   });
 });
 
 describe('timeouts', () => {
   it('aborts and reports a timeout when the server never answers', async () => {
     setTransport(
-      (apiRequest) =>
+      (sent) =>
         new Promise((_resolve, reject) => {
-          apiRequest.signal?.addEventListener('abort', () => {
-            const error = new Error('Aborted');
-            error.name = 'AbortError';
-            reject(error);
+          sent.signal?.addEventListener('abort', () => {
+            const abort = new Error('aborted');
+            abort.name = 'AbortError';
+            reject(abort);
           });
         })
     );
@@ -259,9 +343,10 @@ describe('timeouts', () => {
       method: 'GET',
       path: '/products',
       schema: z.unknown(),
-      timeoutMs: 30,
+      timeoutMs: 10,
     }).catch((caught: unknown) => caught);
 
+    expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).kind).toBe('timeout');
   });
 });
@@ -270,148 +355,18 @@ describe('pagination', () => {
   it('normalises the contract page block', async () => {
     setTransport(
       stub(
-        envelope({
-          items: [PRODUCT_PAYLOAD],
-          total: 156,
-          page: 1,
-          limit: 10,
-          total_pages: 16,
-        })
+        envelope(
+          pageOf([PRODUCT_PAYLOAD], { page: 2, size: 20, total_elements: 134, total_pages: 7 })
+        )
       )
     );
 
-    const result = await productsApi.list({ page: 1 });
+    const page = await productsApi.list({ page: 2, size: 20 });
 
-    expect(result.total).toBe(156);
-    expect(result.totalPages).toBe(16);
+    expect(page.items).toHaveLength(1);
+    expect(page.page).toBe(2);
+    expect(page.size).toBe(20);
+    expect(page.total).toBe(134);
+    expect(page.totalPages).toBe(7);
   });
 });
-
-describe('checkout idempotency at the client', () => {
-  it('sends a stable key derived from the payload', async () => {
-    const keys: (string | undefined)[] = [];
-    setTransport((apiRequest) => {
-      keys.push(apiRequest.idempotencyKey);
-      return Promise.resolve(envelope({ transaction: TRANSACTION_PAYLOAD }, 200));
-    });
-
-    await transactionsApi.checkout({ items: [{ product_id: 'prd_1', quantity: 2 }] });
-    await transactionsApi.checkout({ items: [{ product_id: 'prd_1', quantity: 2 }] });
-    await transactionsApi.checkout({ items: [{ product_id: 'prd_1', quantity: 3 }] });
-
-    expect(keys[0]).toBeDefined();
-    expect(keys[0]).toBe(keys[1]);
-    expect(keys[2]).not.toBe(keys[0]);
-  });
-
-  it('flags a 200 as a replay and a 201 as a new sale', async () => {
-    setTransport(stub(envelope({ transaction: TRANSACTION_PAYLOAD }, 200)));
-    const replay = await transactionsApi.checkout({ cart_id: 'cart_1' });
-    expect(replay.isDuplicate).toBe(true);
-
-    setTransport(stub(envelope({ transaction: TRANSACTION_PAYLOAD, items: [] }, 201)));
-    const fresh = await transactionsApi.checkout({ cart_id: 'cart_1' });
-    expect(fresh.isDuplicate).toBe(false);
-  });
-
-  it('reads the abbreviated replay payload, falling back to total for subtotal', async () => {
-    setTransport(stub(envelope({ transaction: TRANSACTION_PAYLOAD }, 200)));
-
-    const result = await transactionsApi.checkout({ cart_id: 'cart_1' });
-
-    expect(result.transaction.total).toBe(45000);
-    expect(result.transaction.subtotal).toBe(45000);
-    expect(result.items).toEqual([]);
-  });
-});
-
-/* -------------------------------------------------------------------------- */
-/* Fixtures                                                                    */
-/* -------------------------------------------------------------------------- */
-
-/** The contract's idempotent-replay payload: total only, no subtotal. */
-const TRANSACTION_PAYLOAD = {
-  transaction_id: 'trx_1',
-  transaction_number: 'TRX-20260813-002',
-  total: '45000.00',
-  status: 'COMPLETED',
-};
-
-const OWNER_DASHBOARD_PAYLOAD = {
-  summary: {
-    total_revenue: '15750000.00',
-    total_transactions: 1250,
-    total_orders: 1250,
-    average_order_value: '12600.00',
-    total_products_sold: 3420,
-    total_outlets: 3,
-    total_employees: 5,
-    total_products: 12,
-    revenue_growth: 12.5,
-    transactions_growth: 8.3,
-    products_sold_growth: 5.1,
-  },
-  sales_trend: {
-    labels: ['2026-08-01', '2026-08-02'],
-    datasets: { revenue: ['2100000.00', '1800000.00'], transactions: [180, 150] },
-    summary: {
-      highest_revenue: '2700000.00',
-      lowest_revenue: '1800000.00',
-      average_revenue: '2250000.00',
-      total_revenue: '15750000.00',
-    },
-  },
-  outlet_performance: [
-    {
-      outlet_id: 'otl_a',
-      outlet_name: 'Outlet A - Mall Central',
-      total_revenue: '7250000.00',
-      total_transactions: 580,
-      average_order_value: '12500.00',
-      total_products_sold: 1520,
-      contribution_percentage: 46.03,
-      revenue_growth: 15.2,
-    },
-  ],
-  top_products: { by_revenue: [], by_quantity: [] },
-  underperforming_products: [],
-  time_pattern: {
-    hourly_distribution: [{ hour: 8, revenue: '150000.00', transaction_count: 12 }],
-    peak_hours: [12, 13],
-    busiest_day: 'Saturday',
-    quietest_day: 'Monday',
-    insights: [],
-  },
-  aov_trend: {
-    labels: ['Week 1', 'Week 2'],
-    values: ['11200.00', '11800.00'],
-    current_aov: '12600.00',
-    previous_aov: '11800.00',
-    growth_percentage: 6.78,
-  },
-  recent_transactions: [],
-  merchant_overview: {
-    merchant_name: 'IndoMart Retail',
-    total_outlets_active: 3,
-    total_employees_active: 5,
-    total_products_active: 12,
-    total_categories: 8,
-    last_ai_analysis: '2026-08-12T08:00:00.000Z',
-    ai_available_today: true,
-  },
-  period_comparison: {
-    current_period: {
-      start_date: '2026-08-01',
-      end_date: '2026-08-11',
-      total_revenue: '15750000.00',
-      total_transactions: 1250,
-    },
-    previous_period: {
-      start_date: '2026-07-21',
-      end_date: '2026-07-31',
-      total_revenue: '14000000.00',
-      total_transactions: 1150,
-    },
-    changes: { revenue_percentage: 12.5, transactions_percentage: 8.7, aov_percentage: 6.78 },
-  },
-};

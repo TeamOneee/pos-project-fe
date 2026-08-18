@@ -43,10 +43,9 @@ async function signInAs(email: string) {
 }
 
 async function open(path: string) {
-  render(<App />);
+  window.history.pushState({}, '', path);
   await act(async () => {
-    window.history.pushState({}, '', path);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
   });
 }
 
@@ -112,7 +111,7 @@ describe('checkout error recovery', () => {
     await click(tile);
 
     // The 400 the API answers when the cart exceeds what the outlet holds.
-    setMockScenario('insufficient_stock', { path: '/transactions', once: true });
+    setMockScenario('insufficient_stock', { path: '/checkout', once: true });
 
     await click(await screen.findByRole('button', { name: 'Bayar Rp 15.000' }));
     await click(await screen.findByRole('radio', { name: /Non-Tunai/ }));
@@ -135,7 +134,7 @@ describe('checkout error recovery', () => {
     await click(tile);
 
     // The 409 PRICE_CHANGED case: the catalogue moved after the cart was built.
-    setMockScenario('price_changed', { path: '/transactions', once: true });
+    setMockScenario('price_changed', { path: '/checkout', once: true });
 
     await click(await screen.findByRole('button', { name: 'Bayar Rp 15.000' }));
     await click(await screen.findByRole('radio', { name: /Non-Tunai/ }));

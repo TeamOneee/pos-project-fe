@@ -72,10 +72,7 @@ export function TransactionDetailBody({
         <MetaRow label="Tanggal" value={formatDateTime(transaction.createdAt)} />
         <MetaRow label="Outlet" value={outletName || '—'} />
         <MetaRow label="Kasir" value={transaction.operator.name} />
-        <MetaRow
-          label="Metode Pembayaran"
-          value={METHOD_LABEL[transaction.payment.method]}
-        />
+        <MetaRow label="Metode Pembayaran" value={METHOD_LABEL[transaction.payment.method]} />
       </div>
 
       <Separator />

@@ -10,13 +10,17 @@
  *
  * It is also the only way a cashier can name their own outlet: `GET /outlets`
  * is Owner and Admin only.
+ *
+ * Scope is left entirely to the server. §5.2 forces `operator_user_id` for a
+ * cashier and disguises anything out of scope as a 404 — a client-side check
+ * could not reproduce the operator rule from a summary row anyway, and saying
+ * "this belongs to another outlet" would leak that the sale exists.
  */
 
 import * as React from 'react';
 
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { useAuth } from '@/components/pages/auth/auth-provider';
 import {
   TransactionDetailBody,
   TransactionDetailError,
@@ -28,10 +32,8 @@ import { downloadReceiptPdf, PDF_DESTINATION_HINT } from '@/lib/download-receipt
 import { printReceipt } from '@/lib/print-receipt';
 import { receiptFromDto } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
-import { isTransactionVisible } from '@/lib/transaction-scope';
 
 export function TransactionDetailPanel({ transactionId }: { transactionId: string }) {
-  const { role, outletId } = useAuth();
   const { toast } = useToast();
   const detail = useTransaction(transactionId);
   const receiptQuery = useReceipt(transactionId);
@@ -69,12 +71,6 @@ export function TransactionDetailPanel({ transactionId }: { transactionId: strin
 
   if (detail.isError || !transaction) {
     return <TransactionDetailError forbidden={isApiErrorOfKind(detail.error, 'forbidden')} />;
-  }
-
-  // The server scopes this too; the client agreeing with it keeps a deep link
-  // out of another outlet's sale from rendering before the 404 arrives.
-  if (!isTransactionVisible(transaction, role, outletId)) {
-    return <TransactionDetailError forbidden />;
   }
 
   return (

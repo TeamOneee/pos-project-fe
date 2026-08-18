@@ -33,7 +33,8 @@ export function useInsights(options: { enabled?: boolean } = {}) {
     // 404 means "never triggered", which the screen renders as an empty state
     // rather than a failure. Retrying it would only delay that.
     retry: (failureCount, error) =>
-      !isApiErrorOfKind(error, 'not_found') && !isApiErrorOfKind(error, 'forbidden') &&
+      !isApiErrorOfKind(error, 'not_found') &&
+      !isApiErrorOfKind(error, 'forbidden') &&
       failureCount < 2,
     refetchInterval: (query) => {
       const status = query.state.data?.analysisJob.status;

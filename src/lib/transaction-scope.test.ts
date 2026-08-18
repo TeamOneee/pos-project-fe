@@ -8,29 +8,25 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { Transaction } from '@/services/transactions';
+import type { TransactionSummary } from '@/services/transactions';
 import {
+  isSearchable,
   isTransactionVisible,
-  matchesTransactionNumber,
   pageOf,
   scopeTransactionFilters,
+  searchTerm,
   summariseTransactions,
 } from '@/lib/transaction-scope';
 
-function transaction(overrides: Partial<Transaction> = {}): Transaction {
+function transaction(overrides: Partial<TransactionSummary> = {}): TransactionSummary {
   return {
     transactionId: 'trx_1',
-    outletId: 'otl_a',
-    userId: 'usr_1',
     transactionNumber: 'TRX-20260813-001',
-    subtotal: 150000,
+    outletId: 'otl_a',
+    operatorName: 'Budi Santoso',
     total: 150000,
     status: 'COMPLETED',
     createdAt: '2026-08-13T14:30:00.000Z',
-    itemCount: 3,
-    payment: null,
-    outlet: null,
-    cashier: null,
     ...overrides,
   };
 }
@@ -60,22 +56,21 @@ describe('transaction scoping', () => {
 
   it('keeps the other filters intact', () => {
     const scoped = scopeTransactionFilters(
-      { start_date: '2026-08-01', end_date: '2026-08-13', cashier_id: 'usr_9', page: 2 },
+      { date_from: '2026-08-01', date_to: '2026-08-13', page: 2 },
       'CASHIER',
       'otl_a'
     );
 
     expect(scoped.filters).toEqual({
-      start_date: '2026-08-01',
-      end_date: '2026-08-13',
-      cashier_id: 'usr_9',
+      date_from: '2026-08-01',
+      date_to: '2026-08-13',
       page: 2,
       outlet_id: 'otl_a',
     });
   });
 
   it('decides detail visibility by outlet, not by till', () => {
-    const own = transaction({ outletId: 'otl_a', userId: 'someone_else' });
+    const own = transaction({ outletId: 'otl_a', operatorName: 'Ani Wijaya' });
     const other = transaction({ outletId: 'otl_b' });
 
     // A colleague's sale at the same outlet is visible; another outlet is not.
@@ -106,14 +101,19 @@ describe('summary strip', () => {
 });
 
 describe('number search', () => {
-  it('matches case-insensitively on a partial number', () => {
-    const row = transaction({ transactionNumber: 'TRX-20260813-001' });
+  /**
+   * §5.2's only search endpoint is an exact match on `transaction_number`, so
+   * the client no longer filters rows itself — it decides whether there is a
+   * term worth looking up and hands it over verbatim.
+   */
+  it('treats only a non-blank query as a lookup', () => {
+    expect(isSearchable('TRX-20260813-001')).toBe(true);
+    expect(isSearchable('')).toBe(false);
+    expect(isSearchable('   ')).toBe(false);
+  });
 
-    expect(matchesTransactionNumber(row, '813-001')).toBe(true);
-    expect(matchesTransactionNumber(row, 'trx-2026')).toBe(true);
-    expect(matchesTransactionNumber(row, 'TRX-99999999-001')).toBe(false);
-    // An empty query is not a filter.
-    expect(matchesTransactionNumber(row, '   ')).toBe(true);
+  it('sends the number exactly as typed, minus the whitespace', () => {
+    expect(searchTerm('  TRX-20260813-001  ')).toBe('TRX-20260813-001');
   });
 
   it('pages the matches client-side', () => {

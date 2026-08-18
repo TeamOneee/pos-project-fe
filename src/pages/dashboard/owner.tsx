@@ -121,10 +121,7 @@ function DashboardBody({
                 className="desktop:w-[66%]"
               />
             )}
-            <MerchantSummaryCard
-              overview={dashboard.merchantOverview}
-              className="desktop:flex-1"
-            />
+            <MerchantSummaryCard overview={dashboard.merchantOverview} className="desktop:flex-1" />
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">

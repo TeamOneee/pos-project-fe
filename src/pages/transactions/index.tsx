@@ -114,12 +114,10 @@ export default function TransactionsPage() {
    * An exact lookup returns one sale or a 404, so it replaces the list entirely
    * rather than filtering it. A 404 here is "no such number", not an error.
    */
-  const found = lookup.data ? toSummary(lookup.data) : null;
-  const visible: TransactionSummary[] = searching
-    ? found
-      ? [found]
-      : []
-    : (listQuery.data?.items ?? []);
+  const visible = React.useMemo<TransactionSummary[]>(() => {
+    if (!searching) return listQuery.data?.items ?? [];
+    return lookup.data ? [toSummary(lookup.data)] : [];
+  }, [searching, lookup.data, listQuery.data]);
 
   const total = searching ? visible.length : (listQuery.data?.total ?? 0);
   const totalPages = searching ? 1 : (listQuery.data?.totalPages ?? 1);

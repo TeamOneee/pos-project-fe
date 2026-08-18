@@ -39,11 +39,7 @@ import {
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
 import { OutletSelect } from '@/components/pages/owner/controls';
-import {
-  useDashboardOperations,
-  useLowStock,
-  useOperationsByOutlet,
-} from '@/hooks/use-dashboard';
+import { useDashboardOperations, useLowStock, useOperationsByOutlet } from '@/hooks/use-dashboard';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useOutlets } from '@/hooks/use-outlets';
 import type { LowStockItem } from '@/services/dashboard';
@@ -106,10 +102,7 @@ export default function AdminDashboardPage() {
 
   // One payload, two tables: §6.2 reports everything at or below its effective
   // threshold, and a quantity of zero is at or below every threshold.
-  const alerts = React.useMemo(
-    () => sortByUrgency(lowStock.data?.items ?? []),
-    [lowStock.data]
-  );
+  const alerts = React.useMemo(() => sortByUrgency(lowStock.data?.items ?? []), [lowStock.data]);
   const low = React.useMemo(() => lowStockOnly(alerts), [alerts]);
   const out = React.useMemo(() => outOfStockOnly(alerts), [alerts]);
 

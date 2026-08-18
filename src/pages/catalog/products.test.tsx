@@ -42,10 +42,9 @@ async function signInAs(email: string) {
 }
 
 async function openProducts() {
-  render(<App />);
+  window.history.pushState({}, '', '/products');
   await act(async () => {
-    window.history.pushState({}, '', '/products');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
   });
 }
 
@@ -71,7 +70,7 @@ describe('S-11 · products list', () => {
     await openProducts();
 
     // The seed has twelve products and the page size is ten.
-    expect(await screen.findByText('Menampilkan 1–10 dari 12')).toBeInTheDocument();
+    expect(await screen.findByText('Menampilkan 1–10 dari 14')).toBeInTheDocument();
   });
 
   it('opens the row menu with Edit, stock and Nonaktifkan', async () => {
@@ -93,8 +92,8 @@ describe('S-11 · products list', () => {
 
     // Deactivating a category does not cascade: its products stay ACTIVE and
     // stay in this list, which is exactly the case the badge exists for.
-    const category = getDb().categories.find((entry) => entry.category_id === 'cat_minuman');
-    if (category) category.status = 'INACTIVE';
+    const category = getDb().categories.find((entry) => entry.id === 'cat_minuman');
+    if (category) category.is_active = false;
 
     await openProducts();
 
@@ -111,7 +110,7 @@ describe('S-11 · products list', () => {
     ).toBeInTheDocument();
 
     // The list has to have rendered, or this would pass on an empty screen.
-    await screen.findByText('Menampilkan 1–10 dari 12');
+    await screen.findByText('Menampilkan 1–10 dari 14');
 
     for (const label of ADMIN_ONLY_LABELS) {
       expect(screen.queryByRole('button', { name: label })).toBeNull();
@@ -145,7 +144,12 @@ function MutationProbe({ onSettled }: { onSettled: (result: ProbeResult) => void
         type="button"
         onClick={() =>
           create.mutate(
-            { name: 'Selundupan', sku: 'X-1', price: '1000', category_id: 'cat_minuman' },
+            {
+              name: 'Selundupan',
+              price: '1000.00',
+              category_id: 'cat_minuman',
+              low_stock_threshold: 5,
+            },
             { onError: (error) => onSettled({ error }), onSuccess: () => onSettled(null) }
           )
         }
@@ -207,9 +211,7 @@ describe('catalog mutations under the role matrix', () => {
     });
     await waitFor(() => expect(settled).not.toBeNull());
 
-    expect(getDb().products.find((entry) => entry.product_id === 'prd_cc1500')?.status).toBe(
-      'ACTIVE'
-    );
+    expect(getDb().products.find((entry) => entry.id === 'prd_cc1500')?.is_active).toBe(true);
   });
 
   it('lets an Admin session through to the API', async () => {

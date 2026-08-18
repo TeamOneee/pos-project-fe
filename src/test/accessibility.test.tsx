@@ -39,10 +39,9 @@ async function signInAs(email: string) {
 }
 
 async function open(path: string) {
-  render(<App />);
+  window.history.pushState({}, '', path);
   await act(async () => {
-    window.history.pushState({}, '', path);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
   });
 }
 

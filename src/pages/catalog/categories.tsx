@@ -181,7 +181,7 @@ export default function CategoriesPage() {
                       <Text variant="caption" tone="subtle">
                         Jumlah produk
                       </Text>
-                      <StatusBadge status={(category.isActive ? 'ACTIVE' : 'INACTIVE')} />
+                      <StatusBadge status={category.isActive ? 'ACTIVE' : 'INACTIVE'} />
                     </div>
                     {rowMenu ? (
                       <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
@@ -220,7 +220,7 @@ export default function CategoriesPage() {
                   </div>
 
                   <div className="flex-1">
-                    <StatusBadge status={(category.isActive ? 'ACTIVE' : 'INACTIVE')} />
+                    <StatusBadge status={category.isActive ? 'ACTIVE' : 'INACTIVE'} />
                   </div>
 
                   {rowMenu ? (

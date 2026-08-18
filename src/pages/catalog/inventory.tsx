@@ -67,7 +67,11 @@ export default function InventoryPage() {
   });
 
   const outletOptions = React.useMemo(
-    () => (outlets.data?.items ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
+    () =>
+      (outlets.data?.items ?? []).map((outlet) => ({
+        outletId: outlet.outletId,
+        name: outlet.name,
+      })),
     [outlets.data]
   );
   const outletName =
@@ -196,8 +200,6 @@ export default function InventoryPage() {
               if (!open) setAdjustTarget(null);
             }}
           />
-
-
         </>
       )}
 

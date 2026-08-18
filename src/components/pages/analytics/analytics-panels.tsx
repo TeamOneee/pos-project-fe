@@ -40,12 +40,7 @@ import { SalesTrendChart } from '@/components/pages/charts/sales-trend-chart';
 import { bucketLabel } from '@/components/pages/dashboard/sales-trend-card';
 import { OutletSelect, Segmented } from '@/components/pages/owner/controls';
 import { DataTable, type Column } from '@/components/pages/owner/data-table';
-import {
-  useAovTrend,
-  useSalesTrend,
-  useTimePattern,
-  useTopProducts,
-} from '@/hooks/use-dashboard';
+import { useAovTrend, useSalesTrend, useTimePattern, useTopProducts } from '@/hooks/use-dashboard';
 import type {
   AovTrendPoint,
   ProductRank,
@@ -229,13 +224,21 @@ export function TimePatternPanel({ outlets }: CommonProps) {
   );
 
   const controls = (
-    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId} />
+    <RangeControls
+      range={range}
+      outlets={outlets}
+      outletId={outletId}
+      onOutletChange={setOutletId}
+    />
   );
 
   return (
     <AnalyticsState query={query} controls={controls}>
       {(data) => {
-        const points = data.points.map((point) => ({ hour: point.hourOfDay, revenue: point.omzet }));
+        const points = data.points.map((point) => ({
+          hour: point.hourOfDay,
+          revenue: point.omzet,
+        }));
         const busiest = [...data.points].sort((a, b) => b.omzet - a.omzet)[0];
         const total = sumRupiah(data.points.map((point) => point.omzet));
 
@@ -247,7 +250,9 @@ export function TimePatternPanel({ outlets }: CommonProps) {
               summary="Omzet per jam sepanjang hari, diakumulasi atas rentang yang dipilih."
               rowHeader="Jam"
               rowLabels={data.points.map((point) => `${point.hourOfDay}.00`)}
-              series={[{ label: 'Omzet', values: data.points.map((point) => formatIDR(point.omzet)) }]}
+              series={[
+                { label: 'Omzet', values: data.points.map((point) => formatIDR(point.omzet)) },
+              ]}
             >
               {(width, height) => (
                 <HourlyBarChart
@@ -700,9 +705,7 @@ const timeColumns: Column<TimePatternPoint>[] = [
   {
     key: 'hour',
     label: 'Jam',
-    render: (row) => (
-      <Text variant="body-strong">{String(row.hourOfDay).padStart(2, '0')}.00</Text>
-    ),
+    render: (row) => <Text variant="body-strong">{String(row.hourOfDay).padStart(2, '0')}.00</Text>,
   },
   {
     key: 'omzet',

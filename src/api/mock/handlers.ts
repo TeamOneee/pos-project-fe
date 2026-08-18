@@ -1,51 +1,46 @@
 /**
- * Mock request handlers — one per endpoint in the contract.
+ * Mock request handlers — one per endpoint in contract 07.
  *
  * Responses are built in wire shape and wrapped in the contract's envelope, so
- * they go through exactly the same schema validation as live responses.
+ * they go through exactly the same schema validation as live responses. A mock
+ * that answered a shape the schemas reject is doing its job; one that bypasses
+ * them is not.
  *
- * ROLE GATING: this follows the role matrix in CLAUDE.md, which is
- * authoritative and is stricter than the contract's "Access:" lines in three
- * places — product and category writes are ADMIN only, transactions are closed
- * to ADMIN entirely, and checkout is CASHIER only. Building against the looser
- * contract would let screens exist that the product does not have.
+ * ROLE GATING follows the contract's "Required Roles" tables, with one
+ * deliberate exception: §5.2 permits an OWNER to check out at a selected
+ * outlet, and CLAUDE.md's Out-of-scope list forbids Owner checkout in this
+ * product. The stricter rule wins, so `POST /checkout` here is CASHIER only —
+ * building against the looser contract would let a screen exist that the
+ * product does not have.
+ *
+ * The dashboard endpoints aggregate the seeded transactions rather than
+ * returning canned figures, so a sale made in the POS moves the Owner's
+ * dashboard exactly as §6.1 says it should.
  */
 
+import { NOW, PASSWORDS } from '@/api/mock/dataset';
 import {
-  AI_INSIGHT,
-  AOV_TREND,
-  DASHBOARD_FIGURES,
-  LAST_AI_ANALYSIS,
-  OUTLET_PERFORMANCE,
-  PASSWORDS,
-  PERIOD_COMPARISON,
-  SALES_TREND,
-  TIME_PATTERN,
-  TOP_BY_QUANTITY,
-  TOP_BY_REVENUE,
-  UNDERPERFORMERS,
-  NOW,
-} from '@/api/mock/dataset';
-import {
-  ensureCart,
+  applyMovement,
+  effectiveThreshold,
   ensureInventory,
-  findCart,
+  findCategory,
   findInventory,
   findOutlet,
   findProduct,
+  findStaff,
   getDb,
-  lowStockRows,
+  isLowStock,
   nextId,
-  outOfStockRows,
+  nextTransactionNumber,
   priceOf,
-  stockAt,
-  stockRows,
+  requestHash,
   toWireMoney,
-  type WireCart,
+  type WireCategory,
   type WireInventory,
+  type WireMovement,
   type WireProduct,
+  type WireStaff,
   type WireTransaction,
-  type WireUser,
 } from '@/api/mock/db';
 import type { HttpMethod } from '@/api/transport';
 import { parseMoney } from '@/lib/money';
@@ -70,13 +65,17 @@ export type MockContext = {
   params: Record<string, string>;
   query: Record<string, string>;
   body: Record<string, unknown>;
-  idempotencyKey: string | undefined;
 };
 
 export type MockEnvelope = { status: number; body: unknown };
 
 function ok(data: unknown, message: string, status = 200): MockEnvelope {
   return { status, body: { success: true, statusCode: status, message, data } };
+}
+
+/** §0: `204 No Content` is the one success with no body at all. */
+function noContent(): MockEnvelope {
+  return { status: 204, body: null };
 }
 
 export function errorEnvelope(
@@ -91,19 +90,66 @@ export function errorEnvelope(
   };
 }
 
-function requireUser(): WireUser {
-  const user = getDb().session;
-  if (!user) throw new MockHttpError(401, 'Unauthorized');
+/** A field-scoped error, in the `errors[]` shape §0 defines. */
+function fieldError(field: string, message: string) {
+  return [{ field, message }];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Session                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Who is signed in.
+ *
+ * The real API carries this in the JWT and reads it per request; the mock has
+ * no headers to read, so it remembers the last successful login. Login still
+ * mints a **decodable** token, because the app now reads its own session from
+ * the claims (§0) rather than from any endpoint.
+ */
+let session: WireStaff | null = null;
+
+export function clearMockSession(): void {
+  session = null;
+}
+
+function requireUser(): WireStaff {
+  if (!session) throw new MockHttpError(401, 'Autentikasi gagal');
+  return session;
+}
+
+function requireRole(...roles: WireStaff['role'][]): WireStaff {
+  const user = requireUser();
+  if (!roles.includes(user.role)) throw new MockHttpError(403, 'Akses ditolak');
   return user;
 }
 
-function requireRole(...roles: WireUser['role'][]): WireUser {
-  const user = requireUser();
-  if (!roles.includes(user.role)) {
-    throw new MockHttpError(403, `Only ${roles.join(' or ')} can access this endpoint`);
-  }
-  return user;
+/** An unsigned JWT with the claims §0 mandates. Decodable, never verifiable. */
+function mintToken(user: WireStaff): string {
+  const header = base64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = base64Url(
+    JSON.stringify({
+      sub: user.user_id,
+      merchant_id: user.merchant_id,
+      role: user.role,
+      outlet_id: user.outlet_id,
+      exp: Math.floor(Date.now() / 1000) + 900,
+    })
+  );
+
+  return `${header}.${payload}.mock`;
 }
+
+function base64Url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reading input                                                               */
+/* -------------------------------------------------------------------------- */
 
 function readString(body: Record<string, unknown>, key: string): string | undefined {
   const value = body[key];
@@ -114,17 +160,24 @@ function readNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function page<T>(items: T[], query: Record<string, string>) {
-  const pageNumber = Math.max(1, Number(query.page) || 1);
-  const limit = Math.max(1, Number(query.limit) || 10);
-  const start = (pageNumber - 1) * limit;
+function readBoolean(value: string | undefined): boolean | undefined {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
+}
+
+/** §0: zero-based `page`, `size` defaulting to 20 and capped at 100. */
+function paginate<T>(items: T[], query: Record<string, string>) {
+  const size = Math.min(100, Math.max(1, Number(query.size) || 20));
+  const page = Math.max(0, Number(query.page) || 0);
+  const start = page * size;
 
   return {
-    items: items.slice(start, start + limit),
-    total: items.length,
-    page: pageNumber,
-    limit,
-    total_pages: Math.max(1, Math.ceil(items.length / limit)),
+    content: items.slice(start, start + size),
+    page,
+    size,
+    total_elements: items.length,
+    total_pages: Math.max(1, Math.ceil(items.length / size)),
   };
 }
 
@@ -132,1428 +185,1194 @@ function page<T>(items: T[], query: Record<string, string>) {
 /* Views                                                                       */
 /* -------------------------------------------------------------------------- */
 
-function categoryBrief(categoryId: string | null) {
-  const category = getDb().categories.find((entry) => entry.category_id === categoryId);
-  return category ? { category_id: category.category_id, name: category.name } : null;
-}
-
 function productView(product: WireProduct) {
-  return { ...product, category: categoryBrief(product.category_id) };
-}
-
-function productBrief(product: WireProduct) {
   return {
-    product_id: product.product_id,
-    name: product.name,
-    sku: product.sku,
-    price: product.price,
+    ...product,
+    category_name: findCategory(product.category_id)?.name ?? null,
   };
 }
 
 function inventoryView(row: WireInventory) {
   const product = findProduct(row.product_id);
-  return { ...row, product: product ? productBrief(product) : null };
-}
-
-function transactionView(transaction: WireTransaction) {
-  const database = getDb();
-  const outlet = database.outlets.find((entry) => entry.outlet_id === transaction.outlet_id);
-  const cashier = database.users.find((entry) => entry.user_id === transaction.user_id);
+  const outlet = findOutlet(row.outlet_id);
 
   return {
-    ...transaction,
-    // S-21's Item column. Not in the contract's list payload — see the note on
-    // `item_count` in services/transactions.ts — so the mock serves it.
-    item_count: database.transactionItems.filter(
-      (item) => item.transaction_id === transaction.transaction_id
-    ).length,
-    outlet: outlet ? { outlet_id: outlet.outlet_id, name: outlet.name } : null,
-    cashier: cashier ? { user_id: cashier.user_id, name: cashier.name } : null,
+    id: row.id,
+    outlet_id: row.outlet_id,
+    outlet_name: outlet?.name ?? '',
+    product_id: row.product_id,
+    product_name: product?.name ?? '',
+    quantity: row.quantity,
+    base_low_stock_threshold: product?.low_stock_threshold ?? 0,
+    low_stock_threshold_override: row.low_stock_threshold_override,
+    effective_low_stock_threshold: effectiveThreshold(row),
+    is_low_stock: isLowStock(row),
+    updated_at: row.updated_at,
   };
 }
 
-function transactionItemViews(transactionId: string) {
-  return getDb()
-    .transactionItems.filter((item) => item.transaction_id === transactionId)
-    .map((item) => {
-      const product = findProduct(item.product_id);
-      return {
-        ...item,
-        product: product
-          ? { product_id: product.product_id, name: product.name, sku: product.sku }
-          : null,
-      };
-    });
+function movementView(movement: WireMovement) {
+  return { ...movement };
 }
 
-function cartView(cart: WireCart) {
-  const items = cart.items.map((item) => {
-    const product = findProduct(item.product_id);
-    const unitPrice = parseMoney(item.unit_price);
+/** §5.4 `CheckoutResult` — the shape checkout, detail and search all return. */
+function transactionDetailView(transaction: WireTransaction) {
+  const operator = findStaff(transaction.operator_user_id);
 
+  return {
+    transaction_id: transaction.transaction_id,
+    merchant_id: transaction.merchant_id,
+    transaction_number: transaction.transaction_number,
+    status: transaction.status,
+    outlet_id: transaction.outlet_id,
+    operator: {
+      user_id: transaction.operator_user_id,
+      role: operator?.role ?? 'CASHIER',
+      name: operator?.name ?? '',
+    },
+    items: transaction.items,
+    subtotal: transaction.subtotal,
+    total: transaction.total,
+    payment: {
+      method: transaction.payment_method,
+      status: transaction.payment_status,
+      paid_at: transaction.paid_at,
+    },
+    created_at: transaction.created_at,
+  };
+}
+
+/** §5.4 `TransactionSummaryDto` — the list row, deliberately thinner. */
+function transactionSummaryView(transaction: WireTransaction) {
+  return {
+    transaction_id: transaction.transaction_id,
+    transaction_number: transaction.transaction_number,
+    outlet_id: transaction.outlet_id,
+    operator_name: findStaff(transaction.operator_user_id)?.name ?? '',
+    total: transaction.total,
+    status: transaction.status,
+    created_at: transaction.created_at,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scoping                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * §5.2 (OD-003): a CASHIER sees only their own sales, and the restriction is
+ * applied in the service rather than trusted from the query.
+ */
+function visibleTransactions(user: WireStaff): WireTransaction[] {
+  const all = getDb().transactions;
+  if (user.role === 'CASHIER') {
+    return all.filter((transaction) => transaction.operator_user_id === user.user_id);
+  }
+  return all;
+}
+
+/** The outlet a request may act on, validated against the caller's scope. */
+function resolveOutlet(user: WireStaff, requested: string | undefined): string {
+  if (user.role === 'CASHIER') {
+    if (!user.outlet_id) throw new MockHttpError(403, 'Akses ditolak');
+    if (requested && requested !== user.outlet_id) throw new MockHttpError(403, 'Akses ditolak');
+    return user.outlet_id;
+  }
+
+  if (!requested) throw new MockHttpError(400, 'Validasi gagal', fieldError('outlet_id', 'wajib'));
+  const outlet = findOutlet(requested);
+  if (!outlet) throw new MockHttpError(404, 'Data tidak ditemukan');
+  return outlet.id;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Identity (§1)                                                               */
+/* -------------------------------------------------------------------------- */
+
+function register(context: MockContext): MockEnvelope {
+  const email = readString(context.body, 'email')?.toLowerCase();
+  const name = readString(context.body, 'name');
+  const password = readString(context.body, 'password');
+  const merchantName = readString(context.body, 'merchant_name');
+
+  if (!email || !name || !password || !merchantName) {
+    throw new MockHttpError(400, 'Validasi gagal');
+  }
+
+  if (getDb().staff.some((member) => member.email === email)) {
+    throw new MockHttpError(409, 'Email sudah terdaftar', fieldError('email', 'sudah dipakai'));
+  }
+
+  const user: WireStaff = {
+    user_id: nextId('usr'),
+    merchant_id: getDb().merchant.id,
+    outlet_id: null,
+    name,
+    email,
+    role: 'OWNER',
+    status: 'ACTIVE',
+    created_at: NOW,
+    updated_at: NOW,
+  };
+
+  getDb().staff.push(user);
+  PASSWORDS[email] = password;
+
+  // §1.2 returns no token: registering does not sign the new Owner in.
+  return ok(
+    { user_id: user.user_id, merchant_id: user.merchant_id, email: user.email, role: user.role },
+    'Registrasi berhasil',
+    201
+  );
+}
+
+function login(context: MockContext): MockEnvelope {
+  const email = readString(context.body, 'email')?.toLowerCase();
+  const password = readString(context.body, 'password');
+
+  const user = getDb().staff.find((member) => member.email === email);
+
+  // §1.6: bad credentials and a deactivated account answer identically.
+  if (!user || !password || PASSWORDS[user.email] !== password || user.status !== 'ACTIVE') {
+    throw new MockHttpError(401, 'Autentikasi gagal');
+  }
+
+  session = user;
+
+  return ok(
+    {
+      access_token: mintToken(user),
+      expires_in: 900,
+      role: user.role,
+      merchant_id: user.merchant_id,
+      outlet_id: user.outlet_id,
+    },
+    'Login berhasil'
+  );
+}
+
+function createStaff(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+
+  const name = readString(context.body, 'name');
+  const email = readString(context.body, 'email')?.toLowerCase();
+  const password = readString(context.body, 'password');
+  const role = readString(context.body, 'role');
+  const outletId = readString(context.body, 'outlet_id') ?? null;
+
+  if (!name || !email || !password || (role !== 'ADMIN' && role !== 'CASHIER')) {
+    throw new MockHttpError(400, 'Validasi gagal');
+  }
+
+  // §1.1 rule 2, both directions.
+  if (role === 'CASHIER' && !outletId) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('outlet_id', 'wajib untuk kasir'));
+  }
+  if (role === 'ADMIN' && outletId) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('outlet_id', 'dilarang untuk admin'));
+  }
+  if (outletId && !findOutlet(outletId)) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  if (getDb().staff.some((member) => member.email === email)) {
+    throw new MockHttpError(409, 'Email sudah terdaftar', fieldError('email', 'sudah dipakai'));
+  }
+
+  const member: WireStaff = {
+    user_id: nextId('usr'),
+    merchant_id: getDb().merchant.id,
+    outlet_id: outletId,
+    name,
+    email,
+    role,
+    status: 'ACTIVE',
+    created_at: NOW,
+    updated_at: NOW,
+  };
+
+  getDb().staff.push(member);
+  PASSWORDS[email] = password;
+
+  return ok(member, 'Staf berhasil dibuat', 201);
+}
+
+function listStaff(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+
+  let rows = getDb().staff;
+  if (context.query.role) rows = rows.filter((member) => member.role === context.query.role);
+  if (context.query.status) rows = rows.filter((member) => member.status === context.query.status);
+
+  return ok(paginate(rows, context.query), 'Daftar staf dimuat');
+}
+
+function updateStaff(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+
+  const member = findStaff(context.params.userId ?? '');
+  if (!member) throw new MockHttpError(404, 'Data tidak ditemukan');
+  // §1.2 note: the Owner is not editable through this endpoint.
+  if (member.role === 'OWNER') throw new MockHttpError(403, 'Akses ditolak');
+
+  const role = readString(context.body, 'role');
+  const status = readString(context.body, 'status');
+  const hasOutlet = 'outlet_id' in context.body;
+  const outletId = hasOutlet
+    ? ((context.body.outlet_id as string | null) ?? null)
+    : member.outlet_id;
+  const nextRole = role === 'ADMIN' || role === 'CASHIER' ? role : member.role;
+
+  if (nextRole === 'CASHIER' && !outletId) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('outlet_id', 'wajib untuk kasir'));
+  }
+  if (nextRole === 'ADMIN' && outletId) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('outlet_id', 'dilarang untuk admin'));
+  }
+
+  member.role = nextRole;
+  member.outlet_id = nextRole === 'ADMIN' ? null : outletId;
+  if (status === 'ACTIVE' || status === 'INACTIVE') member.status = status;
+
+  const newPassword = readString(context.body, 'new_password');
+  if (newPassword) PASSWORDS[member.email] = newPassword;
+
+  member.updated_at = NOW;
+  return ok(member, 'Staf berhasil diperbarui');
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tenant (§2)                                                                 */
+/* -------------------------------------------------------------------------- */
+
+function getMerchant(): MockEnvelope {
+  requireUser();
+  return ok(getDb().merchant, 'Profil merchant dimuat');
+}
+
+function updateMerchant(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+
+  const name = readString(context.body, 'name');
+  if (name !== undefined) {
+    if (!name.trim()) throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'wajib'));
+    getDb().merchant.name = name;
+  }
+
+  getDb().merchant.updated_at = NOW;
+  return ok(getDb().merchant, 'Merchant berhasil diperbarui');
+}
+
+function createOutlet(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+
+  const name = readString(context.body, 'name');
+  if (!name?.trim()) throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'wajib'));
+
+  const outlet = {
+    id: nextId('otl'),
+    merchant_id: getDb().merchant.id,
+    name,
+    address: readString(context.body, 'address') ?? '',
+    status: 'ACTIVE' as const,
+    created_at: NOW,
+    updated_at: NOW,
+  };
+
+  getDb().outlets.push(outlet);
+  return ok(outlet, 'Outlet berhasil dibuat', 201);
+}
+
+function listOutlets(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  let rows = getDb().outlets;
+  if (context.query.status) rows = rows.filter((outlet) => outlet.status === context.query.status);
+
+  return ok(paginate(rows, context.query), 'Daftar outlet dimuat');
+}
+
+function updateOutlet(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+
+  const outlet = findOutlet(context.params.id ?? '');
+  if (!outlet) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  const name = readString(context.body, 'name');
+  const address = readString(context.body, 'address');
+  const status = readString(context.body, 'status');
+
+  if (name !== undefined) outlet.name = name;
+  if (address !== undefined) outlet.address = address;
+  if (status === 'ACTIVE' || status === 'INACTIVE') outlet.status = status;
+
+  outlet.updated_at = NOW;
+  return ok(outlet, 'Outlet berhasil diperbarui');
+}
+
+/* -------------------------------------------------------------------------- */
+/* Catalog (§3)                                                                */
+/* -------------------------------------------------------------------------- */
+
+function createCategory(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const name = readString(context.body, 'name');
+  if (!name?.trim()) throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'wajib'));
+
+  if (getDb().categories.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) {
+    throw new MockHttpError(409, 'Validasi gagal', fieldError('name', 'nama sudah dipakai'));
+  }
+
+  const category: WireCategory = {
+    id: nextId('cat'),
+    merchant_id: getDb().merchant.id,
+    name,
+    is_active: true,
+  };
+
+  getDb().categories.push(category);
+  return ok(category, 'Kategori berhasil dibuat', 201);
+}
+
+function listCategories(context: MockContext): MockEnvelope {
+  const user = requireUser();
+
+  let rows = getDb().categories;
+
+  // §3.2: a CASHIER is forced to active categories in the service, not by query.
+  if (user.role === 'CASHIER') {
+    rows = rows.filter((category) => category.is_active);
+  } else {
+    const isActive = readBoolean(context.query.is_active);
+    if (isActive !== undefined) rows = rows.filter((category) => category.is_active === isActive);
+  }
+
+  return ok(paginate(rows, context.query), 'Daftar kategori dimuat');
+}
+
+function updateCategory(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const category = findCategory(context.params.id ?? '');
+  if (!category) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  const name = readString(context.body, 'name');
+  if (name !== undefined) {
+    if (!name.trim()) throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'wajib'));
+    const clash = getDb().categories.some(
+      (entry) => entry.id !== category.id && entry.name.toLowerCase() === name.toLowerCase()
+    );
+    if (clash) {
+      throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'nama sudah dipakai'));
+    }
+    category.name = name;
+  }
+
+  if (typeof context.body.is_active === 'boolean') category.is_active = context.body.is_active;
+
+  return ok(category, 'Kategori berhasil diperbarui');
+}
+
+function createProduct(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const name = readString(context.body, 'name');
+  const price = readString(context.body, 'price');
+  const categoryId = readString(context.body, 'category_id');
+  const threshold = readNumber(context.body.low_stock_threshold);
+
+  if (!name?.trim()) throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'wajib'));
+  if (!price || parseMoney(price) < 0) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('price', 'harga tidak valid'));
+  }
+  if (threshold === undefined || threshold < 0) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('low_stock_threshold', 'wajib >= 0'));
+  }
+
+  const category = categoryId ? findCategory(categoryId) : undefined;
+  if (!category || !category.is_active) {
+    throw new MockHttpError(
+      400,
+      'Validasi gagal',
+      fieldError('category_id', 'kategori tidak aktif atau tidak ditemukan')
+    );
+  }
+
+  const product: WireProduct = {
+    id: nextId('prd'),
+    merchant_id: getDb().merchant.id,
+    category_id: category.id,
+    name,
+    price,
+    low_stock_threshold: threshold,
+    is_active: typeof context.body.is_active === 'boolean' ? context.body.is_active : true,
+    created_at: NOW,
+    updated_at: NOW,
+  };
+
+  getDb().products.push(product);
+  return ok(productView(product), 'Produk berhasil dibuat', 201);
+}
+
+function listProducts(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  let rows = getDb().products;
+
+  const search = context.query.search?.trim().toLowerCase();
+  if (search) rows = rows.filter((product) => product.name.toLowerCase().includes(search));
+  if (context.query.category_id) {
+    rows = rows.filter((product) => product.category_id === context.query.category_id);
+  }
+
+  const isActive = readBoolean(context.query.is_active);
+  if (isActive !== undefined) rows = rows.filter((product) => product.is_active === isActive);
+
+  const view = paginate(rows, context.query);
+  return ok({ ...view, content: view.content.map(productView) }, 'Daftar produk dimuat');
+}
+
+function updateProduct(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const product = findProduct(context.params.id ?? '');
+  if (!product) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  const name = readString(context.body, 'name');
+  if (name !== undefined) {
+    if (!name.trim()) throw new MockHttpError(400, 'Validasi gagal', fieldError('name', 'wajib'));
+    product.name = name;
+  }
+
+  const price = readString(context.body, 'price');
+  if (price !== undefined) {
+    if (parseMoney(price) < 0) {
+      throw new MockHttpError(400, 'Validasi gagal', fieldError('price', 'harga tidak valid'));
+    }
+    product.price = price;
+  }
+
+  const categoryId = readString(context.body, 'category_id');
+  if (categoryId !== undefined) {
+    const category = findCategory(categoryId);
+    if (!category || !category.is_active) {
+      throw new MockHttpError(
+        400,
+        'Validasi gagal',
+        fieldError('category_id', 'kategori tidak aktif atau tidak ditemukan')
+      );
+    }
+    product.category_id = category.id;
+  }
+
+  const threshold = readNumber(context.body.low_stock_threshold);
+  if (threshold !== undefined) {
+    if (threshold < 0) {
+      throw new MockHttpError(
+        400,
+        'Validasi gagal',
+        fieldError('low_stock_threshold', 'wajib >= 0')
+      );
+    }
+    product.low_stock_threshold = threshold;
+  }
+
+  if (typeof context.body.is_active === 'boolean') product.is_active = context.body.is_active;
+
+  product.updated_at = NOW;
+  return ok(productView(product), 'Produk berhasil diperbarui');
+}
+
+/**
+ * §4.2 `GET /products/catalog` — the cashier's catalogue.
+ *
+ * The three visibility conditions are applied here, server-side, exactly as the
+ * contract describes: the product is active, its category is active, and an
+ * inventory row exists at the outlet.
+ */
+function listCatalog(context: MockContext): MockEnvelope {
+  const user = requireRole('CASHIER', 'OWNER');
+
+  const outletId =
+    user.role === 'CASHIER'
+      ? resolveOutlet(user, context.query.outlet_id)
+      : context.query.outlet_id;
+
+  if (!outletId) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('outlet_id', 'wajib'));
+  }
+
+  const outlet = findOutlet(outletId);
+  if (!outlet || outlet.status !== 'ACTIVE') throw new MockHttpError(403, 'Akses ditolak');
+
+  const search = context.query.search?.trim().toLowerCase();
+
+  const rows = getDb()
+    .products.filter((product) => {
+      if (!product.is_active) return false;
+      if (!findCategory(product.category_id)?.is_active) return false;
+      if (!findInventory(outletId, product.id)) return false;
+      if (context.query.category_id && product.category_id !== context.query.category_id) {
+        return false;
+      }
+      if (search && !product.name.toLowerCase().includes(search)) return false;
+      return true;
+    })
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: toWireMoney(priceOf(product)),
+      category_id: product.category_id,
+      stock_quantity: findInventory(outletId, product.id)?.quantity ?? 0,
+    }));
+
+  return ok(paginate(rows, context.query), 'Katalog kasir dimuat');
+}
+
+/* -------------------------------------------------------------------------- */
+/* Inventory (§4)                                                              */
+/* -------------------------------------------------------------------------- */
+
+function inventoryRows(query: Record<string, string>): WireInventory[] {
+  let rows = getDb().inventory;
+  if (query.outlet_id) rows = rows.filter((row) => row.outlet_id === query.outlet_id);
+  if (query.product_id) rows = rows.filter((row) => row.product_id === query.product_id);
+  if (readBoolean(query.low_stock_only)) rows = rows.filter(isLowStock);
+  return rows;
+}
+
+function listInventory(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const view = paginate(inventoryRows(context.query), context.query);
+  return ok({ ...view, content: view.content.map(inventoryView) }, 'Daftar stok dimuat');
+}
+
+function adjustStock(context: MockContext): MockEnvelope {
+  const user = requireRole('OWNER', 'ADMIN');
+
+  const outletId = readString(context.body, 'outlet_id');
+  const productId = readString(context.body, 'product_id');
+  const delta = readNumber(context.body.delta);
+  const reason = readString(context.body, 'reason');
+
+  if (!reason?.trim()) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('reason', 'alasan wajib diisi'));
+  }
+  if (delta === undefined || delta === 0) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('delta', 'tidak boleh nol'));
+  }
+
+  const outlet = outletId ? findOutlet(outletId) : undefined;
+  const product = productId ? findProduct(productId) : undefined;
+  if (!outlet || !product) throw new MockHttpError(404, 'Data tidak ditemukan');
+  // §2.2: an inactive outlet is read-only for business operations.
+  if (outlet.status !== 'ACTIVE') throw new MockHttpError(403, 'Akses ditolak');
+
+  const row = ensureInventory(outlet.id, product.id);
+  if (row.quantity + delta < 0) {
+    throw new MockHttpError(409, 'Validasi gagal', fieldError('delta', 'hasil menjadi negatif'));
+  }
+
+  const movement = applyMovement({
+    outletId: outlet.id,
+    productId: product.id,
+    delta,
+    type: 'ADJUSTMENT',
+    reason,
+    actorUserId: user.user_id,
+    at: NOW,
+  });
+
+  return ok(
+    {
+      movement_id: movement.id,
+      outlet_id: movement.outlet_id,
+      product_id: movement.product_id,
+      quantity_before: movement.quantity_before,
+      quantity_after: movement.quantity_after,
+      delta: movement.delta,
+      reason,
+      actor_user_id: movement.actor_user_id,
+      created_at: movement.created_at,
+    },
+    'Adjustment stok berhasil',
+    201
+  );
+}
+
+function listMovements(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  let rows = getDb().movements;
+  if (context.query.outlet_id) {
+    rows = rows.filter((row) => row.outlet_id === context.query.outlet_id);
+  }
+  if (context.query.product_id) {
+    rows = rows.filter((row) => row.product_id === context.query.product_id);
+  }
+  if (context.query.type) rows = rows.filter((row) => row.type === context.query.type);
+
+  const view = paginate(rows, context.query);
+  return ok({ ...view, content: view.content.map(movementView) }, 'Riwayat stok dimuat');
+}
+
+function putThreshold(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const threshold = readNumber(context.body.threshold);
+  if (threshold === undefined || threshold < 0) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('threshold', 'wajib >= 0'));
+  }
+
+  const product = findProduct(context.params.productId ?? '');
+  const outlet = findOutlet(context.params.outletId ?? '');
+  if (!product || !outlet) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  // §4.2: the pairing is created at zero when it does not exist yet, so an
+  // Admin can prepare thresholds before any stock arrives.
+  const row = ensureInventory(outlet.id, product.id);
+  row.low_stock_threshold_override = threshold;
+  row.updated_at = NOW;
+
+  return ok(
+    {
+      product_id: product.id,
+      outlet_id: outlet.id,
+      base_low_stock_threshold: product.low_stock_threshold,
+      low_stock_threshold_override: row.low_stock_threshold_override,
+      effective_low_stock_threshold: effectiveThreshold(row),
+      updated_at: row.updated_at,
+    },
+    'Threshold berhasil disimpan'
+  );
+}
+
+function deleteThreshold(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const row = findInventory(context.params.outletId ?? '', context.params.productId ?? '');
+  if (!row) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  row.low_stock_threshold_override = null;
+  row.updated_at = NOW;
+
+  return noContent();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sales (§5)                                                                  */
+/* -------------------------------------------------------------------------- */
+
+function checkout(context: MockContext): MockEnvelope {
+  // Contract §5.2 allows OWNER too; CLAUDE.md forbids Owner checkout, and the
+  // stricter of the two wins. See the note at the top of this file.
+  const user = requireRole('CASHIER');
+
+  const requestId = readString(context.body, 'checkout_request_id');
+  const outletId = readString(context.body, 'outlet_id');
+  const method = readString(context.body, 'payment_method');
+  const rawItems = Array.isArray(context.body.items) ? context.body.items : [];
+
+  if (!requestId) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('checkout_request_id', 'wajib'));
+  }
+  if (method !== 'CASH' && method !== 'QRIS' && method !== 'TRANSFER') {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('payment_method', 'tidak valid'));
+  }
+  if (rawItems.length === 0) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('items', 'minimal 1 item'));
+  }
+
+  const outlet = findOutlet(resolveOutlet(user, outletId));
+  if (!outlet || outlet.status !== 'ACTIVE') throw new MockHttpError(403, 'Akses ditolak');
+
+  const hash = requestHash({
+    merchant_id: getDb().merchant.id,
+    outlet_id: outlet.id,
+    operator_user_id: user.user_id,
+    items: rawItems,
+    payment_method: method,
+  });
+
+  // §5.2 step 5: replay returns the original; a reused id with a different
+  // payload is a conflict.
+  const existing = getDb().transactions.find(
+    (transaction) => transaction.checkout_request_id === requestId
+  );
+  if (existing) {
+    if (existing.request_hash !== hash) {
+      throw new MockHttpError(409, 'Konflik idempotency checkout');
+    }
+    return ok(transactionDetailView(existing), 'Checkout berhasil');
+  }
+
+  // Validate every line before touching stock: §5.2 guarantees all-or-nothing.
+  const priced = rawItems.map((raw, index) => {
+    const item = (raw ?? {}) as Record<string, unknown>;
+    const productId = typeof item.product_id === 'string' ? item.product_id : '';
+    const quantity = readNumber(item.quantity) ?? 0;
+    const field = `items[${index}].product_id`;
+
+    const product = findProduct(productId);
+    if (!product) throw new MockHttpError(404, 'Data tidak ditemukan');
+    if (quantity <= 0) {
+      throw new MockHttpError(400, 'Validasi gagal', fieldError(`items[${index}].quantity`, '> 0'));
+    }
+    if (!product.is_active) {
+      throw new MockHttpError(409, 'Produk tidak aktif', fieldError(field, product.name));
+    }
+    if (!findCategory(product.category_id)?.is_active) {
+      throw new MockHttpError(409, 'Kategori produk tidak aktif', fieldError(field, product.name));
+    }
+
+    const unitPrice = priceOf(product);
+
+    const expected = typeof item.expected_unit_price === 'string' ? item.expected_unit_price : null;
+    if (expected !== null && parseMoney(expected) !== unitPrice) {
+      throw new MockHttpError(
+        409,
+        'Harga produk berubah',
+        fieldError(field, `current_price=${toWireMoney(unitPrice)}`)
+      );
+    }
+
+    const available = findInventory(outlet.id, product.id)?.quantity ?? 0;
+    if (available < quantity) {
+      throw new MockHttpError(
+        409,
+        'Stok tidak mencukupi',
+        fieldError(field, `stock=${available}, requested=${quantity}`)
+      );
+    }
+
+    return { product, quantity, unitPrice };
+  });
+
+  const items = priced.map((line) => ({
+    product_id: line.product.id,
+    name: line.product.name,
+    unit_price: toWireMoney(line.unitPrice),
+    quantity: line.quantity,
+    subtotal: toWireMoney(line.unitPrice * line.quantity),
+  }));
+
+  const subtotal = priced.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+
+  const transactionId = nextId('trx');
+  for (const line of priced) {
+    applyMovement({
+      outletId: outlet.id,
+      productId: line.product.id,
+      delta: -line.quantity,
+      type: 'SALE',
+      reason: null,
+      actorUserId: user.user_id,
+      transactionId,
+      at: NOW,
+    });
+  }
+
+  const transaction: WireTransaction = {
+    transaction_id: transactionId,
+    merchant_id: getDb().merchant.id,
+    outlet_id: outlet.id,
+    operator_user_id: user.user_id,
+    transaction_number: nextTransactionNumber(new Date(NOW)),
+    status: 'COMPLETED',
+    subtotal: toWireMoney(subtotal),
+    // §5.1 (OD-004): total is subtotal. Nothing sits between them.
+    total: toWireMoney(subtotal),
+    payment_method: method,
+    payment_status: 'CONFIRMED',
+    paid_at: NOW,
+    created_at: NOW,
+    items,
+    checkout_request_id: requestId,
+    request_hash: hash,
+  };
+
+  getDb().transactions.unshift(transaction);
+
+  // §5.2: 200 for a fresh sale as well as a replay — the two are deliberately
+  // indistinguishable from the response alone.
+  return ok(transactionDetailView(transaction), 'Checkout berhasil');
+}
+
+function listTransactions(context: MockContext): MockEnvelope {
+  const user = requireRole('OWNER', 'CASHIER');
+
+  let rows = visibleTransactions(user);
+
+  if (user.role === 'CASHIER' && user.outlet_id) {
+    rows = rows.filter((transaction) => transaction.outlet_id === user.outlet_id);
+  } else if (context.query.outlet_id) {
+    rows = rows.filter((transaction) => transaction.outlet_id === context.query.outlet_id);
+  }
+
+  rows = rows.filter((transaction) => withinRange(transaction.created_at, context.query));
+  rows = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+  const view = paginate(rows, context.query);
+  return ok(
+    { ...view, content: view.content.map(transactionSummaryView) },
+    'Riwayat transaksi dimuat'
+  );
+}
+
+function getTransaction(context: MockContext): MockEnvelope {
+  const user = requireRole('OWNER', 'CASHIER');
+
+  const transaction = visibleTransactions(user).find(
+    (entry) => entry.transaction_id === context.params.id
+  );
+  if (!transaction) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  return ok(transactionDetailView(transaction), 'Detail transaksi dimuat');
+}
+
+function searchTransactions(context: MockContext): MockEnvelope {
+  const user = requireRole('OWNER', 'CASHIER');
+
+  const number = context.query.transaction_number?.trim();
+  if (!number) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('transaction_number', 'wajib'));
+  }
+
+  // §5.2: exact match, not a partial one.
+  const transaction = visibleTransactions(user).find(
+    (entry) => entry.transaction_number === number
+  );
+  if (!transaction) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  return ok(transactionDetailView(transaction), 'Transaksi ditemukan');
+}
+
+function checkoutStatus(context: MockContext): MockEnvelope {
+  const user = requireRole('OWNER', 'CASHIER');
+
+  const requestId = context.query.checkout_request_id;
+  const transaction = visibleTransactions(user).find(
+    (entry) => entry.checkout_request_id === requestId
+  );
+
+  // 404 means "never happened", and the client may submit it again as new.
+  if (!transaction) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  return ok(transactionDetailView(transaction), 'Status checkout dimuat');
+}
+
+function getReceipt(context: MockContext): MockEnvelope {
+  const user = requireRole('OWNER', 'CASHIER');
+
+  const transaction = visibleTransactions(user).find(
+    (entry) => entry.transaction_id === context.params.transactionId
+  );
+  if (!transaction) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  const outlet = findOutlet(transaction.outlet_id);
+
+  return ok(
+    {
+      ...transactionDetailView(transaction),
+      merchant_name: getDb().merchant.name,
+      outlet_name: outlet?.name ?? '',
+      outlet_address: outlet?.address ?? null,
+    },
+    'Struk dimuat'
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Reporting (§6)                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** Every dashboard response carries this (§6.4). Mock reads are always FRESH. */
+function meta(periodStart?: string, periodEnd?: string) {
+  return {
+    data_updated_at: NOW,
+    freshness_status: 'FRESH' as const,
+    timezone: getDb().merchant.timezone,
+    ...(periodStart ? { period_start: periodStart, period_end: periodEnd } : {}),
+  };
+}
+
+function withinRange(iso: string, query: Record<string, string>): boolean {
+  const at = Date.parse(iso);
+  if (query.date_from && at < Date.parse(query.date_from)) return false;
+  if (query.date_to && at > Date.parse(query.date_to)) return false;
+  return true;
+}
+
+/** The `COMPLETED` transactions a reporting query is computed over. */
+function reportingRows(query: Record<string, string>): WireTransaction[] {
+  return getDb().transactions.filter((transaction) => {
+    if (query.outlet_id && transaction.outlet_id !== query.outlet_id) return false;
+    return withinRange(transaction.created_at, query);
+  });
+}
+
+function requirePeriod(query: Record<string, string>): { from: string; to: string } {
+  if (!query.date_from || !query.date_to) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('date_from', 'wajib'));
+  }
+  if (Date.parse(query.date_from) > Date.parse(query.date_to)) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('date_from', 'melebihi date_to'));
+  }
+  return { from: query.date_from, to: query.date_to };
+}
+
+function dashboardSummary(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+  const period = requirePeriod(context.query);
+
+  const rows = reportingRows(context.query);
+  const omzet = rows.reduce((sum, row) => sum + parseMoney(row.total), 0);
+  const count = rows.length;
+
+  return ok(
+    {
+      omzet: toWireMoney(omzet),
+      transaction_count: count,
+      average_transaction_value: toWireMoney(count > 0 ? Math.trunc(omzet / count) : 0),
+      ...meta(period.from, period.to),
+    },
+    'Ringkasan dashboard'
+  );
+}
+
+function dashboardOperations(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const outletId = context.query.outlet_id;
+  const rows = outletId
+    ? getDb().inventory.filter((row) => row.outlet_id === outletId)
+    : getDb().inventory;
+
+  return ok(
+    {
+      inventory_item_count: rows.length,
+      low_stock_item_count: rows.filter((row) => isLowStock(row) && row.quantity > 0).length,
+      out_of_stock_item_count: rows.filter((row) => row.quantity <= 0).length,
+      active_product_count: getDb().products.filter((product) => product.is_active).length,
+      inactive_product_count: getDb().products.filter((product) => !product.is_active).length,
+      inactive_category_count: getDb().categories.filter((category) => !category.is_active).length,
+      outlet_id: outletId ?? null,
+      ...meta(),
+    },
+    'Ringkasan operasional'
+  );
+}
+
+/** Groups sales into HOUR or DAY buckets, in the order the chart reads them. */
+function bucketRows(rows: WireTransaction[], bucket: 'HOUR' | 'DAY') {
+  const buckets = new Map<string, { omzet: number; count: number }>();
+
+  for (const row of rows) {
+    const at = new Date(row.created_at);
+    const key =
+      bucket === 'HOUR'
+        ? new Date(at.getFullYear(), at.getMonth(), at.getDate(), at.getHours()).toISOString()
+        : new Date(at.getFullYear(), at.getMonth(), at.getDate()).toISOString();
+
+    const entry = buckets.get(key) ?? { omzet: 0, count: 0 };
+    entry.omzet += parseMoney(row.total);
+    entry.count += 1;
+    buckets.set(key, entry);
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, entry]) => ({ bucketStart: key, omzet: entry.omzet, count: entry.count }));
+}
+
+function readBucket(query: Record<string, string>): 'HOUR' | 'DAY' {
+  return query.bucket === 'HOUR' ? 'HOUR' : 'DAY';
+}
+
+function salesTrend(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+  const period = requirePeriod(context.query);
+  const bucket = readBucket(context.query);
+
+  const points = bucketRows(reportingRows(context.query), bucket).map((entry) => ({
+    bucket_start: entry.bucketStart,
+    omzet: toWireMoney(entry.omzet),
+    transaction_count: entry.count,
+  }));
+
+  return ok({ bucket, points, ...meta(period.from, period.to) }, 'Tren penjualan');
+}
+
+function aovTrend(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+  const period = requirePeriod(context.query);
+  const bucket = readBucket(context.query);
+
+  const points = bucketRows(reportingRows(context.query), bucket).map((entry) => ({
+    bucket_start: entry.bucketStart,
+    average_transaction_value: toWireMoney(
+      entry.count > 0 ? Math.trunc(entry.omzet / entry.count) : 0
+    ),
+  }));
+
+  return ok({ bucket, points, ...meta(period.from, period.to) }, 'Tren AOV');
+}
+
+function timePattern(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+  const period = requirePeriod(context.query);
+
+  const hours = new Map<number, { omzet: number; count: number }>();
+  for (const row of reportingRows(context.query)) {
+    const hour = new Date(row.created_at).getHours();
+    const entry = hours.get(hour) ?? { omzet: 0, count: 0 };
+    entry.omzet += parseMoney(row.total);
+    entry.count += 1;
+    hours.set(hour, entry);
+  }
+
+  const points = [...hours.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([hour, entry]) => ({
+      hour_of_day: hour,
+      omzet: toWireMoney(entry.omzet),
+      transaction_count: entry.count,
+    }));
+
+  return ok({ points, ...meta(period.from, period.to) }, 'Pola waktu penjualan');
+}
+
+function topProducts(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+  const period = requirePeriod(context.query);
+
+  const limit = Math.min(100, Math.max(1, Number(context.query.limit) || 10));
+
+  const totals = new Map<string, { name: string; units: number; omzet: number }>();
+  for (const row of reportingRows(context.query)) {
+    for (const item of row.items) {
+      const entry = totals.get(item.product_id) ?? { name: item.name, units: 0, omzet: 0 };
+      entry.units += item.quantity;
+      entry.omzet += parseMoney(item.subtotal);
+      totals.set(item.product_id, entry);
+    }
+  }
+
+  const ranked = [...totals.entries()].map(([productId, entry]) => ({
+    product_id: productId,
+    name: entry.name,
+    units_sold: entry.units,
+    omzet: toWireMoney(entry.omzet),
+  }));
+
+  const byOmzet = [...ranked].sort((a, b) => parseMoney(b.omzet) - parseMoney(a.omzet));
+
+  return ok(
+    {
+      top_selling: byOmzet.slice(0, limit),
+      least_selling: [...byOmzet].reverse().slice(0, limit),
+      ...meta(period.from, period.to),
+    },
+    'Peringkat produk'
+  );
+}
+
+function outletComparison(context: MockContext): MockEnvelope {
+  requireRole('OWNER');
+  const period = requirePeriod(context.query);
+
+  // Merchant-wide by design — a comparison has no outlet filter.
+  const rows = getDb().transactions.filter((row) => withinRange(row.created_at, context.query));
+
+  const items = getDb().outlets.map((outlet) => {
+    const own = rows.filter((row) => row.outlet_id === outlet.id);
     return {
-      cart_item_id: item.cart_item_id,
-      cart_id: cart.cart_id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      subtotal: toWireMoney(unitPrice * item.quantity),
-      product: product ? productBrief(product) : null,
+      outlet_id: outlet.id,
+      outlet_name: outlet.name,
+      omzet: toWireMoney(own.reduce((sum, row) => sum + parseMoney(row.total), 0)),
+      transaction_count: own.length,
     };
   });
 
-  const subtotal = items.reduce((total, item) => total + parseMoney(item.subtotal), 0);
+  return ok({ items, ...meta(period.from, period.to) }, 'Perbandingan outlet');
+}
 
-  return {
-    cart_id: cart.cart_id,
-    outlet_id: cart.outlet_id,
-    user_id: cart.user_id,
-    created_at: cart.created_at,
-    updated_at: cart.updated_at,
-    items,
-    subtotal: toWireMoney(subtotal),
-    total_items: items.length,
-  };
+function lowStockReport(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const rows = getDb()
+    .inventory.filter((row) => {
+      if (context.query.outlet_id && row.outlet_id !== context.query.outlet_id) return false;
+      return isLowStock(row);
+    })
+    .map((row) => ({
+      product_id: row.product_id,
+      name: findProduct(row.product_id)?.name ?? '',
+      outlet_id: row.outlet_id,
+      outlet_name: findOutlet(row.outlet_id)?.name ?? '',
+      quantity: row.quantity,
+      base_low_stock_threshold: findProduct(row.product_id)?.low_stock_threshold ?? 0,
+      low_stock_threshold_override: row.low_stock_threshold_override,
+      effective_low_stock_threshold: effectiveThreshold(row),
+    }));
+
+  return ok({ items: rows, ...meta() }, 'Stok menipis');
 }
 
 /* -------------------------------------------------------------------------- */
-/* Auth                                                                        */
+/* Insight (§7)                                                                */
 /* -------------------------------------------------------------------------- */
 
-const authHandlers: Route[] = [
-  {
-    method: 'POST',
-    template: '/auth/login',
-    handle: ({ body }) => {
-      const email = readString(body, 'email')?.toLowerCase() ?? '';
-      const password = readString(body, 'password') ?? '';
+function getInsights(): MockEnvelope {
+  requireRole('OWNER');
 
-      const user = getDb().users.find((entry) => entry.email.toLowerCase() === email);
-      if (!user || PASSWORDS[user.email] !== password) {
-        throw new MockHttpError(401, 'Invalid email or password');
-      }
-      if (user.status !== 'ACTIVE') {
-        throw new MockHttpError(401, 'Account is inactive');
-      }
+  const state = getDb();
+  // §7.2: a merchant that has never triggered an analysis gets 404, which the
+  // screen renders as an empty state rather than a failure.
+  if (!state.analysisJob) throw new MockHttpError(404, 'Data tidak ditemukan');
 
-      getDb().session = user;
-      return ok({ access_token: `mock.${user.user_id}`, user }, 'Login successful');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/auth/register',
-    handle: ({ body }) => {
-      const merchantInput = (body.merchant ?? {}) as Record<string, unknown>;
-      const userInput = (body.user ?? {}) as Record<string, unknown>;
-      const email = readString(userInput, 'email') ?? '';
+  return ok(
+    { analysis_job: state.analysisJob, insights: state.insights },
+    'Insight terbaru per tipe'
+  );
+}
 
-      const database = getDb();
-      if (database.users.some((entry) => entry.email.toLowerCase() === email.toLowerCase())) {
-        throw new MockHttpError(409, 'Email already registered', [
-          { field: 'email', message: `Email ${email} is already used` },
-        ]);
-      }
+function triggerInsights(): MockEnvelope {
+  requireRole('OWNER');
 
-      const merchant = {
-        ...database.merchant,
-        name: readString(merchantInput, 'name') ?? database.merchant.name,
-      };
-      const user: WireUser = {
-        user_id: nextId('usr'),
-        merchant_id: merchant.merchant_id,
-        outlet_id: null,
-        name: readString(userInput, 'name') ?? '',
-        email,
-        // The first user of a merchant is always the OWNER.
-        role: 'OWNER',
-        status: 'ACTIVE',
-        created_at: NOW,
-        updated_at: NOW,
-      };
+  const state = getDb();
+  const today = NOW.slice(0, 10);
 
-      database.users.push(user);
-      database.session = user;
-      PASSWORDS[email] = readString(userInput, 'password') ?? '';
-
-      return ok(
-        { merchant, user, access_token: `mock.${user.user_id}` },
-        'Merchant and owner account created successfully',
-        201
-      );
-    },
-  },
-  {
-    method: 'POST',
-    template: '/auth/logout',
-    handle: () => {
-      requireUser();
-      getDb().session = null;
-      return ok(null, 'Logout successful');
-    },
-  },
-  {
-    method: 'GET',
-    template: '/auth/me',
-    handle: () => ok(requireUser(), 'User data retrieved'),
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Merchant, outlets, users                                                    */
-/* -------------------------------------------------------------------------- */
-
-const merchantHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/merchants',
-    handle: () => {
-      requireRole('OWNER');
-      return ok(getDb().merchant, 'Merchant data retrieved');
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/merchants',
-    handle: ({ body }) => {
-      requireRole('OWNER');
-      const database = getDb();
-      const name = readString(body, 'name');
-      const threshold = readNumber(body.low_stock_threshold);
-
-      if (name !== undefined) database.merchant.name = name;
-      if (threshold !== undefined) database.merchant.low_stock_threshold = threshold;
-
-      return ok(database.merchant, 'Merchant updated successfully');
-    },
-  },
-];
-
-const outletHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/outlets',
-    handle: ({ query }) => {
-      requireUser();
-      const outlets = getDb().outlets.filter(
-        (outlet) => !query.status || outlet.status === query.status
-      );
-      return ok(outlets, 'Outlets retrieved successfully');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/outlets',
-    handle: ({ body }) => {
-      requireRole('OWNER');
-      const outlet = {
-        outlet_id: nextId('otl'),
-        merchant_id: getDb().merchant.merchant_id,
-        name: readString(body, 'name') ?? '',
-        address: readString(body, 'address') ?? '',
-        status: (readString(body, 'status') as 'ACTIVE' | 'INACTIVE') ?? 'ACTIVE',
-        created_at: NOW,
-        updated_at: NOW,
-      };
-      getDb().outlets.push(outlet);
-      return ok(outlet, 'Outlet created successfully', 201);
-    },
-  },
-  {
-    method: 'GET',
-    template: '/outlets/:outletId',
-    handle: ({ params }) => {
-      requireUser();
-      const outlet = findOutlet(params.outletId ?? '');
-      if (!outlet) throw new MockHttpError(404, 'Outlet not found');
-      return ok(outlet, 'Outlet data retrieved');
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/outlets/:outletId',
-    handle: ({ params, body }) => {
-      requireRole('OWNER');
-      const outlet = findOutlet(params.outletId ?? '');
-      if (!outlet) throw new MockHttpError(404, 'Outlet not found');
-
-      const name = readString(body, 'name');
-      const address = readString(body, 'address');
-      const status = readString(body, 'status') as 'ACTIVE' | 'INACTIVE' | undefined;
-
-      if (name !== undefined) outlet.name = name;
-      if (address !== undefined) outlet.address = address;
-      if (status !== undefined) outlet.status = status;
-      outlet.updated_at = NOW;
-
-      return ok(outlet, 'Outlet updated successfully');
-    },
-  },
-  {
-    method: 'DELETE',
-    template: '/outlets/:outletId',
-    handle: ({ params }) => {
-      requireRole('OWNER');
-      const outlet = findOutlet(params.outletId ?? '');
-      if (!outlet) throw new MockHttpError(404, 'Outlet not found');
-
-      // Soft delete: the outlet keeps its transaction history.
-      outlet.status = 'INACTIVE';
-      return ok(null, 'Outlet deactivated successfully');
-    },
-  },
-];
-
-const userHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/users',
-    handle: ({ query }) => {
-      requireRole('OWNER');
-      const users = getDb().users.filter(
-        (user) =>
-          (!query.role || user.role === query.role) &&
-          (!query.outlet_id || user.outlet_id === query.outlet_id) &&
-          (!query.status || user.status === query.status)
-      );
-      return ok(users, 'Users retrieved successfully');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/users',
-    handle: ({ body }) => {
-      requireRole('OWNER');
-      const database = getDb();
-      const email = readString(body, 'email') ?? '';
-      const role = readString(body, 'role') as WireUser['role'] | undefined;
-      const outletId = readString(body, 'outlet_id') ?? null;
-
-      if (database.users.some((entry) => entry.email.toLowerCase() === email.toLowerCase())) {
-        throw new MockHttpError(409, 'Email already registered', [
-          { field: 'email', message: `Email ${email} is already used` },
-        ]);
-      }
-      if (role === 'CASHIER' && !outletId) {
-        throw new MockHttpError(400, 'outlet_id is required for CASHIER role');
-      }
-      if (role === 'ADMIN' && outletId) {
-        throw new MockHttpError(400, 'ADMIN role must have outlet_id = null');
-      }
-      if (role !== 'ADMIN' && role !== 'CASHIER') {
-        throw new MockHttpError(400, 'role must be ADMIN or CASHIER');
-      }
-
-      const user: WireUser = {
-        user_id: nextId('usr'),
-        merchant_id: database.merchant.merchant_id,
-        outlet_id: role === 'CASHIER' ? outletId : null,
-        name: readString(body, 'name') ?? '',
-        email,
-        role,
-        status: (readString(body, 'status') as 'ACTIVE' | 'INACTIVE') ?? 'ACTIVE',
-        created_at: NOW,
-        updated_at: NOW,
-      };
-
-      database.users.push(user);
-      PASSWORDS[email] = readString(body, 'password') ?? 'password123';
-
-      return ok(user, 'User created successfully', 201);
-    },
-  },
-  {
-    method: 'GET',
-    template: '/users/:userId',
-    handle: ({ params }) => {
-      requireRole('OWNER');
-      const user = getDb().users.find((entry) => entry.user_id === params.userId);
-      if (!user) throw new MockHttpError(404, 'User not found');
-      return ok(user, 'User data retrieved');
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/users/:userId',
-    handle: ({ params, body }) => {
-      requireRole('OWNER');
-      const user = getDb().users.find((entry) => entry.user_id === params.userId);
-      if (!user) throw new MockHttpError(404, 'User not found');
-
-      const role = (readString(body, 'role') as WireUser['role'] | undefined) ?? user.role;
-      const outletId =
-        'outlet_id' in body
-          ? ((readString(body, 'outlet_id') ?? null) as string | null)
-          : user.outlet_id;
-
-      if (role === 'CASHIER' && !outletId) {
-        throw new MockHttpError(400, 'outlet_id is required for CASHIER role');
-      }
-      if (role === 'ADMIN' && outletId) {
-        throw new MockHttpError(400, 'ADMIN role must have outlet_id = null');
-      }
-
-      const name = readString(body, 'name');
-      const email = readString(body, 'email');
-      const status = readString(body, 'status') as 'ACTIVE' | 'INACTIVE' | undefined;
-
-      if (name !== undefined) user.name = name;
-      if (email !== undefined) user.email = email;
-      if (status !== undefined) user.status = status;
-      user.role = role;
-      user.outlet_id = outletId;
-      user.updated_at = NOW;
-
-      return ok(user, 'User updated successfully');
-    },
-  },
-  {
-    method: 'DELETE',
-    template: '/users/:userId',
-    handle: ({ params }) => {
-      requireRole('OWNER');
-      const user = getDb().users.find((entry) => entry.user_id === params.userId);
-      if (!user) throw new MockHttpError(404, 'User not found');
-
-      user.status = 'INACTIVE';
-      return ok(null, 'User deactivated successfully');
-    },
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Catalog                                                                     */
-/* -------------------------------------------------------------------------- */
-
-const categoryHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/categories',
-    handle: () => {
-      requireUser();
-      return ok(getDb().categories, 'Categories retrieved successfully');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/categories',
-    handle: ({ body }) => {
-      // Owner is read-only on the catalog; only Admin manages it.
-      requireRole('ADMIN');
-      const category = {
-        category_id: nextId('cat'),
-        merchant_id: getDb().merchant.merchant_id,
-        name: readString(body, 'name') ?? '',
-        status: 'ACTIVE' as const,
-        created_at: NOW,
-        updated_at: NOW,
-      };
-      getDb().categories.push(category);
-      return ok(category, 'Category created successfully', 201);
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/categories/:categoryId',
-    handle: ({ params, body }) => {
-      requireRole('ADMIN');
-      const category = getDb().categories.find((entry) => entry.category_id === params.categoryId);
-      if (!category) throw new MockHttpError(404, 'Category not found');
-
-      const name = readString(body, 'name');
-      if (name !== undefined) category.name = name;
-      category.updated_at = NOW;
-
-      return ok(category, 'Category updated successfully');
-    },
-  },
-  {
-    method: 'DELETE',
-    template: '/categories/:categoryId',
-    handle: ({ params }) => {
-      requireRole('ADMIN');
-      const category = getDb().categories.find((entry) => entry.category_id === params.categoryId);
-      if (!category) throw new MockHttpError(404, 'Category not found');
-
-      category.status = 'INACTIVE';
-      return ok(null, 'Category deactivated successfully');
-    },
-  },
-];
-
-const productHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/products',
-    handle: ({ query }) => {
-      requireUser();
-      const search = query.search?.toLowerCase();
-
-      const products = getDb()
-        .products.filter(
-          (product) =>
-            (!query.category_id || product.category_id === query.category_id) &&
-            (!query.status || product.status === query.status) &&
-            (!search ||
-              product.name.toLowerCase().includes(search) ||
-              product.sku.toLowerCase().includes(search))
-        )
-        .map(productView);
-
-      return ok(page(products, query), 'Products retrieved successfully');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/products',
-    handle: ({ body }) => {
-      requireRole('ADMIN');
-      const categoryId = readString(body, 'category_id') ?? '';
-      const category = getDb().categories.find((entry) => entry.category_id === categoryId);
-
-      if (!category || category.status !== 'ACTIVE') {
-        throw new MockHttpError(400, 'Category is not active or does not belong to merchant');
-      }
-
-      const product: WireProduct = {
-        product_id: nextId('prd'),
-        merchant_id: getDb().merchant.merchant_id,
-        category_id: categoryId,
-        name: readString(body, 'name') ?? '',
-        sku: readString(body, 'sku') ?? '',
-        price: readString(body, 'price') ?? '0.00',
-        status: (readString(body, 'status') as 'ACTIVE' | 'INACTIVE') ?? 'ACTIVE',
-        created_at: NOW,
-        updated_at: NOW,
-      };
-
-      getDb().products.push(product);
-      // A new product starts at zero stock in every outlet.
-      getDb().outlets.forEach((outlet) => ensureInventory(outlet.outlet_id, product.product_id));
-
-      return ok(productView(product), 'Product created successfully', 201);
-    },
-  },
-  {
-    method: 'GET',
-    template: '/products/:productId',
-    handle: ({ params }) => {
-      requireUser();
-      const product = findProduct(params.productId ?? '');
-      if (!product) throw new MockHttpError(404, 'Product not found');
-      return ok(productView(product), 'Product data retrieved');
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/products/:productId',
-    handle: ({ params, body }) => {
-      requireRole('ADMIN');
-      const product = findProduct(params.productId ?? '');
-      if (!product) throw new MockHttpError(404, 'Product not found');
-
-      const name = readString(body, 'name');
-      const sku = readString(body, 'sku');
-      const price = readString(body, 'price');
-      const categoryId = readString(body, 'category_id');
-      const status = readString(body, 'status') as 'ACTIVE' | 'INACTIVE' | undefined;
-
-      if (name !== undefined) product.name = name;
-      if (sku !== undefined) product.sku = sku;
-      // Editing a price here is what makes an open cart fail with PRICE_CHANGED.
-      if (price !== undefined) product.price = price;
-      if (categoryId !== undefined) product.category_id = categoryId;
-      if (status !== undefined) product.status = status;
-      product.updated_at = NOW;
-
-      return ok(productView(product), 'Product updated successfully');
-    },
-  },
-  {
-    method: 'DELETE',
-    template: '/products/:productId',
-    handle: ({ params }) => {
-      requireRole('ADMIN');
-      const product = findProduct(params.productId ?? '');
-      if (!product) throw new MockHttpError(404, 'Product not found');
-
-      product.status = 'INACTIVE';
-      return ok(null, 'Product deactivated successfully');
-    },
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Inventory                                                                   */
-/* -------------------------------------------------------------------------- */
-
-/** A cashier may only read the outlet they are assigned to. */
-function assertOutletVisible(user: WireUser, outletId: string): void {
-  if (user.role === 'CASHIER' && user.outlet_id !== outletId) {
-    throw new MockHttpError(403, 'Cashier can only access their own outlet');
+  // §7.1 rule 2: one analysis per merchant per local day. A second trigger the
+  // same day returns the existing job with 200 rather than starting another.
+  if (state.analysisJob?.analysis_date === today) {
+    return ok(
+      { job_id: state.analysisJob.id, status: state.analysisJob.status },
+      'Analisis sudah dijadwalkan hari ini'
+    );
   }
-}
 
-const inventoryHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/inventory',
-    handle: ({ query }) => {
-      const user = requireUser();
-      const outletId = query.outlet_id;
-      if (!outletId) throw new MockHttpError(400, 'outlet_id is required');
-      assertOutletVisible(user, outletId);
-
-      const rows = getDb()
-        .inventory.filter(
-          (row) =>
-            row.outlet_id === outletId && (!query.product_id || row.product_id === query.product_id)
-        )
-        .map(inventoryView);
-
-      return ok(page(rows, query), 'Inventory retrieved successfully');
-    },
-  },
-  {
-    method: 'GET',
-    template: '/inventory/low-stock',
-    handle: ({ query }) => {
-      requireRole('ADMIN', 'OWNER');
-      const threshold = getDb().merchant.low_stock_threshold;
-
-      const alerts = lowStockRows(query.outlet_id).map((row) => ({
-        inventory_id: row.inventory.inventory_id,
-        product_id: row.product.product_id,
-        product_name: row.product.name,
-        sku: row.product.sku,
-        outlet_id: row.outlet.outlet_id,
-        outlet_name: row.outlet.name,
-        current_stock: row.inventory.quantity,
-        threshold,
-      }));
-
-      return ok(alerts, 'Low stock alerts retrieved');
-    },
-  },
-  {
-    method: 'GET',
-    template: '/inventory/outlet/:outletId/product/:productId',
-    handle: ({ params }) => {
-      const user = requireUser();
-      const outletId = params.outletId ?? '';
-      assertOutletVisible(user, outletId);
-
-      const row = findInventory(outletId, params.productId ?? '');
-      // The contract answers 200 with quantity 0 rather than a 404 here.
-      if (!row) {
-        return ok(
-          { outlet_id: outletId, product_id: params.productId, quantity: 0 },
-          'Inventory data retrieved'
-        );
-      }
-      return ok(row, 'Inventory data retrieved');
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/inventory/bulk',
-    handle: ({ body }) => {
-      requireRole('ADMIN');
-      const items = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
-      const updated: WireInventory[] = [];
-
-      items.forEach((item) => {
-        const row = getDb().inventory.find(
-          (entry) => entry.inventory_id === readString(item, 'inventory_id')
-        );
-        if (!row) return;
-
-        const quantity = readNumber(item.quantity);
-        if (quantity === undefined || quantity < 0) {
-          throw new MockHttpError(400, 'quantity must be zero or greater');
-        }
-        if (!readString(item, 'reason')) {
-          throw new MockHttpError(400, 'reason is required for manual stock adjustment');
-        }
-
-        row.quantity = quantity;
-        row.updated_at = NOW;
-        updated.push(row);
-      });
-
-      return ok(updated, 'Inventory updated');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/inventory/transfer',
-    handle: ({ body }) => {
-      requireRole('ADMIN');
-      const productId = readString(body, 'product_id') ?? '';
-      const fromOutletId = readString(body, 'from_outlet_id') ?? '';
-      const toOutletId = readString(body, 'to_outlet_id') ?? '';
-      const quantity = readNumber(body.quantity) ?? 0;
-
-      const product = findProduct(productId);
-      if (!product) throw new MockHttpError(404, 'Product not found');
-      if (quantity <= 0) throw new MockHttpError(400, 'quantity must be greater than zero');
-      if (!readString(body, 'reason')) {
-        throw new MockHttpError(400, 'reason is required for stock transfer');
-      }
-
-      const from = ensureInventory(fromOutletId, productId);
-      if (from.quantity < quantity) {
-        throw new MockHttpError(400, 'Insufficient stock at source outlet', [
-          {
-            product_id: productId,
-            product_name: product.name,
-            requested: quantity,
-            available: from.quantity,
-          },
-        ]);
-      }
-
-      const to = ensureInventory(toOutletId, productId);
-      from.quantity -= quantity;
-      to.quantity += quantity;
-      from.updated_at = NOW;
-      to.updated_at = NOW;
-
-      return ok(
-        { from_inventory: from, to_inventory: to, transferred_quantity: quantity },
-        'Stock transferred successfully'
-      );
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/inventory/:inventoryId',
-    handle: ({ params, body }) => {
-      // Owner is read-only on inventory — the contract says so too.
-      requireRole('ADMIN');
-      const row = getDb().inventory.find((entry) => entry.inventory_id === params.inventoryId);
-      if (!row) throw new MockHttpError(404, 'Inventory not found');
-
-      const quantity = readNumber(body.quantity);
-      if (quantity === undefined || quantity < 0) {
-        throw new MockHttpError(400, 'quantity must be zero or greater');
-      }
-      if (!readString(body, 'reason')) {
-        throw new MockHttpError(400, 'reason is required for manual stock adjustment');
-      }
-
-      row.quantity = quantity;
-      row.updated_at = NOW;
-
-      return ok(row, 'Inventory updated successfully');
-    },
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Cart                                                                        */
-/* -------------------------------------------------------------------------- */
-
-function requireCashier(): WireUser {
-  const user = requireRole('CASHIER');
-  if (!user.outlet_id) throw new MockHttpError(403, 'Cashier is not assigned to an outlet');
-  return user;
-}
-
-const cartHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/cart',
-    handle: () => {
-      const user = requireCashier();
-      const cart = findCart(user.user_id);
-      if (!cart) throw new MockHttpError(404, 'Cart not found');
-      return ok(cartView(cart), 'Cart details');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/cart/items',
-    handle: ({ body }) => {
-      const user = requireCashier();
-      const productId = readString(body, 'product_id') ?? '';
-      const quantity = readNumber(body.quantity) ?? 1;
-
-      const product = findProduct(productId);
-      if (!product || product.status !== 'ACTIVE') {
-        throw new MockHttpError(404, 'Product not found');
-      }
-
-      const cart = ensureCart(user);
-      const existing = cart.items.find((item) => item.product_id === productId);
-      const requested = (existing?.quantity ?? 0) + quantity;
-      const available = stockAt(user.outlet_id ?? '', productId);
-
-      if (requested > available) {
-        throw new MockHttpError(400, `Insufficient stock for product: ${product.name}`, [
-          {
-            product_id: productId,
-            product_name: product.name,
-            requested,
-            available,
-          },
-        ]);
-      }
-
-      if (existing) {
-        existing.quantity = requested;
-      } else {
-        cart.items.push({
-          cart_item_id: nextId('cti'),
-          cart_id: cart.cart_id,
-          product_id: productId,
-          quantity,
-          // The price is captured now; a later edit is what triggers PRICE_CHANGED.
-          unit_price: product.price,
-        });
-      }
-      cart.updated_at = NOW;
-
-      return ok(cartView(cart), 'Item added to cart');
-    },
-  },
-  {
-    method: 'PUT',
-    template: '/cart/items/:cartItemId',
-    handle: ({ params, body }) => {
-      const user = requireCashier();
-      const cart = findCart(user.user_id);
-      const item = cart?.items.find((entry) => entry.cart_item_id === params.cartItemId);
-      if (!cart || !item) throw new MockHttpError(404, 'Cart item not found');
-
-      const quantity = readNumber(body.quantity) ?? 0;
-      const product = findProduct(item.product_id);
-      const available = stockAt(user.outlet_id ?? '', item.product_id);
-
-      if (quantity > available) {
-        throw new MockHttpError(400, `Insufficient stock for product: ${product?.name ?? ''}`, [
-          {
-            product_id: item.product_id,
-            product_name: product?.name ?? '',
-            requested: quantity,
-            available,
-          },
-        ]);
-      }
-
-      if (quantity <= 0) {
-        cart.items = cart.items.filter((entry) => entry.cart_item_id !== item.cart_item_id);
-      } else {
-        item.quantity = quantity;
-      }
-      cart.updated_at = NOW;
-
-      return ok(cartView(cart), 'Cart item updated');
-    },
-  },
-  {
-    method: 'DELETE',
-    template: '/cart/clear',
-    handle: () => {
-      const user = requireCashier();
-      const cart = ensureCart(user);
-      cart.items = [];
-      cart.updated_at = NOW;
-      return ok(cartView(cart), 'Cart cleared');
-    },
-  },
-  {
-    method: 'DELETE',
-    template: '/cart/items/:cartItemId',
-    handle: ({ params }) => {
-      const user = requireCashier();
-      const cart = findCart(user.user_id);
-      if (!cart) throw new MockHttpError(404, 'Cart not found');
-
-      cart.items = cart.items.filter((entry) => entry.cart_item_id !== params.cartItemId);
-      cart.updated_at = NOW;
-
-      return ok(cartView(cart), 'Item removed from cart');
-    },
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Transactions                                                                */
-/* -------------------------------------------------------------------------- */
-
-type CheckoutLine = { productId: string; quantity: number; unitPrice: number };
-
-type PaymentMethodValue = NonNullable<WireTransaction['payment']>['method'];
-
-const PAYMENT_METHODS: PaymentMethodValue[] = ['CASH', 'QRIS', 'DEBIT', 'TRANSFER'];
-
-/** Defaults to cash, which is what most UMKM counters take. */
-function readPaymentMethod(body: Record<string, unknown>): PaymentMethodValue {
-  const value = readString(body, 'payment_method');
-  return PAYMENT_METHODS.find((method) => method === value) ?? 'CASH';
-}
-
-function transactionNumber(): string {
-  const database = getDb();
-  const sequence = database.transactions.length + 1;
-  return `TRX-20260813-${String(sequence).padStart(3, '0')}`;
-}
-
-function checkoutResponse(transaction: WireTransaction) {
-  return {
-    transaction: transactionView(transaction),
-    items: transactionItemViews(transaction.transaction_id),
-    receipt: {
-      receipt_number: transaction.transaction_number.replace('TRX-', 'RC-'),
-      transaction_id: transaction.transaction_id,
-      issued_at: transaction.created_at,
-    },
+  state.analysisJob = {
+    id: nextId('job'),
+    status: 'PENDING',
+    analysis_date: today,
+    updated_at: NOW,
   };
+
+  return ok(
+    { job_id: state.analysisJob.id, status: state.analysisJob.status },
+    'Analisis insight dijadwalkan',
+    202
+  );
 }
 
-const transactionHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/transactions',
-    handle: ({ query }) => {
-      // Admin has no access to transactions at all (role matrix).
-      const user = requireRole('OWNER', 'CASHIER');
-
-      const outletFilter = user.role === 'CASHIER' ? user.outlet_id : query.outlet_id;
-
-      const transactions = getDb()
-        .transactions.filter((transaction) => {
-          if (outletFilter && transaction.outlet_id !== outletFilter) return false;
-          if (query.cashier_id && transaction.user_id !== query.cashier_id) return false;
-
-          const date = transaction.created_at.slice(0, 10);
-          if (query.start_date && date < query.start_date) return false;
-          if (query.end_date && date > query.end_date) return false;
-          return true;
-        })
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .map(transactionView);
-
-      return ok(page(transactions, query), 'Transactions retrieved successfully');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/transactions',
-    handle: ({ body, idempotencyKey }) => {
-      const user = requireCashier();
-      const database = getDb();
-      const outletId = user.outlet_id ?? '';
-
-      // Idempotency first: a replayed request must never reach the stock check,
-      // let alone create a second sale.
-      if (idempotencyKey) {
-        const existingId = database.idempotency.get(idempotencyKey);
-        if (existingId) {
-          const existing = database.transactions.find(
-            (entry) => entry.transaction_id === existingId
-          );
-          if (existing) {
-            return ok(
-              checkoutResponse(existing),
-              'Transaction already exists, returning existing data',
-              200
-            );
-          }
-        }
-      }
-
-      const cartId = readString(body, 'cart_id');
-      const cart = cartId ? database.carts.find((entry) => entry.cart_id === cartId) : undefined;
-
-      let lines: CheckoutLine[];
-
-      if (cartId) {
-        if (!cart || cart.user_id !== user.user_id) throw new MockHttpError(404, 'Cart not found');
-        lines = cart.items.map((item) => ({
-          productId: item.product_id,
-          quantity: item.quantity,
-          unitPrice: parseMoney(item.unit_price),
-        }));
-
-        // A price edited after the line was added invalidates the whole cart.
-        const drifted = cart.items.flatMap((item) => {
-          const product = findProduct(item.product_id);
-          if (!product) return [];
-          const cartPrice = parseMoney(item.unit_price);
-          const currentPrice = priceOf(product);
-          if (cartPrice === currentPrice) return [];
-
-          return [
-            {
-              code: 'PRICE_CHANGED',
-              product_id: product.product_id,
-              product_name: product.name,
-              cart_price: toWireMoney(cartPrice),
-              current_price: toWireMoney(currentPrice),
-            },
-          ];
-        });
-
-        if (drifted.length > 0) throw new MockHttpError(409, 'Cart validation failed', drifted);
-      } else {
-        const items = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
-        lines = items.flatMap((item) => {
-          const productId = readString(item, 'product_id') ?? '';
-          const product = findProduct(productId);
-          if (!product) return [];
-          return [
-            {
-              productId,
-              quantity: readNumber(item.quantity) ?? 0,
-              unitPrice: priceOf(product),
-            },
-          ];
-        });
-      }
-
-      if (lines.length === 0)
-        throw new MockHttpError(400, 'Transaction must have at least one item');
-
-      const shortfalls = lines.flatMap((line) => {
-        const available = stockAt(outletId, line.productId);
-        if (line.quantity <= available) return [];
-        const product = findProduct(line.productId);
-        return [
-          {
-            product_id: line.productId,
-            product_name: product?.name ?? '',
-            requested: line.quantity,
-            available,
-          },
-        ];
-      });
-
-      if (shortfalls.length > 0) {
-        const first = findProduct(shortfalls[0]?.product_id ?? '');
-        throw new MockHttpError(
-          400,
-          `Insufficient stock for product: ${first?.name ?? ''}`,
-          shortfalls
-        );
-      }
-
-      const subtotal = lines.reduce((total, line) => total + line.unitPrice * line.quantity, 0);
-      const transactionId = nextId('trx');
-      const createdAt = new Date().toISOString();
-
-      const transaction: WireTransaction = {
-        transaction_id: transactionId,
-        outlet_id: outletId,
-        user_id: user.user_id,
-        transaction_number: transactionNumber(),
-        subtotal: toWireMoney(subtotal),
-        // Total equals subtotal. There is nothing else to add.
-        total: toWireMoney(subtotal),
-        status: 'COMPLETED',
-        created_at: createdAt,
-        payment: {
-          method: readPaymentMethod(body),
-          amount: toWireMoney(subtotal),
-          paid_at: createdAt,
-        },
-      };
-
-      database.transactions.push(transaction);
-
-      lines.forEach((line, index) => {
-        database.transactionItems.push({
-          transaction_item_id: `txi_${transactionId}_${index + 1}`,
-          transaction_id: transactionId,
-          product_id: line.productId,
-          quantity: line.quantity,
-          unit_price: toWireMoney(line.unitPrice),
-          subtotal: toWireMoney(line.unitPrice * line.quantity),
-        });
-
-        const row = ensureInventory(outletId, line.productId);
-        row.quantity -= line.quantity;
-        row.updated_at = createdAt;
-      });
-
-      if (cart) cart.items = [];
-      if (idempotencyKey) database.idempotency.set(idempotencyKey, transactionId);
-
-      return ok(checkoutResponse(transaction), 'Transaction completed successfully', 201);
-    },
-  },
-  {
-    method: 'POST',
-    template: '/transactions/:transactionId/cancel',
-    handle: () => {
-      // Refund/void is out of MVP scope; the contract answers 501.
-      throw new MockHttpError(501, 'Not implemented in MVP');
-    },
-  },
-  {
-    method: 'GET',
-    template: '/transactions/:transactionId',
-    handle: ({ params }) => {
-      const user = requireRole('OWNER', 'CASHIER');
-      const transaction = getDb().transactions.find(
-        (entry) => entry.transaction_id === params.transactionId
-      );
-      if (!transaction) throw new MockHttpError(404, 'Transaction not found');
-      assertOutletVisible(user, transaction.outlet_id);
-
-      return ok(
-        {
-          transaction: transactionView(transaction),
-          items: transactionItemViews(transaction.transaction_id),
-        },
-        'Transaction data retrieved'
-      );
-    },
-  },
-];
-
 /* -------------------------------------------------------------------------- */
-/* Dashboard                                                                   */
+/* Platform (§8)                                                               */
 /* -------------------------------------------------------------------------- */
 
-function rankedProduct(
-  entry: { product_id: string; total_quantity_sold: number; total_revenue: string },
-  index: number
-) {
-  const product = findProduct(entry.product_id);
-  return {
-    product_id: entry.product_id,
-    product_name: product?.name ?? '',
-    sku: product?.sku ?? '',
-    category_name: categoryBrief(product?.category_id ?? null)?.name ?? '',
-    total_quantity_sold: entry.total_quantity_sold,
-    total_revenue: entry.total_revenue,
-    rank: index + 1,
-  };
+function health(): MockEnvelope {
+  return ok({ status: 'ok', database: 'up', redis: 'up', worker: 'up' }, 'Layanan sehat');
 }
-
-const dashboardHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/dashboard/owner',
-    handle: () => {
-      requireRole('OWNER');
-      const database = getDb();
-
-      const recent = [...database.transactions]
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-        .slice(0, 5)
-        .map((transaction) => {
-          const view = transactionView(transaction);
-          return {
-            transaction_id: transaction.transaction_id,
-            transaction_number: transaction.transaction_number,
-            outlet_name: view.outlet?.name ?? '',
-            cashier_name: view.cashier?.name ?? '',
-            total: transaction.total,
-            created_at: transaction.created_at,
-          };
-        });
-
-      return ok(
-        {
-          summary: {
-            total_revenue: DASHBOARD_FIGURES.totalRevenue,
-            total_transactions: DASHBOARD_FIGURES.totalTransactions,
-            total_orders: DASHBOARD_FIGURES.totalTransactions,
-            average_order_value: DASHBOARD_FIGURES.averageOrderValue,
-            total_products_sold: DASHBOARD_FIGURES.totalProductsSold,
-            // The brief's literal counts, which read 12 employees and 156
-            // products against the five users and twelve products it seeds.
-            // See the note on DASHBOARD_FIGURES.
-            total_outlets: DASHBOARD_FIGURES.totalOutlets,
-            total_employees: DASHBOARD_FIGURES.totalEmployees,
-            total_products: DASHBOARD_FIGURES.totalProducts,
-            revenue_growth: DASHBOARD_FIGURES.revenueGrowth,
-            transactions_growth: DASHBOARD_FIGURES.transactionsGrowth,
-            products_sold_growth: DASHBOARD_FIGURES.productsSoldGrowth,
-          },
-          sales_trend: {
-            labels: SALES_TREND.labels,
-            datasets: { revenue: SALES_TREND.revenue, transactions: SALES_TREND.transactions },
-            summary: {
-              highest_revenue: SALES_TREND.highest,
-              lowest_revenue: SALES_TREND.lowest,
-              average_revenue: SALES_TREND.average,
-              total_revenue: DASHBOARD_FIGURES.totalRevenue,
-            },
-          },
-          outlet_performance: OUTLET_PERFORMANCE,
-          top_products: {
-            by_revenue: TOP_BY_REVENUE.map(rankedProduct),
-            by_quantity: TOP_BY_QUANTITY.map(rankedProduct),
-          },
-          underperforming_products: UNDERPERFORMERS.map((entry) => {
-            const product = findProduct(entry.product_id);
-            return {
-              product_id: entry.product_id,
-              product_name: product?.name ?? '',
-              sku: product?.sku ?? '',
-              category_name: categoryBrief(product?.category_id ?? null)?.name ?? '',
-              total_quantity_sold: entry.total_quantity_sold,
-              total_revenue: entry.total_revenue,
-              stock_level: entry.stock_level,
-              days_without_sale: entry.days_without_sale,
-              recommendation: entry.recommendation,
-            };
-          }),
-          time_pattern: TIME_PATTERN,
-          aov_trend: {
-            labels: AOV_TREND.labels,
-            values: AOV_TREND.values,
-            current_aov: AOV_TREND.current,
-            previous_aov: AOV_TREND.previous,
-            growth_percentage: AOV_TREND.growth,
-          },
-          recent_transactions: recent,
-          merchant_overview: {
-            merchant_name: database.merchant.name,
-            total_outlets_active: DASHBOARD_FIGURES.totalOutlets,
-            total_employees_active: DASHBOARD_FIGURES.totalEmployees,
-            total_products_active: DASHBOARD_FIGURES.totalProducts,
-            total_categories: DASHBOARD_FIGURES.totalCategories,
-            last_ai_analysis: LAST_AI_ANALYSIS,
-            ai_available_today: true,
-          },
-          period_comparison: {
-            current_period: PERIOD_COMPARISON.current,
-            previous_period: PERIOD_COMPARISON.previous,
-            changes: PERIOD_COMPARISON.changes,
-          },
-        },
-        'Dashboard data retrieved successfully'
-      );
-    },
-  },
-  {
-    method: 'GET',
-    template: '/dashboard/admin',
-    handle: ({ query }) => {
-      requireRole('ADMIN');
-      const database = getDb();
-      const threshold = database.merchant.low_stock_threshold;
-      const outletFilter = query.outlet_id;
-
-      const rows = stockRows().filter(
-        (row) => !outletFilter || row.outlet.outlet_id === outletFilter
-      );
-
-      // Every figure below is computed from current stock, so an adjustment on
-      // the inventory screen is reflected here immediately.
-      const totalStockItems = rows.reduce((total, row) => total + row.inventory.quantity, 0);
-      const totalStockValue = rows.reduce(
-        (total, row) => total + row.inventory.quantity * priceOf(row.product),
-        0
-      );
-
-      return ok(
-        {
-          summary: {
-            total_outlets: database.outlets.filter((outlet) => outlet.status === 'ACTIVE').length,
-            total_products: database.products.filter((product) => product.status === 'ACTIVE')
-              .length,
-            total_stock_value: toWireMoney(totalStockValue),
-            total_stock_items: totalStockItems,
-            low_stock_products_count: lowStockRows(outletFilter).length,
-            out_of_stock_products_count: outOfStockRows(outletFilter).length,
-          },
-          low_stock_alerts: lowStockRows(outletFilter).map((row) => ({
-            inventory_id: row.inventory.inventory_id,
-            product_id: row.product.product_id,
-            product_name: row.product.name,
-            sku: row.product.sku,
-            outlet_id: row.outlet.outlet_id,
-            outlet_name: row.outlet.name,
-            current_stock: row.inventory.quantity,
-            threshold,
-          })),
-          out_of_stock_alerts: outOfStockRows(outletFilter).map((row) => ({
-            product_id: row.product.product_id,
-            product_name: row.product.name,
-            sku: row.product.sku,
-            outlet_id: row.outlet.outlet_id,
-            outlet_name: row.outlet.name,
-          })),
-          outlet_quick_stats: database.outlets.map((outlet) => {
-            const outletRows = stockRows().filter(
-              (row) => row.outlet.outlet_id === outlet.outlet_id
-            );
-            return {
-              outlet_id: outlet.outlet_id,
-              outlet_name: outlet.name,
-              total_products: outletRows.length,
-              total_stock: outletRows.reduce((total, row) => total + row.inventory.quantity, 0),
-              low_stock_count: lowStockRows(outlet.outlet_id).length,
-              out_of_stock_count: outOfStockRows(outlet.outlet_id).length,
-            };
-          }),
-        },
-        'Admin inventory dashboard data'
-      );
-    },
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Analytics and AI                                                            */
-/* -------------------------------------------------------------------------- */
-
-const analyticsHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/analytics/sales-trend',
-    handle: ({ query }) => {
-      requireRole('OWNER');
-      if (!query.start_date || !query.end_date) {
-        throw new MockHttpError(400, 'start_date and end_date are required');
-      }
-
-      const trend = SALES_TREND.labels.map((date, index) => ({
-        date,
-        total_sales: SALES_TREND.revenue[index] ?? '0.00',
-        transaction_count: SALES_TREND.transactions[index] ?? 0,
-      }));
-
-      const totalTransactions = SALES_TREND.transactions.reduce((sum, count) => sum + count, 0);
-
-      return ok(
-        {
-          trend,
-          summary: {
-            total_revenue: DASHBOARD_FIGURES.totalRevenue,
-            average_daily_revenue: SALES_TREND.average,
-            total_transactions: totalTransactions,
-            average_daily_transactions: Math.round(totalTransactions / trend.length),
-          },
-        },
-        'Sales trend data retrieved'
-      );
-    },
-  },
-  {
-    method: 'GET',
-    template: '/analytics/time-pattern',
-    handle: () => {
-      requireRole('OWNER');
-      const totalTransactions = TIME_PATTERN.hourly_distribution.reduce(
-        (sum, point) => sum + point.transaction_count,
-        0
-      );
-
-      return ok(
-        {
-          patterns: TIME_PATTERN.hourly_distribution,
-          peak_hours: TIME_PATTERN.peak_hours,
-          average_transactions_per_hour: Math.round(
-            totalTransactions / TIME_PATTERN.hourly_distribution.length
-          ),
-        },
-        'Time pattern data retrieved'
-      );
-    },
-  },
-  {
-    method: 'GET',
-    template: '/analytics/aov-trend',
-    handle: () => {
-      requireRole('OWNER');
-      return ok(
-        {
-          trend: AOV_TREND.labels.map((label, index) => ({
-            period: label,
-            aov: AOV_TREND.values[index] ?? '0.00',
-            transaction_count: AOV_TREND.transactionCounts[index] ?? 0,
-          })),
-          overall_aov: AOV_TREND.current,
-          aov_change_percentage: AOV_TREND.growth,
-        },
-        'AOV trend data retrieved'
-      );
-    },
-  },
-  {
-    method: 'GET',
-    template: '/analytics/product-performance',
-    handle: ({ query }) => {
-      requireRole('OWNER');
-      const source = query.sort_by === 'QUANTITY' ? TOP_BY_QUANTITY : TOP_BY_REVENUE;
-      const limit = Number(query.limit) || 10;
-
-      return ok(
-        {
-          top_sellers: source.slice(0, limit).map((entry, index) => {
-            const ranked = rankedProduct(entry, index);
-            return {
-              product_id: ranked.product_id,
-              product_name: ranked.product_name,
-              sku: ranked.sku,
-              category_name: ranked.category_name,
-              total_sold: entry.total_quantity_sold,
-              total_revenue: entry.total_revenue,
-              rank: index + 1,
-            };
-          }),
-          underperformers: UNDERPERFORMERS.map((entry, index) => {
-            const product = findProduct(entry.product_id);
-            return {
-              product_id: entry.product_id,
-              product_name: product?.name ?? '',
-              sku: product?.sku ?? '',
-              category_name: categoryBrief(product?.category_id ?? null)?.name ?? '',
-              total_sold: entry.total_quantity_sold,
-              total_revenue: entry.total_revenue,
-              rank: index + 1,
-              days_without_sale: entry.days_without_sale,
-            };
-          }),
-        },
-        'Product performance data retrieved'
-      );
-    },
-  },
-];
-
-const aiHandlers: Route[] = [
-  {
-    method: 'GET',
-    template: '/ai-insights',
-    handle: () => {
-      requireRole('OWNER');
-      return ok(AI_INSIGHT, 'AI insight retrieved');
-    },
-  },
-  {
-    method: 'POST',
-    template: '/ai-insights/analyze',
-    handle: () => {
-      requireRole('OWNER');
-      const database = getDb();
-
-      // A second trigger while one is in flight is a 409, not a new job.
-      if (database.aiJob && Date.now() - database.aiJob.startedAt < 10_000) {
-        throw new MockHttpError(409, 'AI analysis is already in progress');
-      }
-
-      database.aiJob = { jobId: nextId('job'), startedAt: Date.now() };
-
-      return ok(
-        {
-          job_id: database.aiJob.jobId,
-          status: 'PROCESSING',
-          message: 'AI analysis is being processed. Results will be available shortly.',
-        },
-        'AI analysis started',
-        202
-      );
-    },
-  },
-];
 
 /* -------------------------------------------------------------------------- */
 /* Routing                                                                     */
@@ -1566,41 +1385,84 @@ type Route = {
 };
 
 /**
- * Order matters: literal segments must be registered before the parameterised
- * route that would otherwise swallow them ("/inventory/bulk" before
- * "/inventory/:inventoryId").
+ * Order matters: the literal paths under `/transactions` and `/products` have
+ * to be tried before the parameterised ones, or `/transactions/search` would
+ * be read as a transaction whose id is "search".
  */
 const ROUTES: Route[] = [
-  ...authHandlers,
-  ...merchantHandlers,
-  ...outletHandlers,
-  ...userHandlers,
-  ...categoryHandlers,
-  ...productHandlers,
-  ...inventoryHandlers,
-  ...cartHandlers,
-  ...transactionHandlers,
-  ...dashboardHandlers,
-  ...analyticsHandlers,
-  ...aiHandlers,
+  { method: 'POST', template: '/auth/register', handle: register },
+  { method: 'POST', template: '/auth/login', handle: login },
+
+  { method: 'POST', template: '/staff', handle: createStaff },
+  { method: 'GET', template: '/staff', handle: listStaff },
+  { method: 'PATCH', template: '/staff/:userId', handle: updateStaff },
+
+  { method: 'GET', template: '/merchant', handle: getMerchant },
+  { method: 'PATCH', template: '/merchant', handle: updateMerchant },
+
+  { method: 'POST', template: '/outlets', handle: createOutlet },
+  { method: 'GET', template: '/outlets', handle: listOutlets },
+  { method: 'PATCH', template: '/outlets/:id', handle: updateOutlet },
+
+  { method: 'POST', template: '/categories', handle: createCategory },
+  { method: 'GET', template: '/categories', handle: listCategories },
+  { method: 'PATCH', template: '/categories/:id', handle: updateCategory },
+
+  { method: 'GET', template: '/products/catalog', handle: listCatalog },
+  { method: 'POST', template: '/products', handle: createProduct },
+  { method: 'GET', template: '/products', handle: listProducts },
+  { method: 'PATCH', template: '/products/:id', handle: updateProduct },
+
+  { method: 'POST', template: '/inventory/adjustments', handle: adjustStock },
+  { method: 'GET', template: '/inventory/movements', handle: listMovements },
+  { method: 'GET', template: '/inventory', handle: listInventory },
+  {
+    method: 'PUT',
+    template: '/inventory/:productId/outlets/:outletId/low-stock-threshold',
+    handle: putThreshold,
+  },
+  {
+    method: 'DELETE',
+    template: '/inventory/:productId/outlets/:outletId/low-stock-threshold',
+    handle: deleteThreshold,
+  },
+
+  { method: 'POST', template: '/checkout', handle: checkout },
+  { method: 'GET', template: '/transactions/status', handle: checkoutStatus },
+  { method: 'GET', template: '/transactions/search', handle: searchTransactions },
+  { method: 'GET', template: '/transactions', handle: listTransactions },
+  { method: 'GET', template: '/transactions/:id', handle: getTransaction },
+  { method: 'GET', template: '/receipts/:transactionId', handle: getReceipt },
+
+  { method: 'GET', template: '/dashboard/summary', handle: dashboardSummary },
+  { method: 'GET', template: '/dashboard/operations', handle: dashboardOperations },
+  { method: 'GET', template: '/dashboard/sales-trend', handle: salesTrend },
+  { method: 'GET', template: '/dashboard/aov-trend', handle: aovTrend },
+  { method: 'GET', template: '/dashboard/time-pattern', handle: timePattern },
+  { method: 'GET', template: '/dashboard/top-products', handle: topProducts },
+  { method: 'GET', template: '/dashboard/outlet-comparison', handle: outletComparison },
+  { method: 'GET', template: '/dashboard/low-stock', handle: lowStockReport },
+
+  { method: 'GET', template: '/insights', handle: getInsights },
+  { method: 'POST', template: '/insights/trigger', handle: triggerInsights },
+
+  { method: 'GET', template: '/health', handle: health },
 ];
 
 function matchTemplate(template: string, path: string): Record<string, string> | null {
-  const templateParts = template.split('/');
-  const pathParts = path.split('/');
+  const templateParts = template.split('/').filter(Boolean);
+  const pathParts = path.split('/').filter(Boolean);
   if (templateParts.length !== pathParts.length) return null;
 
   const params: Record<string, string> = {};
 
-  for (let index = 0; index < templateParts.length; index += 1) {
-    const templatePart = templateParts[index] ?? '';
-    const pathPart = pathParts[index] ?? '';
-
-    if (templatePart.startsWith(':')) {
-      params[templatePart.slice(1)] = decodeURIComponent(pathPart);
+  for (const [index, part] of templateParts.entries()) {
+    const actual = pathParts[index] ?? '';
+    if (part.startsWith(':')) {
+      params[part.slice(1)] = decodeURIComponent(actual);
       continue;
     }
-    if (templatePart !== pathPart) return null;
+    if (part !== actual) return null;
   }
 
   return params;
@@ -1610,15 +1472,14 @@ export function dispatch(
   method: HttpMethod,
   path: string,
   query: Record<string, string>,
-  body: Record<string, unknown>,
-  idempotencyKey: string | undefined
+  body: Record<string, unknown>
 ): MockEnvelope {
   for (const route of ROUTES) {
     if (route.method !== method) continue;
     const params = matchTemplate(route.template, path);
     if (!params) continue;
 
-    return route.handle({ path, params, query, body, idempotencyKey });
+    return route.handle({ path, params, query, body });
   }
 
   throw new MockHttpError(404, `No mock handler for ${method} ${path}`);

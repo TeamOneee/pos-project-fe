@@ -40,12 +40,15 @@ export default function LowStockPage() {
   const lowStock = useLowStock({ outlet_id: outletId ?? undefined });
 
   const outletOptions = React.useMemo(
-    () => (outlets.data?.items ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
+    () =>
+      (outlets.data?.items ?? []).map((outlet) => ({
+        outletId: outlet.outletId,
+        name: outlet.name,
+      })),
     [outlets.data]
   );
 
   const alerts = React.useMemo(() => sortByUrgency(lowStock.data?.items ?? []), [lowStock.data]);
-
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
@@ -101,7 +104,6 @@ export default function LowStockPage() {
               alerts={alerts}
               onAdjust={(alert) =>
                 setAdjustTarget({
-    
                   productId: alert.productId,
                   productName: alert.productName,
                   outletId: alert.outletId,
@@ -122,7 +124,6 @@ export default function LowStockPage() {
           if (!open) setAdjustTarget(null);
         }}
       />
-
 
       <StockPerOutletDrawer
         product={drawerProduct}

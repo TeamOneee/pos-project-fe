@@ -191,6 +191,14 @@ function SelectField({
 }
 
 /** Shown under the title for a Cashier, in place of the outlet filter. */
+/**
+ * The Cashier's scope line.
+ *
+ * `outletName` is usually empty, and that is a contract limit rather than an
+ * oversight: §2.2 makes `GET /outlets` Owner and Admin only, so a cashier has
+ * no endpoint that names the outlet they are standing in. The unnamed wording
+ * still says what the scope is.
+ */
 export function ScopeSubtitle({ outletName }: { outletName: string }) {
   return (
     <Text variant="body" tone="muted">

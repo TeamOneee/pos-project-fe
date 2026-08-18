@@ -64,7 +64,9 @@ export const queryKeys = {
   inventory: (filters?: Record<string, unknown>) =>
     filters ? (['inventory', 'list', filters] as const) : (['inventory'] as const),
   movements: (filters?: Record<string, unknown>) =>
-    filters ? (['inventory', 'movements', filters] as const) : (['inventory', 'movements'] as const),
+    filters
+      ? (['inventory', 'movements', filters] as const)
+      : (['inventory', 'movements'] as const),
 
   transactions: (filters?: Record<string, unknown>) =>
     filters ? (['transactions', 'list', filters] as const) : (['transactions'] as const),
@@ -77,8 +79,7 @@ export const queryKeys = {
    * caches on its own period.
    */
   dashboard: ['dashboard'] as const,
-  dashboardSummary: (params: Record<string, unknown>) =>
-    ['dashboard', 'summary', params] as const,
+  dashboardSummary: (params: Record<string, unknown>) => ['dashboard', 'summary', params] as const,
   dashboardOperations: (outletId?: string) =>
     ['dashboard', 'operations', outletId ?? 'all'] as const,
   salesTrend: (params: Record<string, unknown>) => ['dashboard', 'sales-trend', params] as const,

@@ -52,12 +52,7 @@ export function PeriodComparisonCard({
           <Delta value={deltas.averageTransactionValue} label="AOV" />
         </div>
 
-        <PeriodBlock
-          title="Periode sebelumnya"
-          range={previousRange}
-          summary={previous}
-          muted
-        />
+        <PeriodBlock title="Periode sebelumnya" range={previousRange} summary={previous} muted />
       </CardContent>
     </Card>
   );

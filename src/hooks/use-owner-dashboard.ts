@@ -79,10 +79,43 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
 
   const recent = useTransactions({ ...range, ...outletFilter, size: RECENT_LIMIT });
 
+  /**
+   * Memoised, and not as an optimisation.
+   *
+   * The dashboard feeds these straight into the shell's top-bar slot, which is
+   * an effect. A fresh array or object on every render would change that
+   * effect's dependencies on every render, and the effect writes state — so the
+   * screen would re-render itself forever.
+   */
+  const outletOptions = React.useMemo(
+    () =>
+      (outlets.data?.items ?? []).map((outlet) => ({
+        outletId: outlet.outletId,
+        name: outlet.name,
+      })),
+    [outlets.data]
+  );
+
+  const merchantOverview = React.useMemo(
+    () => ({
+      merchantName: merchant.data?.name ?? '',
+      activeOutlets: outlets.data?.total ?? 0,
+      activeStaff: staff.data?.total ?? 0,
+      activeProducts: operations.data?.activeProductCount ?? 0,
+      totalCategories: categories.data?.total ?? 0,
+      /** Null until the merchant has ever run one; §7.2 answers 404 in that case. */
+      lastAiAnalysis: insights.data?.analysisJob.updatedAt ?? null,
+    }),
+    [merchant.data, outlets.data, staff.data, operations.data, categories.data, insights.data]
+  );
+
+  const recentTransactions = React.useMemo(() => recent.data?.items ?? [], [recent.data]);
+
   const deltas = React.useMemo<PeriodDeltas>(() => {
     const current = summary.data;
     const before = previousSummary.data;
-    if (!current || !before) return { omzet: null, transactions: null, averageTransactionValue: null };
+    if (!current || !before)
+      return { omzet: null, transactions: null, averageTransactionValue: null };
 
     return {
       omzet: growthPercent(current.omzet, before.omzet),
@@ -156,22 +189,9 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
     timePattern: timePattern.data ?? null,
     topProducts: topProducts.data ?? null,
     outletComparison: outletComparison.data ?? null,
-    recentTransactions: recent.data?.items ?? [],
-
-    merchantOverview: {
-      merchantName: merchant.data?.name ?? '',
-      activeOutlets: outlets.data?.total ?? 0,
-      activeStaff: staff.data?.total ?? 0,
-      activeProducts: operations.data?.activeProductCount ?? 0,
-      totalCategories: categories.data?.total ?? 0,
-      /** Null until the merchant has ever run one; §7.2 answers 404 in that case. */
-      lastAiAnalysis: insights.data?.analysisJob.updatedAt ?? null,
-    },
-
-    outletOptions: (outlets.data?.items ?? []).map((outlet) => ({
-      outletId: outlet.outletId,
-      name: outlet.name,
-    })),
+    recentTransactions,
+    merchantOverview,
+    outletOptions,
 
     /** The screen blocks on the aggregates only; the side cards fill in after. */
     isPending: core.some((query) => query.isPending),

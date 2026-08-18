@@ -34,10 +34,9 @@ async function signInAs(email: string) {
 }
 
 async function openInventory() {
-  render(<App />);
+  window.history.pushState({}, '', '/inventory');
   await act(async () => {
-    window.history.pushState({}, '', '/inventory');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
   });
 }
 
@@ -70,8 +69,10 @@ describe('S-15 · inventory', () => {
 
     await screen.findByRole('radiogroup', { name: 'Outlet' });
 
-    expect(screen.getByRole('button', { name: /update massal/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /transfer stok/i })).toBeInTheDocument();
+    // Bulk update and transfer are gone with their endpoints (§4.2): stock is
+    // adjusted one product at a time, from the row.
+    expect(screen.queryByRole('button', { name: /update massal/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /transfer stok/i })).toBeNull();
   });
 
   it('renders the Owner variant with no mutation affordance in the DOM', async () => {

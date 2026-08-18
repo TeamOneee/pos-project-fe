@@ -66,7 +66,10 @@ export const PERMISSIONS: Record<Role, Record<Resource, Access>> = {
   },
   ADMIN: {
     merchant: 'none',
-    outlets: 'none',
+    // §2.2 opens `GET /outlets` to the Admin, and it has to: every stock screen
+    // is scoped per outlet and cannot render a picker without the list. Reading
+    // is not managing — the `/outlets` route below asks for `manage`.
+    outlets: 'read',
     staff: 'none',
     catalog: 'manage',
     inventory: 'manage',
@@ -139,7 +142,9 @@ const ROUTE_RULES: RouteRule[] = [
   },
   { pattern: /^\/analytics/, anyOf: [{ resource: 'analytics', access: 'read' }] },
   { pattern: /^\/ai-insights/, anyOf: [{ resource: 'aiInsights', access: 'read' }] },
-  { pattern: /^\/outlets/, anyOf: [{ resource: 'outlets', access: 'read' }] },
+  // `manage`, not `read`: an Admin may read the outlet list for a filter but
+  // has no business on the outlet-management screen (§2.2 makes writes OWNER).
+  { pattern: /^\/outlets/, anyOf: [{ resource: 'outlets', access: 'manage' }] },
   { pattern: /^\/users/, anyOf: [{ resource: 'staff', access: 'read' }] },
   { pattern: /^\/merchant/, anyOf: [{ resource: 'merchant', access: 'read' }] },
   { pattern: /^\/products/, anyOf: [{ resource: 'catalog', access: 'read' }] },

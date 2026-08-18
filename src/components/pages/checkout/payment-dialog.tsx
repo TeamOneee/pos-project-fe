@@ -90,11 +90,7 @@ export function PaymentDialog({
         ) : (
           <div className="flex flex-col gap-lg">
             {state.failure && (
-              <CheckoutFailureBody
-                failure={state.failure}
-                lines={lines}
-                repricedTotal={reprice}
-              />
+              <CheckoutFailureBody failure={state.failure} lines={lines} repricedTotal={reprice} />
             )}
 
             <div className="flex flex-col items-center gap-xs rounded-md bg-subtle p-lg">
@@ -152,7 +148,9 @@ export function PaymentDialog({
     if (state.failure?.kind === 'insufficient_stock') {
       // Positions back to product ids, so the cart can flag the right rows.
       const productIds = state.failure.items
-        .map((item) => (item.itemIndex === null ? null : (lines[item.itemIndex]?.productId ?? null)))
+        .map((item) =>
+          item.itemIndex === null ? null : (lines[item.itemIndex]?.productId ?? null)
+        )
         .filter((id): id is string => id !== null);
       return (
         <>

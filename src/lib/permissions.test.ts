@@ -49,7 +49,14 @@ const ROUTE_ACCESS: Record<string, Role[]> = {
 /** The capability table from CLAUDE.md, transcribed. */
 const CAPABILITIES: Record<Resource, Record<Role, 'none' | 'read' | 'manage'>> = {
   merchant: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'none' },
-  outlets: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'none' },
+  /**
+   * The Admin reads outlets but does not manage them.
+   *
+   * §2.2 puts ADMIN on `GET /outlets`, and every stock screen needs that list
+   * to render its outlet picker at all. The `/outlets` route above still asks
+   * for `manage`, so the Admin has the data without the management screen.
+   */
+  outlets: { OWNER: 'manage', ADMIN: 'read', CASHIER: 'none' },
   staff: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'none' },
   catalog: { OWNER: 'read', ADMIN: 'manage', CASHIER: 'none' },
   inventory: { OWNER: 'read', ADMIN: 'manage', CASHIER: 'none' },

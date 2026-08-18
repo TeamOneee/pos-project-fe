@@ -30,10 +30,9 @@ async function signInAs(email: string) {
 }
 
 async function openCategories() {
-  render(<App />);
+  window.history.pushState({}, '', '/categories');
   await act(async () => {
-    window.history.pushState({}, '', '/categories');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    render(<App />);
   });
 }
 
