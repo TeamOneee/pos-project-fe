@@ -23,15 +23,22 @@ const textVariants = cva('text-fg', {
       caption: 'type-caption',
       mono: 'type-mono tabular-nums',
     },
+    /*
+     * Tones map to the `*-text` tokens, not the base status colours: text has to
+     * clear 4.5:1 and the base colours are tuned for fills. `subtle` is the one
+     * tone that cannot reach it (2.88:1 on canvas), so it is deliberately not
+     * available for text — callers that want quiet text use `muted` (5.68:1).
+     * See lib/contrast.test.ts.
+     */
     tone: {
       default: 'text-fg',
       muted: 'text-fg-muted',
-      subtle: 'text-fg-subtle',
-      accent: 'text-accent',
-      success: 'text-success',
-      warning: 'text-warning',
-      danger: 'text-danger',
-      info: 'text-info',
+      subtle: 'text-fg-muted',
+      accent: 'text-accent-text',
+      success: 'text-success-text',
+      warning: 'text-warning-text',
+      danger: 'text-danger-text',
+      info: 'text-info-text',
       'on-accent': 'text-white',
     },
   },

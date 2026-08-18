@@ -19,6 +19,7 @@
  */
 
 const STORAGE_KEY = 'pos.auth.token';
+const EMAIL_KEY = 'pos.auth.email';
 
 type TokenStorage = {
   read: () => Promise<string | null>;
@@ -44,7 +45,34 @@ const webStorage: TokenStorage = {
   },
   clear: async () => {
     sessionStorageOrNull()?.removeItem(STORAGE_KEY);
+    sessionStorageOrNull()?.removeItem(EMAIL_KEY);
   },
 };
 
 export const tokenStorage: TokenStorage = webStorage;
+
+/**
+ * The signed-in email, kept beside the token.
+ *
+ * Contract §1.2 returns no user object from login and offers no `GET /auth/me`,
+ * so **no endpoint in this API can tell the client who is signed in by name**.
+ * The JWT claims carry `sub`, `merchant_id`, `role` and `outlet_id` — an id, not
+ * a person.
+ *
+ * The email is the one identifying thing the client legitimately holds: the
+ * user typed it into the login form. Persisting it here is what lets the account
+ * chip say something truthful after a reload. It is a local echo of user input,
+ * never treated as authoritative, and it is cleared with the token.
+ *
+ * A display name would need the backend to add either a `name` claim or a
+ * profile endpoint.
+ */
+export const emailHint = {
+  read: (): string | null => sessionStorageOrNull()?.getItem(EMAIL_KEY) ?? null,
+  write: (email: string): void => {
+    sessionStorageOrNull()?.setItem(EMAIL_KEY, email);
+  },
+  clear: (): void => {
+    sessionStorageOrNull()?.removeItem(EMAIL_KEY);
+  },
+};

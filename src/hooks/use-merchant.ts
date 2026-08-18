@@ -1,30 +1,42 @@
-/** Merchant settings. Owner only. */
+/**
+ * Merchant profile.
+ *
+ * `GET /merchant` is readable by every role (§2.2), so this needs no `enabled`
+ * guard — the app shell, the POS header and the receipt all rely on it.
+ * `PATCH` is Owner only and goes through the role guard.
+ */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { merchantsApi, type UpdateMerchantInput } from '@/services/merchants';
+import { useGuardedMutation, type Requirement } from '@/hooks/use-guarded-mutation';
+import { merchantApi, type UpdateMerchantInput } from '@/services/merchant';
 import { queryKeys } from '@/lib/query-client';
 
-/** Owner-only endpoint, so callers that may run as another role pass `enabled`. */
-export function useMerchant(options: { enabled?: boolean } = {}) {
+const MANAGE_MERCHANT: Requirement = { resource: 'merchant', access: 'manage' };
+
+export function useMerchant() {
   return useQuery({
     queryKey: queryKeys.merchant,
-    queryFn: () => merchantsApi.get(),
-    enabled: options.enabled ?? true,
+    queryFn: () => merchantApi.get(),
+    // The name and timezone change about never.
+    staleTime: 10 * 60_000,
   });
 }
 
+/**
+ * `name` is the only editable field (§2.2).
+ *
+ * Nothing derived needs invalidating as a result — unlike the old contract,
+ * the merchant carries no low-stock threshold, so changing it cannot move a
+ * single stock verdict.
+ */
 export function useUpdateMerchant() {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (input: UpdateMerchantInput) => merchantsApi.update(input),
+  return useGuardedMutation(MANAGE_MERCHANT, {
+    mutationFn: (input: UpdateMerchantInput) => merchantApi.update(input),
     onSuccess: (merchant) => {
       queryClient.setQueryData(queryKeys.merchant, merchant);
-      // The low-stock threshold decides which rows count as low, so every
-      // stock view has to be recomputed.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory() });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     },
   });
 }

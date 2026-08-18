@@ -16,10 +16,9 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { FormBanner } from '@/components/pages/auth/form-banner';
+import { FormBanner } from '@/components/ui/form-banner';
 import { useRegister } from '@/hooks/use-auth';
 import { isApiError, isDuplicateEmail } from '@/api/errors';
-import { landingRoute } from '@/lib/permissions';
 
 const registerSchema = z
   .object({
@@ -69,17 +68,22 @@ export function RegisterForm() {
   const submit = handleSubmit((values) => {
     register.mutate(
       {
-        merchant: { name: values.merchantName },
-        user: { name: values.name, email: values.email, password: values.password },
+        // §1.2 takes a flat body, and creates the merchant and its OWNER in one
+        // atomic call.
+        name: values.name,
+        email: values.email,
+        password: values.password,
+        merchant_name: values.merchantName,
       },
       {
-        onSuccess: (result) => {
+        onSuccess: () => {
           toast({
             title: 'Merchant berhasil dibuat',
-            description: 'Selamat datang!',
+            description: 'Silakan masuk dengan email dan kata sandi Anda.',
             variant: 'success',
           });
-          navigate(landingRoute(result.user.role), { replace: true });
+          // §1.2 issues no token on register, so the new Owner signs in.
+          navigate('/login', { replace: true });
         },
         onError: (error) => {
           // A taken email is a field problem, so it is shown on the field as
@@ -102,7 +106,7 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-lg">
-        {bannerFor(register.error) && <FormBanner message={bannerFor(register.error) ?? ''} />}
+        {bannerFor(register.error) && <FormBanner title={bannerFor(register.error) ?? ''} />}
 
         <Text variant="label" tone="muted" className="uppercase">
           Data Bisnis

@@ -9,15 +9,18 @@ import { cn } from '@/lib/utils';
  * `pos` is the oversized variant for POS tiles and cart steppers.
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-sm rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas select-none',
+  'inline-flex items-center justify-center gap-sm rounded-md transition-colors focus-ring select-none',
   {
     variants: {
       variant: {
-        primary: 'bg-accent text-white active:bg-accent-hover hover:bg-accent-hover',
+        // `*-fill` rather than the base accent: white on the dark theme's accent
+        // is 4.47:1, and on its hover state 2.7:1. The fills hold 4.5:1 in both.
+        primary: 'bg-accent-fill text-white active:bg-accent-fill-hover hover:bg-accent-fill-hover',
         secondary: 'bg-subtle text-fg active:bg-border hover:bg-border',
-        outline: 'border border-border-strong bg-surface text-fg active:bg-subtle hover:bg-subtle',
+        outline:
+          'border border-border-interactive bg-surface text-fg active:bg-subtle hover:bg-subtle',
         ghost: 'text-fg active:bg-subtle hover:bg-subtle',
-        danger: 'bg-danger text-white active:opacity-90 hover:opacity-90',
+        danger: 'bg-danger-fill text-white active:opacity-90 hover:opacity-90',
       },
       size: {
         sm: 'min-h-touch px-md py-sm',

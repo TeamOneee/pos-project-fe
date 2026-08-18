@@ -1,3 +1,25 @@
+/**
+ * S-04 · Analitik — the four deep-dive panels.
+ *
+ * There is no `/analytics/*` module in this contract. Every panel here reads
+ * the same reporting endpoints the Owner dashboard does (§6.2); the difference
+ * is the controls — an explicit date range, an outlet selector and a bucket
+ * width — rather than a different data source. That also means the two screens
+ * can no longer disagree about a figure.
+ *
+ * What each panel lost, and why:
+ *
+ *   • **Sales & AOV** — the endpoints send `points[]` and no summary block, so
+ *     the tiles underneath are computed from the points on screen.
+ *   • **Interval** collapses from three options to two. §6.2 accepts `HOUR` or
+ *     `DAY` and nothing else, so "Mingguan" and "Bulanan" are gone rather than
+ *     silently sent and ignored.
+ *   • **Product performance** is `GET /dashboard/top-products`, which ranks by
+ *     omzet and units and carries neither SKU, category, stock, nor days since
+ *     last sale. Those columns are gone; the top/least split the endpoint
+ *     already returns is what the panel shows instead.
+ */
+
 import { Download } from 'lucide-react';
 import * as React from 'react';
 
@@ -5,201 +27,267 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { SummaryTiles } from '@/components/pages/analytics/summary-tiles';
 import { AovLineChart } from '@/components/pages/charts/aov-line-chart';
+import { ChartFigure, type ChartSeries } from '@/components/pages/charts/chart-figure';
 import { CHART_HEIGHT, ChartFrame } from '@/components/pages/charts/chart-frame';
 import { HourlyBarChart } from '@/components/pages/charts/hourly-bar-chart';
 import { ProductPerformanceChart } from '@/components/pages/charts/product-performance-chart';
 import { SalesTrendChart } from '@/components/pages/charts/sales-trend-chart';
-import { OutletSelect, PeriodSegmented, Segmented } from '@/components/pages/owner/controls';
+import { bucketLabel } from '@/components/pages/dashboard/sales-trend-card';
+import { OutletSelect, Segmented } from '@/components/pages/owner/controls';
 import { DataTable, type Column } from '@/components/pages/owner/data-table';
-import { DeltaChip } from '@/components/pages/owner/delta-chip';
-import {
-  useAovTrend,
-  useProductPerformance,
-  useSalesTrend,
-  useTimePattern,
-} from '@/hooks/use-analytics';
+import { useAovTrend, useSalesTrend, useTimePattern, useTopProducts } from '@/hooks/use-dashboard';
 import type {
-  AovTrend,
-  ProductPerformanceRow,
+  AovTrendPoint,
+  ProductRank,
   SalesTrendPoint,
-  TimePattern,
-} from '@/services/analytics';
+  TimePatternPoint,
+} from '@/services/dashboard';
 import type { Outlet } from '@/services/outlets';
-import type { Interval } from '@/api/schema';
-import { formatDate, toApiDate } from '@/lib/date';
-import { formatIDR } from '@/lib/money';
-import { formatCount, formatPercent } from '@/lib/number';
+import type { Bucket } from '@/api/schema';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { formatIDR, sumRupiah } from '@/lib/money';
+import { formatCount, formatPercent } from '@/lib/number';
+import { MAX_RANGE_DAYS } from '@/lib/period';
 
 type CommonProps = { outlets: Outlet[] };
 
-const INTERVALS = ['DAILY', 'WEEKLY', 'MONTHLY'] as const satisfies readonly Interval[];
-const INTERVAL_LABELS: Record<Interval, string> = {
-  DAILY: 'Harian',
-  WEEKLY: 'Mingguan',
-  MONTHLY: 'Bulanan',
-};
+/** §6.2: the only two bucket widths any trend endpoint accepts. */
+const BUCKETS = ['DAY', 'HOUR'] as const satisfies readonly Bucket[];
+const BUCKET_LABELS: Record<Bucket, string> = { DAY: 'Harian', HOUR: 'Per Jam' };
 
-const SHORT_PERIODS = ['TODAY', 'THIS_WEEK', 'THIS_MONTH'] as const;
-const AOV_PERIODS = ['THIS_WEEK', 'THIS_MONTH', 'THIS_QUARTER', 'THIS_YEAR'] as const;
-const PRODUCT_PERIODS = ['THIS_WEEK', 'THIS_MONTH', 'THIS_QUARTER'] as const;
+/* -------------------------------------------------------------------------- */
+/* Shared range control                                                        */
+/* -------------------------------------------------------------------------- */
 
-export function SalesTrendPanel({ outlets }: CommonProps) {
-  const mobile = useBreakpoint() === 'mobile';
+/**
+ * The date range every panel takes, held as `YYYY-MM-DD` for the two inputs and
+ * widened to the inclusive ISO instants §6.2 wants on the way out.
+ */
+function useDateRange() {
   const initial = React.useMemo(() => defaultMonthRange(), []);
   const [startDate, setStartDate] = React.useState(initial.start);
   const [endDate, setEndDate] = React.useState(initial.end);
+
+  const range = React.useMemo(
+    () => ({ date_from: `${startDate}T00:00:00`, date_to: `${endDate}T23:59:59` }),
+    [startDate, endDate]
+  );
+
+  /** §6.2 caps an inclusive range at 366 days; say so before the server 400s. */
+  const tooWide = React.useMemo(() => {
+    const days = (Date.parse(endDate) - Date.parse(startDate)) / 86_400_000 + 1;
+    return Number.isFinite(days) && days > MAX_RANGE_DAYS;
+  }, [startDate, endDate]);
+
+  return { startDate, setStartDate, endDate, setEndDate, range, tooWide };
+}
+
+function RangeControls({
+  range,
+  outlets,
+  outletId,
+  onOutletChange,
+  children,
+}: {
+  range: ReturnType<typeof useDateRange>;
+  outlets: Outlet[];
+  outletId: string | null;
+  onOutletChange: (outletId: string | null) => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-sm">
+      <div className="flex flex-row flex-wrap items-end gap-md">
+        <DateField label="Dari" value={range.startDate} onChange={range.setStartDate} />
+        <DateField label="Sampai" value={range.endDate} onChange={range.setEndDate} />
+        <OutletSelect outlets={outlets} value={outletId} onChange={onOutletChange} />
+        {children}
+      </div>
+
+      {range.tooWide && (
+        <Text variant="caption" tone="danger">
+          {`Rentang maksimal ${MAX_RANGE_DAYS} hari.`}
+        </Text>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sales trend                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export function SalesTrendPanel({ outlets }: CommonProps) {
+  const mobile = useBreakpoint() === 'mobile';
+  const range = useDateRange();
   const [outletId, setOutletId] = React.useState<string | null>(null);
-  const [interval, setInterval] = React.useState<Interval>('DAILY');
-  const query = useSalesTrend({
-    start_date: startDate,
-    end_date: endDate,
-    interval,
-    ...(outletId ? { outlet_id: outletId } : {}),
-  });
+  const [bucket, setBucket] = React.useState<Bucket>('DAY');
+
+  const query = useSalesTrend(
+    { ...range.range, bucket, ...(outletId ? { outlet_id: outletId } : {}) },
+    { enabled: !range.tooWide }
+  );
+
+  const controls = (
+    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId}>
+      <Segmented
+        options={BUCKETS}
+        value={bucket}
+        onChange={setBucket}
+        labels={BUCKET_LABELS}
+        accessibilityLabel="Pilih interval"
+      />
+    </RangeControls>
+  );
 
   return (
-    <AnalyticsState query={query}>
-      {(data) => (
-        <div className="flex flex-col gap-lg">
-          <div className="flex flex-row flex-wrap items-end gap-md">
-            <DateField label="Dari" value={startDate} onChange={setStartDate} />
-            <DateField label="Sampai" value={endDate} onChange={setEndDate} />
-            <OutletSelect outlets={outlets} value={outletId} onChange={setOutletId} />
-            <Segmented
-              options={INTERVALS}
-              value={interval}
-              onChange={setInterval}
-              labels={INTERVAL_LABELS}
-              accessibilityLabel="Pilih interval"
+    <AnalyticsState query={query} controls={controls}>
+      {(data) => {
+        const labels = data.points.map((point) => bucketLabel(point.bucketStart, data.bucket));
+        const revenues = data.points.map((point) => point.omzet);
+        const total = sumRupiah(revenues);
+        const transactions = data.points.reduce((sum, point) => sum + point.transactionCount, 0);
+
+        return (
+          <div className="flex flex-col gap-lg">
+            <ChartCard
+              title="Tren Penjualan"
+              height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
+              summary={`Tren penjualan, ${data.points.length} titik data, dengan omzet dan jumlah transaksi per periode.`}
+              rowHeader="Periode"
+              rowLabels={labels}
+              series={[
+                { label: 'Omzet', values: revenues.map(formatIDR) },
+                {
+                  label: 'Transaksi',
+                  values: data.points.map((point) => formatCount(point.transactionCount)),
+                },
+              ]}
+            >
+              {(width, height) => (
+                <SalesTrendChart
+                  points={data.points.map((point, index) => ({
+                    label: labels[index] ?? '',
+                    revenue: point.omzet,
+                    transactions: point.transactionCount,
+                  }))}
+                  width={width}
+                  height={height}
+                  compact={mobile}
+                />
+              )}
+            </ChartCard>
+
+            <SummaryTiles
+              tiles={[
+                { label: 'Total Omzet', value: formatIDR(total) },
+                { label: 'Rata-rata per Periode', value: formatIDR(mean(revenues)) },
+                { label: 'Total Transaksi', value: formatCount(transactions) },
+                {
+                  label: 'Omzet Tertinggi',
+                  value: formatIDR(revenues.length > 0 ? Math.max(...revenues) : 0),
+                },
+              ]}
             />
+
+            <TableCard title="Rincian Penjualan" exportLabel="data penjualan">
+              <DataTable
+                columns={salesColumns(data.bucket)}
+                rows={data.points}
+                keyOf={(row) => row.bucketStart}
+              />
+            </TableCard>
           </div>
-
-          <ChartCard
-            title="Tren Penjualan"
-            height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
-          >
-            {(width, height) => (
-              <SalesTrendChart
-                points={data.trend.map((point) => ({
-                  label: formatDate(point.date),
-                  revenue: point.totalSales,
-                  transactions: point.transactionCount,
-                }))}
-                width={width}
-                height={height}
-                compact={mobile}
-              />
-            )}
-          </ChartCard>
-
-          <SummaryTiles
-            tiles={[
-              { label: 'Total Omzet', value: formatIDR(data.summary.totalRevenue) },
-              {
-                label: 'Rata-rata Omzet Harian',
-                value: formatIDR(data.summary.averageDailyRevenue),
-              },
-              { label: 'Total Transaksi', value: formatCount(data.summary.totalTransactions) },
-              {
-                label: 'Rata-rata Transaksi Harian',
-                value: formatCount(data.summary.averageDailyTransactions),
-              },
-            ]}
-          />
-
-          <TableCard
-            title="Rincian Penjualan"
-            action={
-              <ExportButton
-                label="Ekspor"
-                toastTitle="Ekspor"
-                toastDescription="Data penjualan siap diekspor dari aplikasi web."
-              />
-            }
-          >
-            <DataTable rows={data.trend} keyOf={(row) => row.date} columns={salesColumns} />
-          </TableCard>
-        </div>
-      )}
+        );
+      }}
     </AnalyticsState>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Time pattern                                                                */
+/* -------------------------------------------------------------------------- */
 
 export function TimePatternPanel({ outlets }: CommonProps) {
   const mobile = useBreakpoint() === 'mobile';
+  const range = useDateRange();
   const [outletId, setOutletId] = React.useState<string | null>(null);
-  const [period, setPeriod] = React.useState<(typeof SHORT_PERIODS)[number]>('THIS_MONTH');
-  const query = useTimePattern({ period, ...(outletId ? { outlet_id: outletId } : {}) });
+
+  const query = useTimePattern(
+    { ...range.range, ...(outletId ? { outlet_id: outletId } : {}) },
+    { enabled: !range.tooWide }
+  );
+
+  const controls = (
+    <RangeControls
+      range={range}
+      outlets={outlets}
+      outletId={outletId}
+      onOutletChange={setOutletId}
+    />
+  );
 
   return (
-    <AnalyticsState query={query}>
+    <AnalyticsState query={query} controls={controls}>
       {(data) => {
-        const totalRevenue = data.patterns.reduce((sum, point) => sum + point.revenue, 0);
-        const totalTransactions = data.patterns.reduce(
-          (sum, point) => sum + point.transactionCount,
-          0
-        );
+        const points = data.points.map((point) => ({
+          hour: point.hourOfDay,
+          revenue: point.omzet,
+        }));
+        const busiest = [...data.points].sort((a, b) => b.omzet - a.omzet)[0];
+        const total = sumRupiah(data.points.map((point) => point.omzet));
 
         return (
           <div className="flex flex-col gap-lg">
-            <div className="flex flex-row flex-wrap items-center gap-md">
-              <OutletSelect outlets={outlets} value={outletId} onChange={setOutletId} />
-              <PeriodSegmented
-                value={period}
-                onChange={(value) => setPeriod(value as (typeof SHORT_PERIODS)[number])}
-                options={SHORT_PERIODS}
-              />
-            </div>
-
-            <div className="flex flex-col gap-lg desktop:flex-row">
-              <ChartCard
-                title="Pola Waktu"
-                height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
-                className="desktop:flex-1"
-              >
-                {(width, height) => (
-                  <HourlyBarChart
-                    points={data.patterns}
-                    peakHours={data.peakHours}
-                    width={width}
-                    height={height}
-                    compact={mobile}
-                  />
-                )}
-              </ChartCard>
-              <PeakHoursCard data={data} />
-            </div>
+            <ChartCard
+              title="Pola Waktu Penjualan"
+              height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
+              summary="Omzet per jam sepanjang hari, diakumulasi atas rentang yang dipilih."
+              rowHeader="Jam"
+              rowLabels={data.points.map((point) => `${point.hourOfDay}.00`)}
+              series={[
+                { label: 'Omzet', values: data.points.map((point) => formatIDR(point.omzet)) },
+              ]}
+            >
+              {(width, height) => (
+                <HourlyBarChart
+                  points={points}
+                  peakHours={busiest ? [busiest.hourOfDay] : []}
+                  width={width}
+                  height={height}
+                  compact={mobile}
+                />
+              )}
+            </ChartCard>
 
             <SummaryTiles
               tiles={[
-                { label: 'Total Omzet', value: formatIDR(totalRevenue) },
-                { label: 'Total Transaksi', value: formatCount(totalTransactions) },
                 {
-                  label: 'Rata-rata Transaksi per Jam',
-                  value: formatCount(data.averageTransactionsPerHour),
+                  label: 'Jam Tersibuk',
+                  value: busiest ? `${busiest.hourOfDay}.00` : '—',
                 },
-                { label: 'Jumlah Jam Sibuk', value: formatCount(data.peakHours.length) },
+                {
+                  label: 'Omzet Jam Tersibuk',
+                  value: formatIDR(busiest?.omzet ?? 0),
+                },
+                {
+                  label: 'Kontribusi Jam Tersibuk',
+                  value: formatPercent(total > 0 ? ((busiest?.omzet ?? 0) / total) * 100 : 0),
+                },
+                { label: 'Total Omzet', value: formatIDR(total) },
               ]}
             />
 
-            <TableCard title="Rincian per Jam">
+            <TableCard title="Rincian Per Jam" exportLabel="pola waktu">
               <DataTable
-                rows={data.patterns}
-                keyOf={(row) => String(row.hour)}
                 columns={timeColumns}
+                rows={data.points}
+                keyOf={(row) => String(row.hourOfDay)}
               />
             </TableCard>
           </div>
@@ -208,123 +296,57 @@ export function TimePatternPanel({ outlets }: CommonProps) {
     </AnalyticsState>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* AOV                                                                         */
+/* -------------------------------------------------------------------------- */
 
 export function AovTrendPanel({ outlets }: CommonProps) {
   const mobile = useBreakpoint() === 'mobile';
+  const range = useDateRange();
   const [outletId, setOutletId] = React.useState<string | null>(null);
-  const [period, setPeriod] = React.useState<(typeof AOV_PERIODS)[number]>('THIS_MONTH');
-  const query = useAovTrend({ period, ...(outletId ? { outlet_id: outletId } : {}) });
+  const [bucket, setBucket] = React.useState<Bucket>('DAY');
 
-  return (
-    <AnalyticsState query={query}>
-      {(data) => {
-        const transactions = data.trend.reduce((sum, point) => sum + point.transactionCount, 0);
-        const highest = Math.max(...data.trend.map((point) => point.aov), 0);
-
-        return (
-          <div className="flex flex-col gap-lg">
-            <div className="flex flex-row flex-wrap items-center gap-md">
-              <OutletSelect outlets={outlets} value={outletId} onChange={setOutletId} />
-              <PeriodSegmented
-                value={period}
-                onChange={(value) => setPeriod(value as (typeof AOV_PERIODS)[number])}
-                options={AOV_PERIODS}
-              />
-            </div>
-
-            <Card>
-              <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-md">
-                <div className="flex flex-col gap-xs">
-                  <CardTitle>Tren AOV</CardTitle>
-                  <Text variant="display" className="mt-sm tabular-nums">
-                    {formatIDR(data.overallAov)}
-                  </Text>
-                </div>
-                <DeltaChip value={data.aovChangePercentage} label="AOV" />
-              </CardHeader>
-              <CardContent>
-                <ChartFrame height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}>
-                  {(width) => (
-                    <AovLineChart
-                      points={data.trend.map((point) => ({ label: point.period, aov: point.aov }))}
-                      width={width}
-                      height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
-                    />
-                  )}
-                </ChartFrame>
-              </CardContent>
-            </Card>
-
-            <SummaryTiles
-              tiles={[
-                { label: 'AOV Saat Ini', value: formatIDR(data.overallAov) },
-                { label: 'Perubahan AOV', value: formatPercent(data.aovChangePercentage) },
-                { label: 'AOV Tertinggi', value: formatIDR(highest) },
-                { label: 'Jumlah Transaksi', value: formatCount(transactions) },
-              ]}
-            />
-
-            <TableCard title="Rincian AOV">
-              <DataTable rows={data.trend} keyOf={(row) => row.period} columns={aovColumns} />
-            </TableCard>
-          </div>
-        );
-      }}
-    </AnalyticsState>
+  const query = useAovTrend(
+    { ...range.range, bucket, ...(outletId ? { outlet_id: outletId } : {}) },
+    { enabled: !range.tooWide }
   );
-}
 
-export function ProductPerformancePanel({ outlets }: CommonProps) {
-  const mobile = useBreakpoint() === 'mobile';
-  const [outletId, setOutletId] = React.useState<string | null>(null);
-  const [period, setPeriod] = React.useState<(typeof PRODUCT_PERIODS)[number]>('THIS_MONTH');
-  const [sortBy, setSortBy] = React.useState<'REVENUE' | 'QUANTITY'>('REVENUE');
-  const [limit, setLimit] = React.useState(10);
-  const query = useProductPerformance({
-    period,
-    sort_by: sortBy,
-    limit,
-    ...(outletId ? { outlet_id: outletId } : {}),
-  });
+  const controls = (
+    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId}>
+      <Segmented
+        options={BUCKETS}
+        value={bucket}
+        onChange={setBucket}
+        labels={BUCKET_LABELS}
+        accessibilityLabel="Pilih interval"
+      />
+    </RangeControls>
+  );
 
   return (
-    <AnalyticsState query={query}>
+    <AnalyticsState query={query} controls={controls}>
       {(data) => {
-        const topRevenue = data.topSellers.reduce((sum, row) => sum + row.totalRevenue, 0);
-        const topSold = data.topSellers.reduce((sum, row) => sum + row.totalSold, 0);
+        const labels = data.points.map((point) => bucketLabel(point.bucketStart, data.bucket));
+        const values = data.points.map((point) => point.averageTransactionValue);
+        const latest = values.at(-1) ?? 0;
 
         return (
           <div className="flex flex-col gap-lg">
-            <div className="flex flex-row flex-wrap items-center gap-md">
-              <OutletSelect outlets={outlets} value={outletId} onChange={setOutletId} />
-              <PeriodSegmented
-                value={period}
-                onChange={(value) => setPeriod(value as (typeof PRODUCT_PERIODS)[number])}
-                options={PRODUCT_PERIODS}
-              />
-              <Segmented
-                options={['REVENUE', 'QUANTITY'] as const}
-                value={sortBy}
-                onChange={setSortBy}
-                labels={{ REVENUE: 'Omzet', QUANTITY: 'Kuantitas' }}
-                accessibilityLabel="Urutkan performa produk"
-              />
-              <LimitSelect value={limit} onChange={setLimit} />
-            </div>
-
             <ChartCard
-              title="Performa Produk Terlaris"
+              title="Tren AOV"
               height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
+              summary={`Tren nilai rata-rata transaksi, ${data.points.length} titik data.`}
+              rowHeader="Periode"
+              rowLabels={labels}
+              series={[{ label: 'AOV', values: values.map(formatIDR) }]}
             >
               {(width, height) => (
-                <ProductPerformanceChart
-                  points={data.topSellers.map((row) => ({
-                    label: row.productName,
-                    fullLabel: row.productName,
-                    revenue: row.totalRevenue,
-                    quantity: row.totalSold,
+                <AovLineChart
+                  points={data.points.map((point, index) => ({
+                    label: labels[index] ?? '',
+                    aov: point.averageTransactionValue,
                   }))}
-                  metric={sortBy}
                   width={width}
                   height={height}
                 />
@@ -333,26 +355,24 @@ export function ProductPerformancePanel({ outlets }: CommonProps) {
 
             <SummaryTiles
               tiles={[
-                { label: 'Produk Ditampilkan', value: formatCount(data.topSellers.length) },
-                { label: 'Total Omzet Produk', value: formatIDR(topRevenue) },
-                { label: 'Total Unit Terjual', value: formatCount(topSold) },
-                { label: 'Produk Kurang Laku', value: formatCount(data.underperformers.length) },
+                { label: 'AOV Terakhir', value: formatIDR(latest) },
+                { label: 'AOV Rata-rata', value: formatIDR(mean(values)) },
+                {
+                  label: 'AOV Tertinggi',
+                  value: formatIDR(values.length > 0 ? Math.max(...values) : 0),
+                },
+                {
+                  label: 'AOV Terendah',
+                  value: formatIDR(values.length > 0 ? Math.min(...values) : 0),
+                },
               ]}
             />
 
-            <TableCard title="Produk Terlaris">
+            <TableCard title="Rincian AOV" exportLabel="tren AOV">
               <DataTable
-                rows={data.topSellers}
-                keyOf={(row) => row.productId}
-                columns={productColumns(false)}
-              />
-            </TableCard>
-
-            <TableCard title="Produk Kurang Laku">
-              <DataTable
-                rows={data.underperformers}
-                keyOf={(row) => row.productId}
-                columns={productColumns(true)}
+                columns={aovColumns(data.bucket)}
+                rows={data.points}
+                keyOf={(row) => row.bucketStart}
               />
             </TableCard>
           </div>
@@ -362,24 +382,172 @@ export function ProductPerformancePanel({ outlets }: CommonProps) {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Product performance                                                         */
+/* -------------------------------------------------------------------------- */
+
+const PRODUCT_VIEWS = ['TOP', 'LEAST'] as const;
+type ProductView = (typeof PRODUCT_VIEWS)[number];
+
+const PRODUCT_VIEW_LABELS: Record<ProductView, string> = {
+  TOP: 'Terlaris',
+  LEAST: 'Kurang Laku',
+};
+
+export function ProductPerformancePanel({ outlets }: CommonProps) {
+  const mobile = useBreakpoint() === 'mobile';
+  const range = useDateRange();
+  const [outletId, setOutletId] = React.useState<string | null>(null);
+  const [view, setView] = React.useState<ProductView>('TOP');
+
+  const query = useTopProducts(
+    { ...range.range, limit: 10, ...(outletId ? { outlet_id: outletId } : {}) },
+    { enabled: !range.tooWide }
+  );
+
+  const controls = (
+    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId}>
+      <Segmented
+        options={PRODUCT_VIEWS}
+        value={view}
+        onChange={setView}
+        labels={PRODUCT_VIEW_LABELS}
+        accessibilityLabel="Pilih peringkat produk"
+      />
+    </RangeControls>
+  );
+
+  return (
+    <AnalyticsState query={query} controls={controls}>
+      {(data) => {
+        const rows = view === 'TOP' ? data.topSelling : data.leastSelling;
+        const total = sumRupiah(rows.map((row) => row.omzet));
+
+        return (
+          <div className="flex flex-col gap-lg">
+            <ChartCard
+              title={view === 'TOP' ? 'Produk Terlaris' : 'Produk Kurang Laku'}
+              height={mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.large}
+              summary={`Peringkat produk berdasarkan omzet, ${rows.length} produk.`}
+              rowHeader="Produk"
+              rowLabels={rows.map((row) => row.name)}
+              series={[
+                { label: 'Omzet', values: rows.map((row) => formatIDR(row.omzet)) },
+                { label: 'Terjual', values: rows.map((row) => formatCount(row.unitsSold)) },
+              ]}
+            >
+              {(width, height) => (
+                <ProductPerformanceChart
+                  points={rows.map((row) => ({
+                    label: truncateLabel(row.name),
+                    fullLabel: row.name,
+                    revenue: row.omzet,
+                    quantity: row.unitsSold,
+                  }))}
+                  metric="REVENUE"
+                  width={width}
+                  height={height}
+                />
+              )}
+            </ChartCard>
+
+            <SummaryTiles
+              tiles={[
+                { label: 'Produk Terdaftar', value: formatCount(rows.length) },
+                { label: 'Total Omzet', value: formatIDR(total) },
+                {
+                  label: 'Total Terjual',
+                  value: formatCount(rows.reduce((sum, row) => sum + row.unitsSold, 0)),
+                },
+                { label: 'Omzet Rata-rata', value: formatIDR(mean(rows.map((row) => row.omzet))) },
+              ]}
+            />
+
+            <TableCard title="Rincian Produk" exportLabel="performa produk">
+              <DataTable
+                columns={productColumns}
+                rows={rows}
+                keyOf={(row) => row.productId}
+                emptyMessage="Belum ada penjualan pada rentang ini."
+              />
+            </TableCard>
+          </div>
+        );
+      }}
+    </AnalyticsState>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared shell                                                                */
+/* -------------------------------------------------------------------------- */
+
+type QueryLike<T> = { data: T | undefined; isPending: boolean; isError: boolean };
+
+/**
+ * The four states every panel has, with the controls kept mounted through all
+ * of them — a filter row that disappears while its own result loads cannot be
+ * corrected.
+ */
+function AnalyticsState<T>({
+  query,
+  controls,
+  children,
+}: {
+  query: QueryLike<T>;
+  controls: React.ReactNode;
+  children: (data: T) => React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-lg">
+      {controls}
+
+      {query.isPending ? (
+        <PanelSkeleton />
+      ) : query.isError || !query.data ? (
+        <div className="flex items-center justify-center py-3xl">
+          <Text variant="body" tone="danger">
+            Gagal memuat data analitik.
+          </Text>
+        </div>
+      ) : (
+        children(query.data)
+      )}
+    </div>
+  );
+}
+
 function ChartCard({
   title,
   height,
-  className,
+  summary,
+  rowHeader,
+  rowLabels,
+  series,
   children,
 }: {
   title: string;
   height: number;
-  className?: string;
+  summary: string;
+  rowHeader?: string;
+  rowLabels: string[];
+  series: ChartSeries[];
   children: (width: number, height: number) => React.ReactNode;
 }) {
   return (
-    <Card className={className}>
+    <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartFrame height={height}>{(width) => children(width, height)}</ChartFrame>
+        <ChartFigure
+          summary={summary}
+          {...(rowHeader ? { rowHeader } : {})}
+          rowLabels={rowLabels}
+          series={series}
+        >
+          <ChartFrame height={height}>{(width) => children(width, height)}</ChartFrame>
+        </ChartFigure>
       </CardContent>
     </Card>
   );
@@ -387,44 +555,46 @@ function ChartCard({
 
 function TableCard({
   title,
-  action,
+  exportLabel,
   children,
 }: {
   title: string;
-  action?: React.ReactNode;
+  exportLabel: string;
   children: React.ReactNode;
 }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-md">
         <CardTitle>{title}</CardTitle>
-        {action}
+        <ExportButton label={exportLabel} />
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
   );
 }
 
-function ExportButton({
-  label,
-  toastTitle,
-  toastDescription,
-}: {
-  label: string;
-  toastTitle: string;
-  toastDescription: string;
-}) {
+/**
+ * Export is a stub, and says so.
+ *
+ * There is no export endpoint anywhere in the contract, so the button explains
+ * that rather than producing a file the server never generated.
+ */
+function ExportButton({ label }: { label: string }) {
   const { toast } = useToast();
 
   return (
     <Button
-      variant="ghost"
+      variant="secondary"
       size="sm"
-      aria-label={toastTitle}
-      onClick={() => toast({ title: toastTitle, description: toastDescription, variant: 'info' })}
+      onClick={() =>
+        toast({
+          title: 'Ekspor belum tersedia',
+          description: `Ekspor ${label} belum didukung API. Salin angka dari tabel untuk sementara.`,
+        })
+      }
     >
-      <Icon as={Download} size={16} className="text-fg-muted" />
-      <Text>{label}</Text>
+      <Icon as={Download} size={16} />
+      <Text>Ekspor</Text>
     </Button>
   );
 }
@@ -438,107 +608,33 @@ function DateField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const id = React.useId();
+
   return (
-    <div className="flex min-w-[150px] flex-col gap-xs">
-      <Text variant="caption" tone="subtle">
-        {label}
-      </Text>
+    <div className="flex flex-col gap-xs">
+      <label htmlFor={id}>
+        <Text variant="label" tone="muted">
+          {label}
+        </Text>
+      </label>
       <Input
+        id={id}
+        type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="YYYY-MM-DD"
-        aria-label={`${label} tanggal`}
+        className="min-w-[150px]"
       />
     </div>
   );
 }
 
-function PeakHoursCard({ data }: { data: TimePattern }) {
-  return (
-    <Card className="desktop:w-[260px]">
-      <CardHeader>
-        <CardTitle>Jam Sibuk</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-lg">
-        <div className="flex flex-row flex-wrap gap-sm">
-          {data.peakHours.map((hour) => (
-            <div key={hour} className="rounded-full bg-accent-subtle px-md py-sm">
-              <Text variant="h3" tone="accent">
-                {String(hour).padStart(2, '0')}.00
-              </Text>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-col gap-xs border-t border-border pt-lg">
-          <Text variant="caption" tone="subtle">
-            Rata-rata transaksi per jam
-          </Text>
-          <Text variant="display" className="tabular-nums">
-            {formatCount(data.averageTransactionsPerHour)}
-          </Text>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function LimitSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  return (
-    <Select value={String(value)} onValueChange={(next) => onChange(Number(next))}>
-      <SelectTrigger className="min-w-[130px]" aria-label="Jumlah produk">
-        <SelectValue className="type-body text-fg" placeholder="10 produk" />
-      </SelectTrigger>
-      <SelectContent>
-        {[10, 25, 50].map((item) => (
-          <SelectItem key={item} value={String(item)}>
-            {item} produk
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-type QueryLike<T> = {
-  data: T | undefined;
-  isPending: boolean;
-  isError: boolean;
-};
-
-function AnalyticsState<T>({
-  query,
-  children,
-}: {
-  query: QueryLike<T>;
-  children: (data: T) => React.ReactNode;
-}) {
-  if (query.isPending) return <AnalyticsSkeleton />;
-  if (query.isError || !query.data) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-xl">
-          <Text variant="body" tone="danger">
-            Gagal memuat data analitik.
-          </Text>
-        </CardContent>
-      </Card>
-    );
-  }
-  return <>{children(query.data)}</>;
-}
-
-function AnalyticsSkeleton() {
+function PanelSkeleton() {
   return (
     <div className="flex flex-col gap-lg">
-      <div className="flex flex-row flex-wrap gap-md">
-        <Skeleton className="h-11 w-40" />
-        <Skeleton className="h-11 w-48" />
-        <Skeleton className="h-11 w-64" />
-      </div>
       <Card>
-        <CardContent className="flex flex-col gap-lg pt-lg">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-[400px] w-full" />
+        <CardContent className="flex flex-col gap-md pt-lg">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-72 w-full" />
         </CardContent>
       </Card>
       <div className="flex flex-row flex-wrap gap-md">
@@ -551,45 +647,71 @@ function AnalyticsSkeleton() {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/** Axis labels have no room for a long product name. */
+function truncateLabel(name: string): string {
+  return name.length > 14 ? `${name.slice(0, 13)}…` : name;
+}
+
+/** Truncated, never rounded up into money nobody took. */
+function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  return Math.trunc(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
 function defaultMonthRange(): { start: string; end: string } {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { start: toApiDate(start), end: toApiDate(end) };
+  return { start: isoDay(start), end: isoDay(end) };
 }
 
-const salesColumns: Column<SalesTrendPoint>[] = [
-  {
-    key: 'date',
-    label: 'Tanggal',
-    weight: 1.4,
-    render: (row) => <Text variant="body-strong">{formatDate(row.date)}</Text>,
-  },
-  {
-    key: 'sales',
-    label: 'Total Penjualan',
-    align: 'right',
-    render: (row) => <Text variant="mono">{formatIDR(row.totalSales)}</Text>,
-  },
-  {
-    key: 'transactions',
-    label: 'Jumlah Transaksi',
-    align: 'right',
-    render: (row) => <Text variant="mono">{formatCount(row.transactionCount)}</Text>,
-  },
-];
+function isoDay(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
-const timeColumns: Column<TimePattern['patterns'][number]>[] = [
+/* -------------------------------------------------------------------------- */
+/* Columns                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function salesColumns(bucket: Bucket): Column<SalesTrendPoint>[] {
+  return [
+    {
+      key: 'bucket',
+      label: bucket === 'HOUR' ? 'Jam' : 'Tanggal',
+      weight: 1.4,
+      render: (row) => <Text variant="body-strong">{bucketLabel(row.bucketStart, bucket)}</Text>,
+    },
+    {
+      key: 'omzet',
+      label: 'Total Penjualan',
+      align: 'right',
+      render: (row) => <Text variant="mono">{formatIDR(row.omzet)}</Text>,
+    },
+    {
+      key: 'transactions',
+      label: 'Jumlah Transaksi',
+      align: 'right',
+      render: (row) => <Text variant="mono">{formatCount(row.transactionCount)}</Text>,
+    },
+  ];
+}
+
+const timeColumns: Column<TimePatternPoint>[] = [
   {
     key: 'hour',
     label: 'Jam',
-    render: (row) => <Text variant="body-strong">{String(row.hour).padStart(2, '0')}.00</Text>,
+    render: (row) => <Text variant="body-strong">{String(row.hourOfDay).padStart(2, '0')}.00</Text>,
   },
   {
-    key: 'revenue',
+    key: 'omzet',
     label: 'Omzet',
     align: 'right',
-    render: (row) => <Text variant="mono">{formatIDR(row.revenue)}</Text>,
+    render: (row) => <Text variant="mono">{formatIDR(row.omzet)}</Text>,
   },
   {
     key: 'transactions',
@@ -599,84 +721,39 @@ const timeColumns: Column<TimePattern['patterns'][number]>[] = [
   },
 ];
 
-const aovColumns: Column<AovTrend['trend'][number]>[] = [
-  {
-    key: 'period',
-    label: 'Periode',
-    render: (row) => <Text variant="body-strong">{row.period}</Text>,
-  },
-  {
-    key: 'aov',
-    label: 'AOV',
-    align: 'right',
-    render: (row) => <Text variant="mono">{formatIDR(row.aov)}</Text>,
-  },
-  {
-    key: 'transactions',
-    label: 'Jumlah Transaksi',
-    align: 'right',
-    render: (row) => <Text variant="mono">{formatCount(row.transactionCount)}</Text>,
-  },
-];
-
-function productColumns(underperformer: boolean): Column<ProductPerformanceRow>[] {
-  const columns: Column<ProductPerformanceRow>[] = [
+function aovColumns(bucket: Bucket): Column<AovTrendPoint>[] {
+  return [
     {
-      key: 'rank',
-      label: 'Rank',
-      weight: 0.5,
-      render: (row) => (
-        <div
-          className={
-            row.rank <= 3
-              ? 'flex h-7 w-7 items-center justify-center rounded-full bg-accent-subtle'
-              : 'flex h-7 w-7 items-center justify-center'
-          }
-        >
-          <Text variant="caption" tone={row.rank <= 3 ? 'accent' : 'muted'}>
-            {row.rank}
-          </Text>
-        </div>
-      ),
+      key: 'bucket',
+      label: 'Periode',
+      render: (row) => <Text variant="body-strong">{bucketLabel(row.bucketStart, bucket)}</Text>,
     },
     {
-      key: 'product',
-      label: 'Produk',
-      weight: 1.6,
-      render: (row) => <Text variant="body-strong">{row.productName}</Text>,
-    },
-    { key: 'sku', label: 'SKU', render: (row) => <Text variant="mono">{row.sku}</Text> },
-    {
-      key: 'category',
-      label: 'Kategori',
-      render: (row) => <Text>{row.categoryName}</Text>,
-    },
-    {
-      key: 'sold',
-      label: 'Terjual',
+      key: 'aov',
+      label: 'AOV',
       align: 'right',
-      render: (row) => <Text variant="mono">{formatCount(row.totalSold)}</Text>,
-    },
-    {
-      key: 'revenue',
-      label: 'Omzet',
-      align: 'right',
-      render: (row) => <Text variant="mono">{formatIDR(row.totalRevenue)}</Text>,
+      render: (row) => <Text variant="mono">{formatIDR(row.averageTransactionValue)}</Text>,
     },
   ];
-
-  if (underperformer) {
-    columns.push({
-      key: 'days',
-      label: 'Hari Tanpa Penjualan',
-      align: 'right',
-      render: (row) => (
-        <Text variant="mono" tone="warning">
-          {formatCount(row.daysWithoutSale ?? 0)} hari
-        </Text>
-      ),
-    });
-  }
-
-  return columns;
 }
+
+const productColumns: Column<ProductRank>[] = [
+  {
+    key: 'product',
+    label: 'Produk',
+    weight: 2,
+    render: (row) => <Text variant="body-strong">{row.name}</Text>,
+  },
+  {
+    key: 'sold',
+    label: 'Terjual',
+    align: 'right',
+    render: (row) => <Text variant="mono">{formatCount(row.unitsSold)}</Text>,
+  },
+  {
+    key: 'omzet',
+    label: 'Omzet',
+    align: 'right',
+    render: (row) => <Text variant="mono">{formatIDR(row.omzet)}</Text>,
+  },
+];

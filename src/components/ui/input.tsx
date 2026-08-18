@@ -17,11 +17,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         disabled={disabled}
         aria-invalid={invalid || undefined}
         className={cn(
-          'min-h-touch rounded-md border border-border bg-surface px-md py-sm type-body text-fg',
+          'min-h-touch rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg',
           'placeholder:text-fg-subtle',
-          'outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20',
+          // The accent border says "focused"; the ring is the shared focus ring
+          // (2px accent at 40%, 2px offset) so keyboard focus reads identically
+          // here and on every button.
+          'transition-colors focus:border-accent focus-ring-always',
           numeric && 'type-mono tabular-nums text-right',
-          invalid && 'border-danger focus:border-danger focus:ring-danger/20',
+          invalid && 'border-danger focus:border-danger',
           disabled && 'bg-subtle text-fg-muted cursor-not-allowed',
           className
         )}

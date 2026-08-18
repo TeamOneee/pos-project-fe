@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { DevRoleLogin } from '@/components/pages/auth/dev-role-login';
-import { FormBanner } from '@/components/pages/auth/form-banner';
+import { FormBanner } from '@/components/ui/form-banner';
 import { isMockMode } from '@/api/config';
 import { presentLoginError } from '@/lib/login-error';
 import { useLogin } from '@/hooks/use-auth';
@@ -51,7 +51,7 @@ export function LoginForm() {
 
   const submit = handleSubmit((values) => {
     login.mutate(values, {
-      onSuccess: (result) => navigate(landingRoute(result.user.role), { replace: true }),
+      onSuccess: (result) => navigate(landingRoute(result.role), { replace: true }),
     });
   });
 
@@ -68,7 +68,7 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-lg">
-        {banner && <FormBanner message={banner} />}
+        {banner && <FormBanner title={banner} />}
 
         <Controller
           control={control}

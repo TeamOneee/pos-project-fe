@@ -28,22 +28,36 @@ export { API_CONFIG, isMockMode };
 export { setTransport, request, requestWithStatus } from '@/api/client';
 export {
   ApiError,
+  conflictCondition,
   fieldErrors,
   insufficientStockDetails,
   isApiError,
   isDuplicateEmail,
   isForbidden,
+  isIdempotencyConflict,
   isInsufficientStock,
+  isItemUnavailable,
   isPriceChanged,
+  isRateLimited,
   isUnauthorized,
   priceChangedDetails,
   type ApiErrorKind,
+  type ConflictCondition,
   type FieldError,
   type InsufficientStockDetail,
   type PriceChangedDetail,
 } from '@/api/errors';
 export { clearToken, getToken, restoreToken, setToken } from '@/api/token';
-export type { Page, Period, PaymentMethod, Role, Status, TransactionStatus } from '@/api/schema';
+export type {
+  Bucket,
+  DashboardMeta,
+  Freshness,
+  Page,
+  PaymentMethod,
+  Role,
+  Status,
+  TransactionStatus,
+} from '@/api/schema';
 
 /** Mock-only helpers. No-ops in live mode; safe to leave in screen code. */
 export { clearMockScenario, setMockScenario, type MockScenario } from '@/api/mock/scenarios';

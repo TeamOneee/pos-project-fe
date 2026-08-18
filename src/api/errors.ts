@@ -5,9 +5,16 @@
  * payload that does not match its schema — arrives at the UI as an ApiError
  * with a discriminated `kind`, so screens can branch without inspecting
  * status codes or parsing message strings.
+ *
+ * Contract §0.1 is deliberate about one thing: the error envelope carries
+ * **no `code` field**. The only discriminators a client gets are `statusCode`,
+ * `message` (which follows a fixed template per condition), and
+ * `errors[].field`. Everything below is built on exactly those three.
  */
 
-/** Shape of the contract's error envelope (§3). */
+import { parseMoneyOr } from '@/lib/money';
+
+/** Shape of the contract's error envelope (§0). */
 export type ApiErrorEnvelope = {
   success: false;
   statusCode: number;
@@ -19,11 +26,12 @@ export type ApiErrorEnvelope = {
 
 export type ApiErrorKind =
   | 'validation' // 400
-  | 'unauthorized' // 401 — token missing, expired or rejected
-  | 'forbidden' // 403 — role gating
-  | 'not_found' // 404
-  | 'conflict' // 409 — duplicate email, price changed, job in progress
-  | 'not_implemented' // 501 — endpoints the MVP does not serve
+  | 'unauthorized' // 401 — token missing, expired, rejected, or bad credentials
+  | 'forbidden' // 403 — role or tenant gating
+  | 'not_found' // 404 — also stands in for "belongs to another merchant"
+  | 'conflict' // 409 — see ConflictCondition below
+  | 'rate_limited' // 429 — login throttle, checkout throttle
+  | 'unavailable' // 503 — a core dependency is unhealthy
   | 'server' // 5xx
   | 'timeout' // request aborted by our own deadline
   | 'network' // transport never reached the server
@@ -33,22 +41,56 @@ export type ApiErrorKind =
 /** A per-field validation message, as returned by the contract's `errors[]`. */
 export type FieldError = { field: string; message: string };
 
-/** `errors[]` entry for the insufficient-stock cases (cart, checkout, transfer). */
-export type InsufficientStockDetail = {
-  productId: string;
-  productName: string;
-  requested: number;
-  available: number;
+/**
+ * The named 409 conditions from §0.1.
+ *
+ * They share a status code, so the `message` template is the only thing that
+ * separates them. Matching on server copy is not something to do lightly, but
+ * §0.1 states these templates normatively and offers nothing else — the
+ * alternative would be treating every conflict identically, which would leave
+ * the cashier without a stock or price frame at checkout.
+ */
+export type ConflictCondition =
+  | 'EMAIL_ALREADY_REGISTERED'
+  | 'PRODUCT_INACTIVE'
+  | 'CATEGORY_INACTIVE'
+  | 'PRICE_CHANGED'
+  | 'INSUFFICIENT_STOCK'
+  | 'IDEMPOTENCY_CONFLICT'
+  | 'UNKNOWN_CONFLICT';
+
+const CONFLICT_MESSAGES: { condition: ConflictCondition; pattern: RegExp }[] = [
+  { condition: 'EMAIL_ALREADY_REGISTERED', pattern: /email sudah terdaftar/i },
+  { condition: 'CATEGORY_INACTIVE', pattern: /kategori produk tidak aktif/i },
+  { condition: 'PRODUCT_INACTIVE', pattern: /produk tidak aktif/i },
+  { condition: 'PRICE_CHANGED', pattern: /harga produk berubah/i },
+  { condition: 'INSUFFICIENT_STOCK', pattern: /stok tidak mencukupi/i },
+  { condition: 'IDEMPOTENCY_CONFLICT', pattern: /konflik idempotency/i },
+];
+
+/**
+ * A fault the server pinned to one line of the checkout we submitted.
+ *
+ * §5.2 reports these as `errors[].field = "items[0].product_id"` — an index
+ * into the array *we sent*, not a product id. The caller resolves it back to a
+ * product through its own request, which it still has.
+ */
+export type CheckoutItemFault = {
+  /** Index into the submitted `items` array; null when the field is unindexed. */
+  itemIndex: number | null;
+  field: string;
 };
 
-/** `errors[]` entry for the 409 PRICE_CHANGED case at checkout. */
-export type PriceChangedDetail = {
-  code: 'PRICE_CHANGED';
-  productId: string;
-  productName: string;
+/** §5.2 `PRICE_CHANGED`: `message` reads `current_price=9000.00`. */
+export type PriceChangedDetail = CheckoutItemFault & {
   /** Integer rupiah — parsed at the boundary like every other money field. */
-  cartPrice: number;
   currentPrice: number;
+};
+
+/** §5.2 `INSUFFICIENT_STOCK`: `message` reads `stock=0, requested=1`. */
+export type InsufficientStockDetail = CheckoutItemFault & {
+  available: number;
+  requested: number;
 };
 
 function kindForStatus(status: number): ApiErrorKind {
@@ -63,8 +105,10 @@ function kindForStatus(status: number): ApiErrorKind {
       return 'not_found';
     case 409:
       return 'conflict';
-    case 501:
-      return 'not_implemented';
+    case 429:
+      return 'rate_limited';
+    case 503:
+      return 'unavailable';
     default:
       if (status >= 500) return 'server';
       return 'unknown';
@@ -160,6 +204,28 @@ export function isForbidden(error: unknown): boolean {
   return isApiErrorOfKind(error, 'forbidden');
 }
 
+/** §0.1 `RATE_LIMITED`: login is capped at 5/minute, checkout per user. */
+export function isRateLimited(error: unknown): boolean {
+  return isApiErrorOfKind(error, 'rate_limited');
+}
+
+/* -------------------------------------------------------------------------- */
+/* Conflict conditions                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Which named §0.1 condition a 409 is, read from its message template. */
+export function conflictCondition(error: unknown): ConflictCondition | null {
+  if (!isApiErrorOfKind(error, 'conflict')) return null;
+  if (!isApiError(error)) return null;
+
+  const match = CONFLICT_MESSAGES.find((entry) => entry.pattern.test(error.message));
+  return match?.condition ?? 'UNKNOWN_CONFLICT';
+}
+
+/* -------------------------------------------------------------------------- */
+/* errors[] readers                                                            */
+/* -------------------------------------------------------------------------- */
+
 function detailArray(error: unknown): unknown[] {
   return isApiError(error) && Array.isArray(error.details) ? error.details : [];
 }
@@ -167,11 +233,6 @@ function detailArray(error: unknown): unknown[] {
 function readString(source: Record<string, unknown>, key: string): string {
   const value = source[key];
   return typeof value === 'string' ? value : '';
-}
-
-function readNumber(source: Record<string, unknown>, key: string): number {
-  const value = source[key];
-  return typeof value === 'number' ? value : 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,67 +247,95 @@ export function fieldErrors(error: unknown): FieldError[] {
     .map((entry) => ({ field: readString(entry, 'field'), message: readString(entry, 'message') }));
 }
 
+/** `"items[3].product_id"` → 3. Anything unindexed yields null. */
+function itemIndexOf(field: string): number | null {
+  const match = /items\[(\d+)\]/.exec(field);
+  if (!match?.[1]) return null;
+
+  const index = Number(match[1]);
+  return Number.isInteger(index) ? index : null;
+}
+
 /**
- * Stock shortfalls behind a 400, so the cart can show which line failed and by
+ * Stock shortfalls behind a 409, so the cart can show which line failed and by
  * how much rather than a generic toast.
+ *
+ * The numbers live inside the message text (`stock=0, requested=1`) — §5.2
+ * gives no structured field for them.
  */
 export function insufficientStockDetails(error: unknown): InsufficientStockDetail[] {
-  if (!isApiErrorOfKind(error, 'validation')) return [];
+  if (conflictCondition(error) !== 'INSUFFICIENT_STOCK') return [];
 
-  return detailArray(error)
-    .filter(isRecord)
-    .filter((entry) => 'available' in entry && 'product_id' in entry)
-    .map((entry) => ({
-      productId: readString(entry, 'product_id'),
-      productName: readString(entry, 'product_name'),
-      requested: readNumber(entry, 'requested'),
-      available: readNumber(entry, 'available'),
-    }));
+  return fieldErrors(error).map((entry) => ({
+    field: entry.field,
+    itemIndex: itemIndexOf(entry.field),
+    available: readTaggedNumber(entry.message, 'stock'),
+    requested: readTaggedNumber(entry.message, 'requested'),
+  }));
 }
 
 export function isInsufficientStock(error: unknown): boolean {
-  return insufficientStockDetails(error).length > 0;
+  return conflictCondition(error) === 'INSUFFICIENT_STOCK';
 }
 
 /**
  * Price drift behind a 409 at checkout. The cashier has to see the old and new
- * price side by side before the sale can go through.
- *
- * Money arrives here as decimal strings like every other money field, so it is
- * parsed to integer rupiah on the way out — the UI never sees the raw string.
+ * price side by side before the sale can go through — the old price comes from
+ * the cart, since the server only reports the current one.
  */
 export function priceChangedDetails(error: unknown): PriceChangedDetail[] {
-  if (!isApiErrorOfKind(error, 'conflict')) return [];
+  if (conflictCondition(error) !== 'PRICE_CHANGED') return [];
 
-  return detailArray(error)
-    .filter(isRecord)
-    .filter((entry) => entry.code === 'PRICE_CHANGED')
-    .map((entry) => ({
-      code: 'PRICE_CHANGED' as const,
-      productId: readString(entry, 'product_id'),
-      productName: readString(entry, 'product_name'),
-      cartPrice: parseDetailMoney(entry.cart_price),
-      currentPrice: parseDetailMoney(entry.current_price),
-    }));
+  return fieldErrors(error).map((entry) => ({
+    field: entry.field,
+    itemIndex: itemIndexOf(entry.field),
+    currentPrice: readTaggedMoney(entry.message, 'current_price'),
+  }));
 }
 
 export function isPriceChanged(error: unknown): boolean {
-  return priceChangedDetails(error).length > 0;
+  return conflictCondition(error) === 'PRICE_CHANGED';
 }
 
 /** True for the 409 raised when an email is already registered. */
 export function isDuplicateEmail(error: unknown): boolean {
-  if (!isApiErrorOfKind(error, 'conflict')) return false;
-  if (fieldErrors(error).some((entry) => entry.field === 'email')) return true;
-  return isApiError(error) && /email/i.test(error.message);
+  if (conflictCondition(error) === 'EMAIL_ALREADY_REGISTERED') return true;
+  return isApiErrorOfKind(error, 'conflict') && fieldErrors(error).some((e) => e.field === 'email');
 }
 
 /**
- * Money inside an error payload is parsed defensively: a malformed amount in a
- * diagnostic must not mask the error it is describing.
+ * A product or its category was deactivated between loading the catalogue and
+ * confirming the sale. Both read the same way to the cashier: the line has to
+ * come out of the cart.
  */
-function parseDetailMoney(value: unknown): number {
-  if (typeof value !== 'string' && typeof value !== 'number') return 0;
-  const digits = String(value).match(/^(-?\d+)(?:\.0*)?$/);
-  return digits?.[1] ? Number(digits[1]) : 0;
+export function isItemUnavailable(error: unknown): boolean {
+  const condition = conflictCondition(error);
+  return condition === 'PRODUCT_INACTIVE' || condition === 'CATEGORY_INACTIVE';
+}
+
+/**
+ * §5.2: the same `checkout_request_id` arrived with a different payload. This
+ * is a client bug — a key was reused across two genuinely different sales.
+ */
+export function isIdempotencyConflict(error: unknown): boolean {
+  return conflictCondition(error) === 'IDEMPOTENCY_CONFLICT';
+}
+
+/* -------------------------------------------------------------------------- */
+/* Message parsing                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** Pulls `name=123` out of a diagnostic message. Missing or malformed reads 0. */
+function readTaggedNumber(message: string, name: string): number {
+  const match = new RegExp(`${name}\\s*=\\s*(-?\\d+)`).exec(message);
+  return match?.[1] ? Number(match[1]) : 0;
+}
+
+/**
+ * Same, for a decimal-string amount. Parsed defensively: a malformed figure in
+ * a diagnostic must not mask the error it is describing.
+ */
+function readTaggedMoney(message: string, name: string): number {
+  const match = new RegExp(`${name}\\s*=\\s*(-?[\\d.]+)`).exec(message);
+  return match?.[1] ? parseMoneyOr(match[1], 0) : 0;
 }

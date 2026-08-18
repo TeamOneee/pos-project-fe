@@ -48,30 +48,47 @@ module.exports = {
         border: {
           DEFAULT: token('border'),
           strong: token('border-strong'),
+          // The boundary of an operable control: 3:1, per WCAG 1.4.11.
+          interactive: token('border-interactive'),
         },
         fg: {
           DEFAULT: token('fg'),
           muted: token('fg-muted'),
           subtle: token('fg-subtle'),
         },
+        /*
+         * Each status role has up to three tokens: the base (fills, icons — 3:1),
+         * `text` (anything read as text — 4.5:1) and `fill` (a solid background
+         * under white text — 4.5:1). See design-tokens.cjs.
+         */
         accent: {
           DEFAULT: token('accent'),
           hover: token('accent-hover'),
           subtle: token('accent-subtle'),
+          text: token('accent-text'),
+          fill: token('accent-fill'),
+          'fill-hover': token('accent-fill-hover'),
         },
         success: {
           DEFAULT: token('success'),
           subtle: token('success-subtle'),
+          text: token('success-text'),
         },
         warning: {
           DEFAULT: token('warning'),
           subtle: token('warning-subtle'),
+          text: token('warning-text'),
         },
         danger: {
           DEFAULT: token('danger'),
           subtle: token('danger-subtle'),
+          text: token('danger-text'),
+          fill: token('danger-fill'),
         },
-        info: token('info'),
+        info: {
+          DEFAULT: token('info'),
+          text: token('info-text'),
+        },
 
         chart: {
           ...Object.fromEntries(CHART_PALETTE.map((hex, index) => [index + 1, hex])),
@@ -116,6 +133,32 @@ module.exports = {
           ])
         )
       );
+
+      /*
+       * The keyboard focus ring, defined once: 2px accent at 40% opacity, 2px
+       * offset. Every focusable element uses `.focus-ring` rather than restating
+       * a ring utility, so the app cannot end up with three different rings.
+       *
+       * `outline` rather than a box-shadow ring, deliberately: an outline needs
+       * no offset colour, so the ring looks right on canvas, on a raised card and
+       * inside a dialog alike, and it follows the element's border radius.
+       */
+      addComponents({
+        '.focus-ring': {
+          '&:focus-visible': {
+            outline: `2px solid rgb(var(--accent) / 0.4)`,
+            outlineOffset: '2px',
+          },
+        },
+        // For controls whose own focus style is the border (text inputs): the
+        // same ring, applied on any focus rather than keyboard focus only.
+        '.focus-ring-always': {
+          '&:focus': {
+            outline: `2px solid rgb(var(--accent) / 0.4)`,
+            outlineOffset: '2px',
+          },
+        },
+      });
     }),
   ],
 };

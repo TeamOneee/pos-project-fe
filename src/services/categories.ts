@@ -1,53 +1,76 @@
 /**
- * Category module — contract §4.5.
+ * Category module — contract §3.2.
  *
- * `status` is one of the known backend gaps: the contract specifies it, the
- * Prisma schema has no column for it yet. The client type keeps it and the
- * mock serves it; against a live backend it defaults to ACTIVE.
+ * Categories are soft-deactivated and never deleted: §3.2 states there is no
+ * `DELETE /categories/:id` in the contract at all (BR-019). Retiring one is
+ * `PATCH` with `is_active: false`.
+ *
+ * Deactivating a category does not touch the products inside it, but those
+ * products drop out of the cashier catalogue and checkout rejects them with
+ * `CATEGORY_INACTIVE` until the category is active again.
  */
 
 import { z } from 'zod';
 
 import { request } from '@/api/client';
-import { gapField, id, isoDateTime, noData, statusSchema } from '@/api/schema';
+import { id, paginated, type Page } from '@/api/schema';
 
+/**
+ * §3.4 `CategoryDto`.
+ *
+ * Activation is the boolean `is_active`, not the `ACTIVE`/`INACTIVE` enum that
+ * merchant, outlet and staff use — the contract is not uniform here, and this
+ * is the catalog module's spelling.
+ */
 export const categorySchema = z
   .object({
-    category_id: id,
+    id,
     merchant_id: id.optional(),
     name: z.string(),
-    status: gapField(statusSchema, 'ACTIVE'),
-    created_at: isoDateTime.optional(),
-    updated_at: isoDateTime.optional(),
+    is_active: z.boolean(),
   })
   .transform((value) => ({
-    categoryId: value.category_id,
+    categoryId: value.id,
     merchantId: value.merchant_id ?? null,
     name: value.name,
-    status: value.status,
-    createdAt: value.created_at ?? null,
-    updatedAt: value.updated_at ?? null,
+    isActive: value.is_active,
   }));
 
 export type Category = z.infer<typeof categorySchema>;
 
+/** §3.2: a CASHIER is forced to `is_active=true` in the service, not by query. */
+export type CategoryFilters = { is_active?: boolean; page?: number; size?: number };
+
 export type CreateCategoryInput = { name: string };
-export type UpdateCategoryInput = { name: string };
+export type UpdateCategoryInput = { name?: string; is_active?: boolean };
 
 export const categoriesApi = {
-  list: () => request({ method: 'GET', path: '/categories', schema: z.array(categorySchema) }),
+  /** Readable by every role; Owner and Admin also see inactive categories. */
+  list: (filters: CategoryFilters = {}): Promise<Page<Category>> =>
+    request({
+      method: 'GET',
+      path: '/categories',
+      query: { is_active: filters.is_active, page: filters.page, size: filters.size },
+      schema: paginated(categorySchema),
+    }),
 
+  /** 409 when the name already exists in this merchant (DR-010). */
   create: (input: CreateCategoryInput) =>
     request({ method: 'POST', path: '/categories', body: input, schema: categorySchema }),
 
   update: (categoryId: string, input: UpdateCategoryInput) =>
     request({
-      method: 'PUT',
+      method: 'PATCH',
       path: `/categories/${categoryId}`,
       body: input,
       schema: categorySchema,
     }),
 
   deactivate: (categoryId: string) =>
-    request({ method: 'DELETE', path: `/categories/${categoryId}`, schema: noData }),
+    request({
+      method: 'PATCH',
+      path: `/categories/${categoryId}`,
+      body: { is_active: false },
+      schema: categorySchema,
+    }),
 };

@@ -1,168 +1,253 @@
 /**
- * Inventory module — contract §4.7.
+ * Inventory module — contract §4.2.
  *
- * Reads are open to every role; writes are ADMIN only, and the Owner reaching
- * one gets a 403. Stock never goes negative: a transfer that would overdraw the
- * source outlet fails with a 400 carrying the shortfall.
+ * Reads are OWNER and ADMIN; adjustments are ADMIN and OWNER (§4.1 rule 1 —
+ * the Owner inherits the Admin's permissions under BR-011B). The cashier never
+ * touches a stock endpoint.
+ *
+ * Stock is written one way only: `POST /inventory/adjustments` with a signed
+ * `delta` and a reason. The client never sends a target quantity — the server
+ * reads the current value, applies the delta, and refuses anything that would
+ * land below zero (§4.6). Two operations the previous contract had are absent
+ * from §4.2 and therefore absent here: **bulk adjustment** and **transfer
+ * between outlets**.
+ *
+ * Thresholds are two-level (§4.1 rule 5): the product carries a base
+ * `low_stock_threshold`, and an inventory row may override it for its outlet.
+ * `effective_low_stock_threshold` is the one the server actually compares
+ * against, and the only one a screen should render a verdict from.
  */
 
 import { z } from 'zod';
 
 import { request } from '@/api/client';
-import { gapField, id, isoDateTime, money, paginated, type Page } from '@/api/schema';
+import {
+  id,
+  isoDateTime,
+  movementTypeSchema,
+  noData,
+  paginated,
+  type MovementType,
+  type Page,
+} from '@/api/schema';
 
-/** The trimmed product an inventory row carries inline. */
-const embeddedProductSchema = z
-  .object({
-    product_id: id,
-    name: z.string(),
-    sku: gapField(z.string(), ''),
-    price: money,
-  })
-  .transform((value) => ({
-    productId: value.product_id,
-    name: value.name,
-    sku: value.sku,
-    price: value.price,
-  }));
+/* -------------------------------------------------------------------------- */
+/* Stock levels                                                                */
+/* -------------------------------------------------------------------------- */
 
+/** §4.2 `GET /inventory` row — the joined read shape, richer than `InventoryDto`. */
 export const inventorySchema = z
   .object({
-    // Absent when the outlet has never stocked the product: the contract
-    // answers 200 with quantity 0 rather than a 404.
-    inventory_id: id.optional(),
+    id,
     outlet_id: id,
+    outlet_name: z.string(),
     product_id: id,
+    product_name: z.string(),
     quantity: z.number(),
+    base_low_stock_threshold: z.number(),
+    low_stock_threshold_override: z.number().nullable(),
+    effective_low_stock_threshold: z.number(),
+    is_low_stock: z.boolean(),
     updated_at: isoDateTime.optional(),
-    product: embeddedProductSchema.nullable().optional(),
   })
   .transform((value) => ({
-    inventoryId: value.inventory_id ?? null,
+    inventoryId: value.id,
     outletId: value.outlet_id,
+    outletName: value.outlet_name,
     productId: value.product_id,
+    productName: value.product_name,
     quantity: value.quantity,
+    /** The product's own threshold, before any per-outlet override. */
+    baseLowStockThreshold: value.base_low_stock_threshold,
+    /** Null when this outlet has not overridden the product's threshold. */
+    lowStockThresholdOverride: value.low_stock_threshold_override,
+    /** Override when set, base otherwise. Compare stock against this one. */
+    effectiveLowStockThreshold: value.effective_low_stock_threshold,
+    /** The server's own verdict. Never recompute it on the client. */
+    isLowStock: value.is_low_stock,
     updatedAt: value.updated_at ?? null,
-    product: value.product ?? null,
   }));
 
 export type InventoryItem = z.infer<typeof inventorySchema>;
 
-export const lowStockAlertSchema = z
-  .object({
-    inventory_id: id.optional(),
-    product_id: id,
-    product_name: z.string(),
-    sku: gapField(z.string(), ''),
-    outlet_id: id,
-    outlet_name: z.string(),
-    current_stock: z.number(),
-    threshold: z.number(),
-  })
-  .transform((value) => ({
-    inventoryId: value.inventory_id ?? null,
-    productId: value.product_id,
-    productName: value.product_name,
-    sku: value.sku,
-    outletId: value.outlet_id,
-    outletName: value.outlet_name,
-    currentStock: value.current_stock,
-    threshold: value.threshold,
-  }));
-
-export type LowStockAlert = z.infer<typeof lowStockAlertSchema>;
-
-const transferResultSchema = z
-  .object({
-    from_inventory: inventorySchema,
-    to_inventory: inventorySchema,
-    transferred_quantity: z.number(),
-  })
-  .transform((value) => ({
-    fromInventory: value.from_inventory,
-    toInventory: value.to_inventory,
-    transferredQuantity: value.transferred_quantity,
-  }));
-
-export type TransferResult = z.infer<typeof transferResultSchema>;
-
+/** §4.2: outlet is an optional selector — omitting it spans the whole merchant. */
 export type InventoryFilters = {
-  /** Required by the contract — inventory is always read per outlet. */
-  outlet_id: string;
+  outlet_id?: string;
   product_id?: string;
+  low_stock_only?: boolean;
   page?: number;
-  limit?: number;
+  size?: number;
 };
 
-/** A manual adjustment always carries a reason; the backend rejects an empty one. */
-export type AdjustInventoryInput = { quantity: number; reason: string };
+/* -------------------------------------------------------------------------- */
+/* Movements                                                                   */
+/* -------------------------------------------------------------------------- */
 
-export type BulkAdjustInput = {
+/** §4.4 `StockMovementDto`. */
+export const stockMovementSchema = z
+  .object({
+    id,
+    outlet_id: id,
+    product_id: id,
+    type: movementTypeSchema,
+    delta: z.number(),
+    quantity_before: z.number(),
+    quantity_after: z.number(),
+    reason: z.string().nullable(),
+    transaction_id: id.nullable(),
+    actor_user_id: id,
+    created_at: isoDateTime,
+  })
+  .transform((value) => ({
+    movementId: value.id,
+    outletId: value.outlet_id,
+    productId: value.product_id,
+    type: value.type,
+    delta: value.delta,
+    quantityBefore: value.quantity_before,
+    quantityAfter: value.quantity_after,
+    /** Always set for ADJUSTMENT; null for the SALE rows checkout writes. */
+    reason: value.reason,
+    transactionId: value.transaction_id,
+    actorUserId: value.actor_user_id,
+    createdAt: value.created_at,
+  }));
+
+export type StockMovement = z.infer<typeof stockMovementSchema>;
+
+export type MovementFilters = {
+  outlet_id?: string;
+  product_id?: string;
+  type?: MovementType;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  size?: number;
+};
+
+/** §4.2 `POST /inventory/adjustments` response. */
+const adjustmentResultSchema = z
+  .object({
+    movement_id: id,
+    outlet_id: id,
+    product_id: id,
+    quantity_before: z.number(),
+    quantity_after: z.number(),
+    delta: z.number(),
+    reason: z.string(),
+    actor_user_id: id,
+    created_at: isoDateTime,
+  })
+  .transform((value) => ({
+    movementId: value.movement_id,
+    outletId: value.outlet_id,
+    productId: value.product_id,
+    quantityBefore: value.quantity_before,
+    quantityAfter: value.quantity_after,
+    delta: value.delta,
+    reason: value.reason,
+    actorUserId: value.actor_user_id,
+    createdAt: value.created_at,
+  }));
+
+export type AdjustmentResult = z.infer<typeof adjustmentResultSchema>;
+
+/** §4.2 response after setting a per-outlet low-stock threshold. */
+export const lowStockThresholdResultSchema = z
+  .object({
+    product_id: id,
+    outlet_id: id,
+    base_low_stock_threshold: z.number(),
+    low_stock_threshold_override: z.number(),
+    effective_low_stock_threshold: z.number(),
+    updated_at: isoDateTime,
+  })
+  .transform((value) => ({
+    productId: value.product_id,
+    outletId: value.outlet_id,
+    baseLowStockThreshold: value.base_low_stock_threshold,
+    lowStockThresholdOverride: value.low_stock_threshold_override,
+    effectiveLowStockThreshold: value.effective_low_stock_threshold,
+    updatedAt: value.updated_at,
+  }));
+
+export type LowStockThresholdResult = z.infer<typeof lowStockThresholdResultSchema>;
+
+/**
+ * §4.4 `AdjustStockRequest`. `delta` is signed and may not be zero; `reason` is
+ * mandatory. There is no target-quantity form of this call.
+ */
+export type AdjustStockInput = {
   outlet_id: string;
-  items: { inventory_id: string; quantity: number; reason: string }[];
-};
-
-export type TransferStockInput = {
   product_id: string;
-  from_outlet_id: string;
-  to_outlet_id: string;
-  quantity: number;
+  delta: number;
   reason: string;
 };
 
+export type SetLowStockThresholdInput = { threshold: number };
+
+/* -------------------------------------------------------------------------- */
+/* Client                                                                      */
+/* -------------------------------------------------------------------------- */
+
 export const inventoryApi = {
-  list: (filters: InventoryFilters): Promise<Page<InventoryItem>> =>
+  list: (filters: InventoryFilters = {}): Promise<Page<InventoryItem>> =>
     request({
       method: 'GET',
       path: '/inventory',
       query: {
         outlet_id: filters.outlet_id,
         product_id: filters.product_id,
+        low_stock_only: filters.low_stock_only,
         page: filters.page,
-        limit: filters.limit,
+        size: filters.size,
       },
       schema: paginated(inventorySchema),
     }),
 
-  /** Answers 200 with quantity 0 when the pairing has no row yet. */
-  getForProduct: (outletId: string, productId: string) =>
-    request({
-      method: 'GET',
-      path: `/inventory/outlet/${outletId}/product/${productId}`,
-      schema: inventorySchema,
-    }),
-
-  /** ADMIN only. 403 for anyone else, 400 without a reason. */
-  adjust: (inventoryId: string, input: AdjustInventoryInput) =>
-    request({
-      method: 'PUT',
-      path: `/inventory/${inventoryId}`,
-      body: input,
-      schema: inventorySchema,
-    }),
-
-  bulkAdjust: (input: BulkAdjustInput) =>
-    request({
-      method: 'PUT',
-      path: '/inventory/bulk',
-      body: input,
-      schema: z.array(inventorySchema),
-    }),
-
-  /** 400 with the shortfall when the source outlet cannot cover the quantity. */
-  transfer: (input: TransferStockInput) =>
+  /**
+   * 201 on success. 400 for a zero delta or an empty reason, 403 when the
+   * outlet is inactive, and 409 when the result would go negative — in which
+   * case nothing was written at all.
+   */
+  adjust: (input: AdjustStockInput) =>
     request({
       method: 'POST',
-      path: '/inventory/transfer',
+      path: '/inventory/adjustments',
       body: input,
-      schema: transferResultSchema,
+      schema: adjustmentResultSchema,
     }),
 
-  lowStock: (outletId?: string) =>
+  movements: (filters: MovementFilters = {}): Promise<Page<StockMovement>> =>
     request({
       method: 'GET',
-      path: '/inventory/low-stock',
-      query: { outlet_id: outletId },
-      schema: z.array(lowStockAlertSchema),
+      path: '/inventory/movements',
+      query: {
+        outlet_id: filters.outlet_id,
+        product_id: filters.product_id,
+        type: filters.type,
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        page: filters.page,
+        size: filters.size,
+      },
+      schema: paginated(stockMovementSchema),
+    }),
+
+  /** Upsert the threshold override, creating a zero-quantity inventory row if needed. */
+  setLowStockThreshold: (productId: string, outletId: string, input: SetLowStockThresholdInput) =>
+    request({
+      method: 'PUT',
+      path: `/inventory/${productId}/outlets/${outletId}/low-stock-threshold`,
+      body: input,
+      schema: lowStockThresholdResultSchema,
+    }),
+
+  /** Clear the override so the product's base threshold becomes effective again. */
+  removeLowStockThreshold: (productId: string, outletId: string) =>
+    request({
+      method: 'DELETE',
+      path: `/inventory/${productId}/outlets/${outletId}/low-stock-threshold`,
+      schema: noData,
     }),
 };

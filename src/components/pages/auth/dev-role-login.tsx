@@ -26,7 +26,7 @@ export function DevRoleLogin() {
   const signIn = (email: string, password: string) =>
     login.mutate(
       { email, password },
-      { onSuccess: (result) => navigate(landingRoute(result.user.role), { replace: true }) }
+      { onSuccess: (result) => navigate(landingRoute(result.role), { replace: true }) }
     );
 
   return (

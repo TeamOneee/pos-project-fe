@@ -16,7 +16,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex min-h-touch flex-row items-center justify-between gap-sm rounded-md border border-border bg-surface px-md py-sm outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20',
+      'flex min-h-touch flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus:border-accent focus-ring-always',
       invalid && 'border-danger',
       props.disabled && 'cursor-not-allowed opacity-50',
       className
@@ -39,7 +39,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-md border border-border bg-surface-raised p-xs shadow-md',
+        'z-50 min-w-[8rem] overflow-hidden rounded-md border border-border-interactive bg-surface-raised p-xs shadow-md',
         className
       )}
       {...props}

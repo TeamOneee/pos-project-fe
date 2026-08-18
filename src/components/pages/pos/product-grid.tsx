@@ -25,7 +25,6 @@ type ProductGridProps = {
   columns: number;
   /** Units per product currently in the cart, for the count circles. */
   quantities: Record<string, number>;
-  threshold: number;
   onSelect: (product: PosProduct) => void;
   emptyTitle: string;
   emptyDescription: string;
@@ -36,7 +35,6 @@ export function ProductGrid({
   products,
   columns,
   quantities,
-  threshold,
   onSelect,
   emptyTitle,
   emptyDescription,
@@ -64,7 +62,6 @@ export function ProductGrid({
                       <ProductTile
                         product={entry.product}
                         inCart={quantities[entry.product.productId] ?? 0}
-                        threshold={threshold}
                         onPress={onSelect}
                       />
                     )}

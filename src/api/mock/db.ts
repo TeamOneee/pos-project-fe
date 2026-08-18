@@ -2,50 +2,55 @@
  * Mutable in-memory state for mock mode.
  *
  * Seeded lazily on first use, so importing the mock does not build the dataset
- * in live mode. Everything is stored in wire shape — the handlers hand these
- * records straight back and let the real schemas parse them.
+ * in live mode. Everything is stored in **contract 07 wire shape** — the
+ * handlers hand these records straight back and let the real schemas parse
+ * them, which is what makes the mock a genuine test of the boundary rather than
+ * a second opinion about it.
  */
 
 import {
+  ANALYSIS_JOB,
   CATEGORIES,
+  INSIGHTS,
   INVENTORY,
   MERCHANT,
   NOW,
   OUTLETS,
   PRODUCTS,
+  STAFF,
   TRANSACTION_SEEDS,
-  USERS,
 } from '@/api/mock/dataset';
 import { parseMoney } from '@/lib/money';
 
-/**
- * Wire records, declared rather than inferred from the dataset: the seed uses
- * literal types like `'ACTIVE'`, and these have to stay mutable to `'INACTIVE'`.
- */
 export type WireStatus = 'ACTIVE' | 'INACTIVE';
+export type WireRole = 'OWNER' | 'ADMIN' | 'CASHIER';
+export type WirePaymentMethod = 'CASH' | 'QRIS' | 'TRANSFER';
+export type WireMovementType = 'ADJUSTMENT' | 'SALE';
 
 export type WireMerchant = {
-  merchant_id: string;
+  id: string;
+  owner_user_id: string;
   name: string;
-  low_stock_threshold: number;
+  timezone: string;
+  status: WireStatus;
   created_at: string;
   updated_at: string;
 };
 
-export type WireUser = {
+export type WireStaff = {
   user_id: string;
   merchant_id: string;
   outlet_id: string | null;
   name: string;
   email: string;
-  role: 'OWNER' | 'ADMIN' | 'CASHIER';
+  role: WireRole;
   status: WireStatus;
   created_at: string;
   updated_at: string;
 };
 
 export type WireOutlet = {
-  outlet_id: string;
+  id: string;
   merchant_id: string;
   name: string;
   address: string;
@@ -55,191 +60,225 @@ export type WireOutlet = {
 };
 
 export type WireCategory = {
-  category_id: string;
+  id: string;
   merchant_id: string;
   name: string;
-  status: WireStatus;
+  is_active: boolean;
+};
+
+export type WireProduct = {
+  id: string;
+  merchant_id: string;
+  category_id: string;
+  name: string;
+  price: string;
+  low_stock_threshold: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 };
 
-export type WireProduct = {
+export type WireProductOutletPrice = {
   product_id: string;
-  merchant_id: string;
-  category_id: string;
-  name: string;
-  sku: string;
+  outlet_id: string;
   price: string;
-  status: WireStatus;
-  created_at: string;
   updated_at: string;
 };
 
 export type WireInventory = {
-  inventory_id: string;
+  id: string;
+  merchant_id: string;
   outlet_id: string;
   product_id: string;
   quantity: number;
+  low_stock_threshold_override: number | null;
   updated_at: string;
 };
 
-export type WireTransactionItem = {
-  transaction_item_id: string;
-  transaction_id: string;
+export type WireMovement = {
+  id: string;
+  merchant_id: string;
+  outlet_id: string;
   product_id: string;
-  quantity: number;
+  type: WireMovementType;
+  delta: number;
+  quantity_before: number;
+  quantity_after: number;
+  reason: string | null;
+  transaction_id: string | null;
+  actor_user_id: string;
+  created_at: string;
+};
+
+export type WireTransactionItem = {
+  product_id: string;
+  /** Snapshot, per BR-006 — not a live join to the product. */
+  name: string;
   unit_price: string;
+  quantity: number;
   subtotal: string;
 };
 
 export type WireTransaction = {
   transaction_id: string;
+  merchant_id: string;
   outlet_id: string;
-  user_id: string;
+  operator_user_id: string;
   transaction_number: string;
+  status: 'COMPLETED';
   subtotal: string;
   total: string;
-  status: 'COMPLETED' | 'PENDING' | 'CANCELLED';
+  payment_method: WirePaymentMethod;
+  payment_status: 'CONFIRMED';
+  paid_at: string;
   created_at: string;
-  payment: {
-    method: 'CASH' | 'QRIS' | 'DEBIT' | 'TRANSFER';
-    amount: string;
-    paid_at: string;
-  } | null;
+  items: WireTransactionItem[];
+  /** §5.2 idempotency: unique per (merchant, id); the hash detects a conflict. */
+  checkout_request_id: string | null;
+  request_hash: string | null;
 };
 
-export type WireCartItem = {
-  cart_item_id: string;
-  cart_id: string;
-  product_id: string;
-  quantity: number;
-  unit_price: string;
-};
-
-export type WireCart = {
-  cart_id: string;
-  outlet_id: string;
-  user_id: string;
-  created_at: string;
+export type WireAnalysisJob = {
+  id: string;
+  status: 'PENDING' | 'PROCESSING' | 'READY' | 'RETRY_SCHEDULED' | 'FAILED';
+  analysis_date: string;
   updated_at: string;
-  items: WireCartItem[];
 };
 
-export type MockDb = {
+export type WireInsight = {
+  id: string;
+  type: 'SALES_TREND' | 'OUTLET_COMPARISON' | 'TOP_PRODUCTS' | 'TIME_PATTERN' | 'AOV_TREND';
+  status: 'READY' | 'STALE';
+  title: string;
+  content: string;
+  evidence_summary: Record<string, unknown>;
+  period_start: string;
+  period_end: string;
+  generated_at: string;
+};
+
+export type Db = {
   merchant: WireMerchant;
+  staff: WireStaff[];
   outlets: WireOutlet[];
-  users: WireUser[];
   categories: WireCategory[];
   products: WireProduct[];
+  productOutletPrices: WireProductOutletPrice[];
   inventory: WireInventory[];
+  movements: WireMovement[];
   transactions: WireTransaction[];
-  transactionItems: WireTransactionItem[];
-  carts: WireCart[];
-  /** Idempotency key → transaction id, so a replayed checkout returns the original. */
-  idempotency: Map<string, string>;
-  /** The signed-in user; null until /auth/login succeeds. */
-  session: WireUser | null;
-  aiJob: { jobId: string; startedAt: number } | null;
+  analysisJob: WireAnalysisJob | null;
+  insights: WireInsight[];
   sequence: number;
 };
 
-let db: MockDb | null = null;
+let db: Db | null = null;
 
-/** Money on the wire: integer rupiah rendered the way the backend renders it. */
-export function toWireMoney(amount: number): string {
-  return `${Math.trunc(amount)}.00`;
-}
-
-export function priceOf(product: WireProduct): number {
-  return parseMoney(product.price);
-}
-
-function seed(): MockDb {
-  const transactions: WireTransaction[] = [];
-  const transactionItems: WireTransactionItem[] = [];
-
-  TRANSACTION_SEEDS.forEach((seedTransaction, transactionIndex) => {
-    let subtotal = 0;
-
-    seedTransaction.lines.forEach(([productId, quantity], lineIndex) => {
-      const product = PRODUCTS.find((entry) => entry.product_id === productId);
-      if (!product) return;
-
-      const unitPrice = parseMoney(product.price);
-      const lineSubtotal = unitPrice * quantity;
-      subtotal += lineSubtotal;
-
-      transactionItems.push({
-        transaction_item_id: `txi_${transactionIndex + 1}_${lineIndex + 1}`,
-        transaction_id: seedTransaction.transaction_id,
-        product_id: productId,
-        quantity,
-        unit_price: toWireMoney(unitPrice),
-        subtotal: toWireMoney(lineSubtotal),
-      });
-    });
-
-    transactions.push({
-      transaction_id: seedTransaction.transaction_id,
-      outlet_id: seedTransaction.outlet_id,
-      user_id: seedTransaction.user_id,
-      transaction_number: seedTransaction.transaction_number,
-      // Total equals subtotal — there is no discount, tax or service charge.
-      subtotal: toWireMoney(subtotal),
-      total: toWireMoney(subtotal),
-      status: seedTransaction.status ?? 'COMPLETED',
-      created_at: seedTransaction.created_at,
-      payment: {
-        method: seedTransaction.payment_method,
-        amount: toWireMoney(subtotal),
-        paid_at: seedTransaction.created_at,
-      },
-    });
-  });
-
-  return {
-    merchant: { ...MERCHANT },
-    outlets: OUTLETS.map((outlet) => ({ ...outlet })),
-    users: USERS.map((user) => ({ ...user })),
-    categories: CATEGORIES.map((category) => ({ ...category })),
-    products: PRODUCTS.map((product) => ({ ...product })),
-    inventory: INVENTORY.map((row) => ({ ...row })),
-    transactions,
-    transactionItems,
-    carts: [],
-    idempotency: new Map(),
-    session: null,
-    aiJob: null,
-    sequence: TRANSACTION_SEEDS.length,
-  };
-}
-
-export function getDb(): MockDb {
+export function getDb(): Db {
   if (!db) db = seed();
   return db;
 }
 
-/** Drop every mutation and reseed. Tests call this between cases. */
+/** Drops every mutation and rebuilds from the seed. Used between tests. */
 export function resetDb(): void {
   db = seed();
 }
 
-export function nextId(prefix: string): string {
-  const database = getDb();
-  database.sequence += 1;
-  return `${prefix}_${database.sequence}`;
+/**
+ * Empties the insight state so `GET /insights` answers 404, which §7.2 makes
+ * the "never analysed" case rather than an error.
+ */
+export function clearInsights(): void {
+  const state = getDb();
+  state.analysisJob = null;
+  state.insights = [];
+}
+
+function seed(): Db {
+  const products: WireProduct[] = PRODUCTS.map((product) => ({ ...product }));
+
+  const transactions: WireTransaction[] = TRANSACTION_SEEDS.map((seedRow) => {
+    const items = seedRow.lines.flatMap<WireTransactionItem>(([productId, quantity]) => {
+      const product = products.find((candidate) => candidate.id === productId);
+      if (!product) return [];
+
+      const unit = parseMoney(product.price);
+      return [
+        {
+          product_id: product.id,
+          name: product.name,
+          unit_price: toWireMoney(unit),
+          quantity,
+          subtotal: toWireMoney(unit * quantity),
+        },
+      ];
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + parseMoney(item.subtotal), 0);
+
+    return {
+      transaction_id: seedRow.transaction_id,
+      merchant_id: MERCHANT.id,
+      outlet_id: seedRow.outlet_id,
+      operator_user_id: seedRow.operator_user_id,
+      transaction_number: seedRow.transaction_number,
+      status: 'COMPLETED' as const,
+      subtotal: toWireMoney(subtotal),
+      // §5.1 (OD-004): total is subtotal, always.
+      total: toWireMoney(subtotal),
+      payment_method: seedRow.payment_method,
+      payment_status: 'CONFIRMED' as const,
+      paid_at: seedRow.created_at,
+      created_at: seedRow.created_at,
+      items,
+      checkout_request_id: null,
+      request_hash: null,
+    };
+  });
+
+  return {
+    merchant: { ...MERCHANT },
+    staff: STAFF.map((member) => ({ ...member })),
+    outlets: OUTLETS.map((outlet) => ({ ...outlet })),
+    categories: CATEGORIES.map((category) => ({ ...category })),
+    products,
+    productOutletPrices: [],
+    inventory: INVENTORY.map((row) => ({ ...row })),
+    movements: [],
+    transactions,
+    analysisJob: { ...ANALYSIS_JOB },
+    insights: INSIGHTS.map((insight) => ({ ...insight })),
+    sequence: transactions.length,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
 /* Lookups                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function findProduct(productId: string): WireProduct | undefined {
-  return getDb().products.find((product) => product.product_id === productId);
+export function findOutlet(outletId: string): WireOutlet | undefined {
+  return getDb().outlets.find((outlet) => outlet.id === outletId);
 }
 
-export function findOutlet(outletId: string): WireOutlet | undefined {
-  return getDb().outlets.find((outlet) => outlet.outlet_id === outletId);
+export function findProduct(productId: string): WireProduct | undefined {
+  return getDb().products.find((product) => product.id === productId);
+}
+
+export function findProductOutletPrice(
+  productId: string,
+  outletId: string
+): WireProductOutletPrice | undefined {
+  return getDb().productOutletPrices.find(
+    (entry) => entry.product_id === productId && entry.outlet_id === outletId
+  );
+}
+
+export function findCategory(categoryId: string): WireCategory | undefined {
+  return getDb().categories.find((category) => category.id === categoryId);
+}
+
+export function findStaff(userId: string): WireStaff | undefined {
+  return getDb().staff.find((member) => member.user_id === userId);
 }
 
 export function findInventory(outletId: string, productId: string): WireInventory | undefined {
@@ -248,84 +287,140 @@ export function findInventory(outletId: string, productId: string): WireInventor
   );
 }
 
-export function stockAt(outletId: string, productId: string): number {
-  return findInventory(outletId, productId)?.quantity ?? 0;
-}
-
-/** Ensures a row exists so a transfer can land at an outlet that never held it. */
+/**
+ * The inventory row for a pairing, created at zero when it does not exist.
+ *
+ * §4.2 does this for the threshold endpoint explicitly, and an adjustment
+ * against a product an outlet has never stocked has to land somewhere too.
+ */
 export function ensureInventory(outletId: string, productId: string): WireInventory {
   const existing = findInventory(outletId, productId);
   if (existing) return existing;
 
-  const created: WireInventory = {
-    inventory_id: `inv_${outletId}_${productId}`,
+  const row: WireInventory = {
+    id: `inv_${outletId}_${productId}`,
+    merchant_id: getDb().merchant.id,
     outlet_id: outletId,
     product_id: productId,
     quantity: 0,
+    low_stock_threshold_override: null,
     updated_at: NOW,
   };
-  getDb().inventory.push(created);
-  return created;
+
+  getDb().inventory.push(row);
+  return row;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Cart                                                                        */
+/* Derived values                                                              */
 /* -------------------------------------------------------------------------- */
 
-export function findCart(userId: string): WireCart | undefined {
-  return getDb().carts.find((cart) => cart.user_id === userId);
+/**
+ * §4.1 rule 5: the threshold a row is actually judged against — the outlet's
+ * override where it set one, the product's base value otherwise.
+ */
+export function effectiveThreshold(row: WireInventory): number {
+  if (row.low_stock_threshold_override !== null) return row.low_stock_threshold_override;
+  return findProduct(row.product_id)?.low_stock_threshold ?? 0;
 }
 
-export function ensureCart(user: WireUser): WireCart {
-  const existing = findCart(user.user_id);
-  if (existing) return existing;
+export function isLowStock(row: WireInventory): boolean {
+  return row.quantity <= effectiveThreshold(row);
+}
 
-  const created: WireCart = {
-    cart_id: nextId('cart'),
-    outlet_id: user.outlet_id ?? '',
-    user_id: user.user_id,
-    created_at: NOW,
-    updated_at: NOW,
-    items: [],
+/** §3.2 (OD-002): outlet override when present, master price otherwise. */
+export function priceOf(product: WireProduct, outletId?: string): number {
+  const override = outletId ? findProductOutletPrice(product.id, outletId) : undefined;
+  return parseMoney(override?.price ?? product.price);
+}
+
+/** Integer rupiah back to the contract's decimal string (§0). */
+export function toWireMoney(amount: number): string {
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}${Math.abs(Math.trunc(amount))}.00`;
+}
+
+/** A fresh id, stable within a session so responses are reproducible. */
+export function nextId(prefix: string): string {
+  const state = getDb();
+  state.sequence += 1;
+  return `${prefix}_${String(state.sequence).padStart(4, '0')}`;
+}
+
+export function nextTransactionNumber(when: Date): string {
+  const state = getDb();
+  const day = `${when.getFullYear()}${pad(when.getMonth() + 1)}${pad(when.getDate())}`;
+  return `TRX-${day}-${String(state.sequence).padStart(3, '0')}`;
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+/**
+ * §5.2 step 3: a hash over the canonical request, used to tell a genuine replay
+ * from a reused `checkout_request_id` carrying different items.
+ *
+ * FNV-1a over sorted, normalised JSON. Not cryptographic — the real server uses
+ * sha256 — but it separates "same request" from "different request", which is
+ * the only thing the mock needs it to do.
+ */
+export function requestHash(value: unknown): string {
+  const canonical = canonicalJson(value);
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < canonical.length; index += 1) {
+    hash ^= canonical.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+
+  return hash.toString(16).padStart(8, '0');
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, entry]) => entry !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`);
+
+  return `{${entries.join(',')}}`;
+}
+
+/** Records a stock movement and moves the quantity in one step. */
+export function applyMovement(input: {
+  outletId: string;
+  productId: string;
+  delta: number;
+  type: WireMovementType;
+  reason: string | null;
+  actorUserId: string;
+  transactionId?: string | null;
+  at: string;
+}): WireMovement {
+  const row = ensureInventory(input.outletId, input.productId);
+  const before = row.quantity;
+
+  row.quantity = before + input.delta;
+  row.updated_at = input.at;
+
+  const movement: WireMovement = {
+    id: nextId('mov'),
+    merchant_id: getDb().merchant.id,
+    outlet_id: input.outletId,
+    product_id: input.productId,
+    type: input.type,
+    delta: input.delta,
+    quantity_before: before,
+    quantity_after: row.quantity,
+    reason: input.reason,
+    transaction_id: input.transactionId ?? null,
+    actor_user_id: input.actorUserId,
+    created_at: input.at,
   };
-  getDb().carts.push(created);
-  return created;
-}
 
-/* -------------------------------------------------------------------------- */
-/* Derived views                                                               */
-/* -------------------------------------------------------------------------- */
-
-export type StockAlertRow = {
-  inventory: WireInventory;
-  product: WireProduct;
-  outlet: WireOutlet;
-};
-
-/** Every inventory row joined to its product and outlet, active products only. */
-export function stockRows(): StockAlertRow[] {
-  const database = getDb();
-
-  return database.inventory.flatMap((inventory) => {
-    const product = database.products.find((entry) => entry.product_id === inventory.product_id);
-    const outlet = database.outlets.find((entry) => entry.outlet_id === inventory.outlet_id);
-    if (!product || !outlet || product.status !== 'ACTIVE') return [];
-    return [{ inventory, product, outlet }];
-  });
-}
-
-export function lowStockRows(outletId?: string): StockAlertRow[] {
-  const threshold = getDb().merchant.low_stock_threshold;
-  return stockRows().filter(
-    (row) =>
-      (!outletId || row.outlet.outlet_id === outletId) &&
-      row.inventory.quantity > 0 &&
-      row.inventory.quantity <= threshold
-  );
-}
-
-export function outOfStockRows(outletId?: string): StockAlertRow[] {
-  return stockRows().filter(
-    (row) => (!outletId || row.outlet.outlet_id === outletId) && row.inventory.quantity === 0
-  );
+  getDb().movements.unshift(movement);
+  return movement;
 }

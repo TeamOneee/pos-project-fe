@@ -4,28 +4,47 @@
  *
  * The token itself lives in api/token.ts, because the transport needs it
  * synchronously on every request. This provider owns everything around it —
- * restoring it on boot, resolving it to a user, and tearing it down when the
- * server says it is no longer good.
+ * restoring it on boot, reading the session out of it, and tearing it down when
+ * the server says it is no longer good.
+ *
+ * There is no round trip to resolve a session. Contract §1.2 has no
+ * `GET /auth/me`, and §0 puts `sub`, `merchant_id`, `role` and `outlet_id` in
+ * the JWT precisely so a client does not need one. That makes boot synchronous
+ * once storage has been read, and it removes the old "restoring the user"
+ * state entirely.
+ *
+ * What the claims do **not** carry is a name. Nothing in this contract can tell
+ * the client who the signed-in person is, so `email` below is the local echo of
+ * the login form rather than anything the API said.
  */
 
 import * as React from 'react';
 
-import { useLogout, useSession } from '@/hooks/use-auth';
-import type { User } from '@/services/auth';
-import { isUnauthorized } from '@/api/errors';
-import { clearToken, onTokenChange, restoreToken } from '@/api/token';
+import { useSignOut } from '@/hooks/use-auth';
+import { onTokenChange, restoreToken } from '@/api/token';
 import { onUnauthorized } from '@/api/unauthorized';
+import { decodeToken, isTokenExpired, type TokenClaims } from '@/lib/jwt';
+import { emailHint } from '@/lib/token-storage';
 import type { Role } from '@/lib/permissions';
 
 export type AuthStatus =
-  /** Reading storage, or resolving a token to a user. Render nothing yet. */
+  /** Reading storage. Render nothing yet — it resolves within a tick. */
   'restoring' | 'authenticated' | 'unauthenticated';
+
+export type Session = {
+  userId: string;
+  merchantId: string;
+  role: Role;
+  /** The Cashier's outlet. Null for Owner and Admin, who see every outlet. */
+  outletId: string | null;
+  /** From the login form, not from the API. Empty when the tab was reloaded cold. */
+  email: string;
+};
 
 type AuthContextValue = {
   status: AuthStatus;
-  user: User | null;
+  session: Session | null;
   role: Role | null;
-  /** The Cashier's outlet. Null for Owner and Admin, who see every outlet. */
   outletId: string | null;
   /** True once a request has come back 401 on a session that was working. */
   sessionExpired: boolean;
@@ -38,24 +57,24 @@ const AuthContext = React.createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [restored, setRestored] = React.useState(false);
-  const [hasToken, setHasToken] = React.useState(false);
+  const [claims, setClaims] = React.useState<TokenClaims | null>(null);
   const [sessionExpired, setSessionExpired] = React.useState(false);
 
-  const logout = useLogout();
+  const signOutLocally = useSignOut();
 
-  // Boot: pull the token out of storage before anything queries.
+  // Boot: pull the token out of storage and read the session straight off it.
   React.useEffect(() => {
     let active = true;
 
     void restoreToken().then((token) => {
       if (!active) return;
-      setHasToken(token !== null);
+      setClaims(readClaims(token));
       setRestored(true);
     });
 
-    // Login and logout both go through setToken, so this keeps the provider in
-    // step without either of them having to call into it.
-    const unsubscribe = onTokenChange((token) => setHasToken(token !== null));
+    // Login and sign-out both go through setToken, so this keeps the provider
+    // in step without either of them having to call into it.
+    const unsubscribe = onTokenChange((token) => setClaims(readClaims(token)));
 
     return () => {
       active = false;
@@ -63,24 +82,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const session = useSession({ enabled: restored && hasToken });
-  const user = session.data ?? null;
+  const session: Session | null = React.useMemo(() => {
+    if (!claims) return null;
+
+    return {
+      userId: claims.userId,
+      merchantId: claims.merchantId,
+      role: claims.role,
+      outletId: claims.outletId,
+      email: emailHint.read() ?? '',
+    };
+  }, [claims]);
 
   const status: AuthStatus = !restored
     ? 'restoring'
-    : !hasToken
-      ? 'unauthenticated'
-      : user
-        ? 'authenticated'
-        : session.isError
-          ? 'unauthenticated'
-          : 'restoring';
-
-  // A token that storage kept but the server rejects is simply not a session.
-  // This is the stale-token-on-boot case, and it must not raise the modal.
-  React.useEffect(() => {
-    if (session.isError && isUnauthorized(session.error)) clearToken();
-  }, [session.isError, session.error]);
+    : session
+      ? 'authenticated'
+      : 'unauthenticated';
 
   // Held in a ref so the 401 listener does not need re-subscribing on every
   // status change, and so it can tell a live session from one that never was.
@@ -101,28 +119,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionExpired(false);
     // Drop the dead token and every cached query with it; the guard sees an
     // unauthenticated app on the next render and routes to login.
-    logout.mutate();
-  }, [logout]);
+    signOutLocally();
+  }, [signOutLocally]);
 
   const signOut = React.useCallback(() => {
     setSessionExpired(false);
-    logout.mutate();
-  }, [logout]);
+    signOutLocally();
+  }, [signOutLocally]);
 
   const value = React.useMemo<AuthContextValue>(
     () => ({
       status,
-      user,
-      role: user?.role ?? null,
-      outletId: user?.outletId ?? null,
+      session,
+      role: session?.role ?? null,
+      outletId: session?.outletId ?? null,
       sessionExpired,
       acknowledgeSessionExpired,
       signOut,
     }),
-    [status, user, sessionExpired, acknowledgeSessionExpired, signOut]
+    [status, session, sessionExpired, acknowledgeSessionExpired, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
+ * A stored token that has already expired is not a session.
+ *
+ * Checking `exp` here saves a guaranteed 401 on boot. It is not a security
+ * measure — the server validates the signature, the expiry and the account
+ * status on every protected request regardless (FR-AUTH-009).
+ */
+function readClaims(token: string | null): TokenClaims | null {
+  const claims = decodeToken(token);
+  return claims && !isTokenExpired(claims) ? claims : null;
 }
 
 export function useAuth(): AuthContextValue {
@@ -132,11 +162,11 @@ export function useAuth(): AuthContextValue {
 }
 
 /**
- * The signed-in user, for screens that already sit behind the guard and so
+ * The signed-in session, for screens that already sit behind the guard and so
  * cannot be rendered without one.
  */
-export function useCurrentUser(): User {
-  const { user } = useAuth();
-  if (!user) throw new Error('useCurrentUser used outside an authenticated route');
-  return user;
+export function useCurrentSession(): Session {
+  const { session } = useAuth();
+  if (!session) throw new Error('useCurrentSession used outside an authenticated route');
+  return session;
 }

@@ -31,6 +31,39 @@ const COLOR_TOKENS = {
   danger: { light: '#DC2626', dark: '#EF4444' },
   'danger-subtle': { light: '#FEF3F2', dark: '#3B0A0A' },
   info: { light: '#0284C7', dark: '#38BDF8' },
+
+  /*
+   * Accessible variants of the palette above, for the roles where the base token
+   * cannot meet WCAG AA. Measured, not guessed — lib/contrast.test.ts asserts
+   * every ratio below and fails if one of these values drifts.
+   *
+   * Why they exist: the base status colours are tuned for fills and icons, where
+   * the bar is 3:1. Used as *text* they need 4.5:1, and on a light surface
+   * `success #16A34A` reaches only 3.30 (`warning` 3.19, `info` 4.10). Rather
+   * than lighten the fills — which would weaken every badge and chart — text and
+   * fills split into two roles:
+   *
+   *   `*-text`         — text and any glyph read as text. ≥4.5:1 both themes.
+   *   `*-fill`         — a solid background carrying white text. ≥4.5:1 both.
+   *   `border-interactive` — the boundary of a control the user can operate,
+   *                          which WCAG 1.4.11 puts at 3:1. `border` and
+   *                          `border-strong` stay decorative hairlines.
+   */
+  'accent-text': { light: '#4F46E5', dark: '#818CF8' },
+  'success-text': { light: '#15803D', dark: '#22C55E' },
+  'warning-text': { light: '#B45309', dark: '#F59E0B' },
+  // Dark: one step lighter than the base #EF4444, which reaches only 4.39:1 on
+  // `surface-raised` — the background of every dialog, where errors live.
+  'danger-text': { light: '#B91C1C', dark: '#F87171' },
+  'info-text': { light: '#0369A1', dark: '#38BDF8' },
+
+  // White-on-fill needs the darker end of the ramp in both themes: the dark
+  // accent (#6366F1) reaches only 4.47:1 against white, and its hover state 2.7.
+  'accent-fill': { light: '#4F46E5', dark: '#4F46E5' },
+  'accent-fill-hover': { light: '#4338CA', dark: '#4338CA' },
+  'danger-fill': { light: '#DC2626', dark: '#DC2626' },
+
+  'border-interactive': { light: '#7C8698', dark: '#6B7385' },
 };
 
 /**

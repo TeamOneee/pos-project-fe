@@ -66,7 +66,10 @@ export const PERMISSIONS: Record<Role, Record<Resource, Access>> = {
   },
   ADMIN: {
     merchant: 'none',
-    outlets: 'none',
+    // §2.2 opens `GET /outlets` to the Admin, and it has to: every stock screen
+    // is scoped per outlet and cannot render a picker without the list. Reading
+    // is not managing — the `/outlets` route below asks for `manage`.
+    outlets: 'read',
     staff: 'none',
     catalog: 'manage',
     inventory: 'manage',
@@ -118,8 +121,12 @@ export function dataScope(role: Role): DataScope {
 
 /**
  * A route is reachable when the role satisfies any one of its requirements.
- * `/dashboard` and `/analytics` are Owner reporting surfaces. The Admin lands
- * on inventory operations, so typing either reporting URL returns a real 403.
+ *
+ * `/dashboard` is the one path two roles share while showing different
+ * screens: the Owner's business dashboard (S-03) and the Admin's operational
+ * stock dashboard (S-14). The rule below admits either capability and the
+ * screen picks which surface to render. `/analytics` and `/ai-insights` stay
+ * Owner-only, so an Admin typing those URLs gets a real 403.
  */
 type Requirement = { resource: Resource; access: Access };
 
@@ -128,11 +135,16 @@ type RouteRule = { pattern: RegExp; anyOf: Requirement[] };
 const ROUTE_RULES: RouteRule[] = [
   {
     pattern: /^\/dashboard$/,
-    anyOf: [{ resource: 'businessDashboard', access: 'read' }],
+    anyOf: [
+      { resource: 'businessDashboard', access: 'read' },
+      { resource: 'stockDashboard', access: 'read' },
+    ],
   },
   { pattern: /^\/analytics/, anyOf: [{ resource: 'analytics', access: 'read' }] },
   { pattern: /^\/ai-insights/, anyOf: [{ resource: 'aiInsights', access: 'read' }] },
-  { pattern: /^\/outlets/, anyOf: [{ resource: 'outlets', access: 'read' }] },
+  // `manage`, not `read`: an Admin may read the outlet list for a filter but
+  // has no business on the outlet-management screen (§2.2 makes writes OWNER).
+  { pattern: /^\/outlets/, anyOf: [{ resource: 'outlets', access: 'manage' }] },
   { pattern: /^\/users/, anyOf: [{ resource: 'staff', access: 'read' }] },
   { pattern: /^\/merchant/, anyOf: [{ resource: 'merchant', access: 'read' }] },
   { pattern: /^\/products/, anyOf: [{ resource: 'catalog', access: 'read' }] },
@@ -174,11 +186,12 @@ function normalisePath(pathname: string): string {
 
 /**
  * Where a role goes after signing in, and where the 403 screen sends them back
- * to. The Owner lands on business reporting, the Admin on inventory operations.
+ * to. The Owner lands on business reporting, the Admin on the stock dashboard —
+ * both live at `/dashboard`, which resolves per role.
  */
 export const LANDING_ROUTE: Record<Role, string> = {
   OWNER: '/dashboard',
-  ADMIN: '/inventory',
+  ADMIN: '/dashboard',
   CASHIER: '/pos',
 };
 

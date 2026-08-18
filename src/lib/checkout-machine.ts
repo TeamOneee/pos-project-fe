@@ -7,14 +7,18 @@
  * tap, an Enter key on a focused button, and a retry racing an in-flight
  * request all hit the same wall.
  *
- * The idempotency key is minted once per attempt and held across retries. That
+ * `checkoutRequestId` is minted once per attempt and held across retries. That
  * is what makes "Coba Lagi" safe after a connection drop: the server either
- * recognises the key and returns the sale it already made, or has never seen it
- * and makes one. Either way there is exactly one transaction.
+ * recognises the id and returns the sale it already made, or has never seen it
+ * and makes one. Either way there is exactly one transaction (§5.2).
+ *
+ * There is no cart on the server (§5.2), so there is only ever one payload
+ * shape — the basket, sent inline.
  */
 
-import type { CheckoutResult } from '@/services/transactions';
+import type { TransactionDetail } from '@/services/transactions';
 import {
+  conflictCondition,
   insufficientStockDetails,
   isApiError,
   priceChangedDetails,
@@ -23,14 +27,22 @@ import {
 } from '@/api/errors';
 import type { Rupiah } from '@/lib/money';
 
+/**
+ * S-17 offers two buttons, not three. The contract's three methods are
+ * `CASH`, `QRIS` and `TRANSFER`; the till collapses the latter two into one
+ * "Non-Tunai" choice and records it as `QRIS`, which is the closest thing on
+ * offer. Worth a backend note if the distinction ever matters for reporting.
+ */
 export type PaymentMethod = 'CASH' | 'NON_CASH';
 
 export type CheckoutStatus = 'idle' | 'processing' | 'success' | 'error';
 
-/** The three failures S-18 has to render, plus the catch-all. */
+/** The failures S-18 has to render, plus the catch-all. */
 export type CheckoutFailure =
   | { kind: 'insufficient_stock'; items: InsufficientStockDetail[] }
   | { kind: 'price_changed'; items: PriceChangedDetail[] }
+  /** A product or its category was deactivated while the basket was open. */
+  | { kind: 'item_unavailable'; message: string }
   | { kind: 'unknown'; message: string };
 
 export type CheckoutState = {
@@ -39,18 +51,20 @@ export type CheckoutState = {
   /** Cash handed over, in integer rupiah. Null until the cashier types. */
   received: Rupiah | null;
   failure: CheckoutFailure | null;
-  result: CheckoutResult | null;
+  result: TransactionDetail | null;
   /**
    * Held for the whole attempt, including retries, so the server can recognise
    * a resend. Minted on the first submit.
    */
-  idempotencyKey: string | null;
+  checkoutRequestId: string | null;
   /**
-   * Which shape of request to send. The cart path is primary; the items path
-   * prices at whatever the server currently holds, which is exactly what
-   * accepting a price change means.
+   * Whether to send `expected_unit_price` on each line.
+   *
+   * On by default, so price drift is caught before the sale (§5.2). Accepting
+   * the server's prices turns it off, which is exactly what "sell at the new
+   * price" means.
    */
-  payload: 'cart' | 'items';
+  assertPrices: boolean;
 };
 
 export const initialCheckoutState: CheckoutState = {
@@ -59,17 +73,17 @@ export const initialCheckoutState: CheckoutState = {
   received: null,
   failure: null,
   result: null,
-  idempotencyKey: null,
-  payload: 'cart',
+  checkoutRequestId: null,
+  assertPrices: true,
 };
 
 export type CheckoutAction =
   | { type: 'select-method'; method: PaymentMethod }
   | { type: 'set-received'; received: Rupiah | null }
-  | { type: 'submit'; idempotencyKey: string }
-  | { type: 'resolve'; result: CheckoutResult }
+  | { type: 'submit'; checkoutRequestId: string }
+  | { type: 'resolve'; result: TransactionDetail }
   | { type: 'reject'; failure: CheckoutFailure }
-  /** Price drift accepted: prices were rewritten, so this is a fresh attempt. */
+  /** Price drift accepted: a different request, so it needs a different id. */
   | { type: 'accept-new-prices' }
   | { type: 'dismiss-failure' }
   | { type: 'reset' };
@@ -95,8 +109,8 @@ export function checkoutReducer(state: CheckoutState, action: CheckoutAction): C
         ...state,
         status: 'processing',
         failure: null,
-        // Reuse the key across retries within one attempt.
-        idempotencyKey: state.idempotencyKey ?? action.idempotencyKey,
+        // Reuse the id across retries within one attempt.
+        checkoutRequestId: state.checkoutRequestId ?? action.checkoutRequestId,
       };
 
     case 'resolve':
@@ -106,14 +120,15 @@ export function checkoutReducer(state: CheckoutState, action: CheckoutAction): C
       return { ...state, status: 'error', failure: action.failure };
 
     case 'accept-new-prices':
-      // A different payload at different prices is a different request, so the
-      // old key must not be reused — it no longer describes what is being sent.
+      // A payload at different prices is a different request, so the old id
+      // must not be reused — resending it unchanged would be an
+      // IDEMPOTENCY_CONFLICT rather than a new sale.
       return {
         ...state,
         status: 'idle',
         failure: null,
-        idempotencyKey: null,
-        payload: 'items',
+        checkoutRequestId: null,
+        assertPrices: false,
       };
 
     case 'dismiss-failure':
@@ -146,7 +161,7 @@ export function isShort(total: Rupiah, received: Rupiah | null): boolean {
  *
  * Cash needs enough money on the counter. Non-cash needs nothing — it is
  * recorded, not processed. Neither may proceed while a request is in flight,
- * and an empty cart is not a sale.
+ * and an empty basket is not a sale.
  */
 export function canConfirm(state: CheckoutState, total: Rupiah): boolean {
   if (state.status === 'processing' || state.status === 'success') return false;
@@ -166,12 +181,13 @@ export function isDismissable(state: CheckoutState): boolean {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Which of S-18's three frames an error belongs in.
+ * Which of S-18's frames an error belongs in.
  *
- * A timeout or a dropped connection is deliberately *not* treated as a
- * failure to sell: the request may well have succeeded, so it becomes the
- * "status unknown" frame that tells the cashier to check history rather than
- * charge again.
+ * A timeout or a dropped connection is deliberately *not* treated as a failure
+ * to sell: §5.2 warns the sale may well have committed before the response was
+ * lost, so it becomes the "status unknown" frame that tells the cashier to
+ * check rather than charge again. `GET /transactions/status` is the endpoint
+ * that settles it.
  */
 export function classifyFailure(error: unknown): CheckoutFailure {
   const shortfalls = insufficientStockDetails(error);
@@ -179,6 +195,17 @@ export function classifyFailure(error: unknown): CheckoutFailure {
 
   const drift = priceChangedDetails(error);
   if (drift.length > 0) return { kind: 'price_changed', items: drift };
+
+  const condition = conflictCondition(error);
+  if (condition === 'PRODUCT_INACTIVE' || condition === 'CATEGORY_INACTIVE') {
+    return {
+      kind: 'item_unavailable',
+      message:
+        condition === 'PRODUCT_INACTIVE'
+          ? 'Ada produk yang sudah tidak aktif. Hapus dari keranjang untuk melanjutkan.'
+          : 'Kategori produk sudah tidak aktif. Hapus produknya dari keranjang untuk melanjutkan.',
+    };
+  }
 
   if (isApiError(error) && (error.kind === 'timeout' || error.kind === 'network')) {
     return { kind: 'unknown', message: 'Koneksi terputus. Status transaksi belum diketahui.' };
@@ -190,14 +217,35 @@ export function classifyFailure(error: unknown): CheckoutFailure {
   };
 }
 
-/** The total after accepting the server's current prices. */
+/* -------------------------------------------------------------------------- */
+/* Repricing                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** One basket line, as the reprice calculation needs to see it. */
+export type PricedLine = { unitPrice: Rupiah; quantity: number };
+
+/**
+ * The total after accepting the server's current prices.
+ *
+ * §5.2 reports drift by position — `errors[].field` is `items[2].product_id` —
+ * and gives only the new price, never the old one. So the old price comes from
+ * the basket line at that index, which is the same array that was submitted.
+ *
+ * A fault with no usable index cannot be priced and is skipped; the server
+ * still reprices the line itself, so the figure shown is conservative rather
+ * than wrong in the customer's favour.
+ */
 export function repricedTotal(
-  items: PriceChangedDetail[],
-  quantities: Record<string, number>,
+  faults: PriceChangedDetail[],
+  lines: readonly PricedLine[],
   currentTotal: Rupiah
 ): Rupiah {
-  return items.reduce((total, item) => {
-    const quantity = quantities[item.productId] ?? 0;
-    return total + (item.currentPrice - item.cartPrice) * quantity;
+  return faults.reduce((total, fault) => {
+    if (fault.itemIndex === null) return total;
+
+    const line = lines[fault.itemIndex];
+    if (!line) return total;
+
+    return total + (fault.currentPrice - line.unitPrice) * line.quantity;
   }, currentTotal);
 }

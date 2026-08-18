@@ -13,7 +13,7 @@ import type { PosProduct } from '@/lib/pos-catalog';
 export const ALL_CATEGORIES = null;
 
 export type CatalogFilter = {
-  /** Matches product name or SKU, case-insensitively. */
+  /** Matches the product name, case-insensitively. There is no SKU (§3.4). */
   query: string;
   /** Null shows every category. */
   categoryId: string | null;
@@ -29,7 +29,7 @@ export function filterProducts(products: PosProduct[], filter: CatalogFilter): P
     if (categoryId && product.categoryId !== categoryId) return false;
     if (!query) return true;
 
-    return product.name.toLowerCase().includes(query) || product.sku.toLowerCase().includes(query);
+    return product.name.toLowerCase().includes(query);
   });
 }
 

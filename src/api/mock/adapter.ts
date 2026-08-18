@@ -26,13 +26,7 @@ export const mockTransport: Transport = async (request: ApiRequest): Promise<Api
 
   try {
     return toRaw(
-      dispatch(
-        request.method,
-        request.path,
-        stringifyQuery(request.query),
-        asBody(request.body),
-        request.idempotencyKey
-      )
+      dispatch(request.method, request.path, stringifyQuery(request.query), asBody(request.body))
     );
   } catch (error) {
     if (error instanceof MockHttpError) {
@@ -64,39 +58,33 @@ function asBody(body: unknown): Record<string, unknown> {
 /** Canned responses for the failures that are awkward to stage on demand. */
 function scenarioResponse(scenario: MockScenario, path: string): MockEnvelope {
   switch (scenario) {
+    // §0.1 states the message template for every named condition, and the
+    // client reads them: a scenario that invents its own wording would be
+    // testing the UI against an error the server cannot produce.
     case 'unauthorized':
-      return errorEnvelope(401, 'Invalid email or password', path);
+      return errorEnvelope(401, 'Autentikasi gagal', path);
 
     case 'forbidden':
-      return errorEnvelope(403, 'You do not have access to this resource', path);
+      return errorEnvelope(403, 'Akses ditolak', path);
 
     case 'not_found':
       return errorEnvelope(404, 'Data tidak ditemukan', path);
 
     case 'duplicate_email':
-      return errorEnvelope(409, 'Email already registered', path, [
-        { field: 'email', message: 'Email owner@indomart.com is already used' },
+      return errorEnvelope(409, 'Email sudah terdaftar', path, [
+        { field: 'email', message: 'Email owner@indomart.com sudah dipakai' },
       ]);
 
+    // §5.2: a 409, pinned to a line by position, with the numbers in the text.
     case 'insufficient_stock':
-      return errorEnvelope(400, 'Insufficient stock for product: Coca Cola 1.5L', path, [
-        {
-          product_id: 'prd_cc1500',
-          product_name: 'Coca Cola 1.5L',
-          requested: 5,
-          available: 3,
-        },
+      return errorEnvelope(409, 'Stok tidak mencukupi', path, [
+        { field: 'items[0].product_id', message: 'stock=3, requested=5' },
       ]);
 
+    // §5.2 reports only the new price; the old one comes from the cart.
     case 'price_changed':
-      return errorEnvelope(409, 'Cart validation failed', path, [
-        {
-          code: 'PRICE_CHANGED',
-          product_id: 'prd_cc1500',
-          product_name: 'Coca Cola 1.5L',
-          cart_price: '15000.00',
-          current_price: '18000.00',
-        },
+      return errorEnvelope(409, 'Harga produk berubah', path, [
+        { field: 'items[0].product_id', message: 'current_price=18000.00' },
       ]);
 
     case 'server_error':

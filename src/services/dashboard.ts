@@ -1,392 +1,319 @@
 /**
- * Dashboard module — contract §4.10.
+ * Reporting module — contract §6.2.
  *
- * GET /dashboard/owner is deliberately one fat endpoint: the whole Owner
- * dashboard arrives in a single response, so it gets exactly one query and one
- * loading state. Do not split it into per-widget requests.
+ * Eight endpoints, split by who may read them and where the numbers come from:
  *
- * GET /dashboard/admin is the operational stock view. Admin has no business
- * dashboard and Owner has no stock dashboard — see the role matrix.
+ *   • **Owner business** — summary, sales-trend, aov-trend, time-pattern,
+ *     top-products, outlet-comparison. Served cache-aside from aggregated
+ *     `COMPLETED` transactions, so every response carries a `freshness_status`
+ *     and may legitimately be `STALE` while still being HTTP 200 (§6.1 rule 3).
+ *     `date_from` and `date_to` are mandatory, and the range may not exceed
+ *     366 days.
+ *   • **Current state** — operations (ADMIN + OWNER) and low-stock
+ *     (ADMIN + OWNER). Read live, always `FRESH`, and carrying no period.
+ *
+ * An ADMIN never sees revenue, AOV, transaction counts or business analytics
+ * from any of these (§6.1 rule 1).
+ *
+ * This module replaces the previous `/dashboard/admin`, `/dashboard/owner` and
+ * `/analytics/*` endpoints, none of which exist in this contract: a screen now
+ * composes the panels it needs from the granular endpoints above.
  */
 
 import { z } from 'zod';
 
 import { request } from '@/api/client';
-import { lowStockAlertSchema } from '@/services/inventory';
-import { gapField, id, isoDate, isoDateTime, money, percentage, type Period } from '@/api/schema';
+import {
+  bucketSchema,
+  dashboardMetaFields,
+  id,
+  money,
+  toDashboardMeta,
+  type Bucket,
+  type DashboardMeta,
+} from '@/api/schema';
 
 /* -------------------------------------------------------------------------- */
-/* Owner dashboard                                                             */
+/* Shared query shapes                                                         */
 /* -------------------------------------------------------------------------- */
 
+/** Every Owner business endpoint takes at least this. */
+export type PeriodQuery = {
+  /** ISO-8601. Inclusive, and at most 366 days apart from `date_to`. */
+  date_from: string;
+  date_to: string;
+  /** Optional selector; omitted means the whole merchant. */
+  outlet_id?: string;
+};
+
+export type TrendQuery = PeriodQuery & { bucket?: Bucket };
+export type TopProductsQuery = PeriodQuery & { limit?: number };
+
+/** The current-state endpoints have no period at all. */
+export type OutletQuery = { outlet_id?: string };
+
+/* -------------------------------------------------------------------------- */
+/* Schemas                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/** §6.4 `DashboardSummary`. */
 const summarySchema = z
   .object({
-    total_revenue: money,
-    total_transactions: z.number(),
-    total_orders: z.number(),
-    average_order_value: money,
-    total_products_sold: z.number(),
-    total_outlets: z.number(),
-    total_employees: z.number(),
-    total_products: z.number(),
-    revenue_growth: percentage,
-    transactions_growth: percentage,
-    products_sold_growth: percentage,
+    omzet: money,
+    transaction_count: z.number(),
+    average_transaction_value: money,
+    ...dashboardMetaFields,
   })
   .transform((value) => ({
-    totalRevenue: value.total_revenue,
-    totalTransactions: value.total_transactions,
-    totalOrders: value.total_orders,
-    averageOrderValue: value.average_order_value,
-    totalProductsSold: value.total_products_sold,
-    totalOutlets: value.total_outlets,
-    totalEmployees: value.total_employees,
-    totalProducts: value.total_products,
-    /** Percentages, not money: 12.5 renders as "12,5%". */
-    revenueGrowth: value.revenue_growth,
-    transactionsGrowth: value.transactions_growth,
-    productsSoldGrowth: value.products_sold_growth,
+    /** Integer rupiah. Revenue over the period. */
+    omzet: value.omzet,
+    transactionCount: value.transaction_count,
+    averageTransactionValue: value.average_transaction_value,
+    meta: toDashboardMeta(value),
   }));
 
+export type DashboardSummary = z.infer<typeof summarySchema>;
+
+/**
+ * §6.2 `GET /dashboard/operations` — the Admin's landing figures.
+ *
+ * Deliberately stock-and-catalogue only: no revenue, no AOV, no transaction
+ * count. That is the whole point of the endpoint existing separately.
+ */
+const operationsSchema = z
+  .object({
+    inventory_item_count: z.number(),
+    low_stock_item_count: z.number(),
+    out_of_stock_item_count: z.number(),
+    active_product_count: z.number(),
+    inactive_product_count: z.number(),
+    inactive_category_count: z.number(),
+    outlet_id: id.nullable(),
+    ...dashboardMetaFields,
+  })
+  .transform((value) => ({
+    inventoryItemCount: value.inventory_item_count,
+    lowStockItemCount: value.low_stock_item_count,
+    outOfStockItemCount: value.out_of_stock_item_count,
+    activeProductCount: value.active_product_count,
+    inactiveProductCount: value.inactive_product_count,
+    inactiveCategoryCount: value.inactive_category_count,
+    /** Null when the read spans every outlet in the merchant. */
+    outletId: value.outlet_id,
+    meta: toDashboardMeta(value),
+  }));
+
+export type DashboardOperations = z.infer<typeof operationsSchema>;
+
+/** §6.4 `TrendPoint`, as sales-trend reports it. */
 const salesTrendSchema = z
   .object({
-    labels: z.array(z.string()),
-    datasets: z.object({ revenue: z.array(money), transactions: z.array(z.number()) }),
-    summary: z.object({
-      highest_revenue: money,
-      lowest_revenue: money,
-      average_revenue: money,
-      total_revenue: money,
-    }),
+    bucket: bucketSchema,
+    points: z.array(
+      z
+        .object({
+          bucket_start: z.string(),
+          omzet: money,
+          transaction_count: z.number(),
+        })
+        .transform((point) => ({
+          bucketStart: point.bucket_start,
+          omzet: point.omzet,
+          transactionCount: point.transaction_count,
+        }))
+    ),
+    ...dashboardMetaFields,
   })
   .transform((value) => ({
-    labels: value.labels,
-    revenue: value.datasets.revenue,
-    transactions: value.datasets.transactions,
-    summary: {
-      highestRevenue: value.summary.highest_revenue,
-      lowestRevenue: value.summary.lowest_revenue,
-      averageRevenue: value.summary.average_revenue,
-      totalRevenue: value.summary.total_revenue,
-    },
+    bucket: value.bucket,
+    points: value.points,
+    meta: toDashboardMeta(value),
   }));
 
-const outletPerformanceSchema = z
-  .object({
-    outlet_id: id,
-    outlet_name: z.string(),
-    total_revenue: money,
-    total_transactions: z.number(),
-    average_order_value: money,
-    total_products_sold: z.number(),
-    contribution_percentage: percentage,
-    revenue_growth: percentage,
-  })
-  .transform((value) => ({
-    outletId: value.outlet_id,
-    outletName: value.outlet_name,
-    totalRevenue: value.total_revenue,
-    totalTransactions: value.total_transactions,
-    averageOrderValue: value.average_order_value,
-    totalProductsSold: value.total_products_sold,
-    contributionPercentage: value.contribution_percentage,
-    revenueGrowth: value.revenue_growth,
-  }));
+export type SalesTrend = z.infer<typeof salesTrendSchema>;
+export type SalesTrendPoint = SalesTrend['points'][number];
 
-const rankedProductSchema = z
-  .object({
-    product_id: id,
-    product_name: z.string(),
-    sku: gapField(z.string(), ''),
-    category_name: z.string(),
-    total_quantity_sold: z.number(),
-    total_revenue: money,
-    rank: z.number(),
-  })
-  .transform((value) => ({
-    productId: value.product_id,
-    productName: value.product_name,
-    sku: value.sku,
-    categoryName: value.category_name,
-    totalQuantitySold: value.total_quantity_sold,
-    totalRevenue: value.total_revenue,
-    rank: value.rank,
-  }));
-
-export type RankedProduct = z.infer<typeof rankedProductSchema>;
-
-/** An unrecognised recommendation must not take the dashboard down with it. */
-const recommendationSchema = z
-  .enum(['PROMOTION', 'DISCOUNT', 'TRANSFER', 'BUNDLE', 'DISCONTINUE'])
-  .catch('PROMOTION');
-
-const underperformingSchema = z
-  .object({
-    product_id: id,
-    product_name: z.string(),
-    sku: gapField(z.string(), ''),
-    category_name: z.string(),
-    total_quantity_sold: z.number(),
-    total_revenue: money,
-    stock_level: z.number(),
-    days_without_sale: z.number(),
-    recommendation: recommendationSchema,
-  })
-  .transform((value) => ({
-    productId: value.product_id,
-    productName: value.product_name,
-    sku: value.sku,
-    categoryName: value.category_name,
-    totalQuantitySold: value.total_quantity_sold,
-    totalRevenue: value.total_revenue,
-    stockLevel: value.stock_level,
-    daysWithoutSale: value.days_without_sale,
-    recommendation: value.recommendation,
-  }));
-
-const hourlyPointSchema = z
-  .object({ hour: z.number(), revenue: money, transaction_count: z.number() })
-  .transform((value) => ({
-    hour: value.hour,
-    revenue: value.revenue,
-    transactionCount: value.transaction_count,
-  }));
-
-export type HourlyPoint = z.infer<typeof hourlyPointSchema>;
-
-const timePatternSchema = z
-  .object({
-    hourly_distribution: z.array(hourlyPointSchema),
-    peak_hours: z.array(z.number()),
-    busiest_day: z.string(),
-    quietest_day: z.string(),
-    insights: z.array(z.string()),
-  })
-  .transform((value) => ({
-    hourlyDistribution: value.hourly_distribution,
-    peakHours: value.peak_hours,
-    busiestDay: value.busiest_day,
-    quietestDay: value.quietest_day,
-    insights: value.insights,
-  }));
-
+/** §6.2 aov-trend. Same envelope, one measure per point. */
 const aovTrendSchema = z
   .object({
-    labels: z.array(z.string()),
-    values: z.array(money),
-    current_aov: money,
-    previous_aov: money,
-    growth_percentage: percentage,
+    bucket: bucketSchema,
+    points: z.array(
+      z
+        .object({
+          bucket_start: z.string(),
+          average_transaction_value: money,
+        })
+        .transform((point) => ({
+          bucketStart: point.bucket_start,
+          averageTransactionValue: point.average_transaction_value,
+        }))
+    ),
+    ...dashboardMetaFields,
   })
   .transform((value) => ({
-    labels: value.labels,
-    values: value.values,
-    currentAov: value.current_aov,
-    previousAov: value.previous_aov,
-    growthPercentage: value.growth_percentage,
+    bucket: value.bucket,
+    points: value.points,
+    meta: toDashboardMeta(value),
   }));
 
-const recentTransactionSchema = z
+export type AovTrend = z.infer<typeof aovTrendSchema>;
+export type AovTrendPoint = AovTrend['points'][number];
+
+/** §6.4 `TimePatternPoint`. Hours are 0–23 in the merchant's own timezone. */
+const timePatternSchema = z
   .object({
-    transaction_id: id,
-    transaction_number: z.string(),
-    outlet_name: z.string(),
-    cashier_name: z.string(),
-    total: money,
-    created_at: isoDateTime,
+    points: z.array(
+      z
+        .object({
+          hour_of_day: z.number(),
+          omzet: money,
+          transaction_count: z.number(),
+        })
+        .transform((point) => ({
+          hourOfDay: point.hour_of_day,
+          omzet: point.omzet,
+          transactionCount: point.transaction_count,
+        }))
+    ),
+    ...dashboardMetaFields,
   })
-  .transform((value) => ({
-    transactionId: value.transaction_id,
-    transactionNumber: value.transaction_number,
-    outletName: value.outlet_name,
-    cashierName: value.cashier_name,
-    total: value.total,
-    createdAt: value.created_at,
-  }));
+  .transform((value) => ({ points: value.points, meta: toDashboardMeta(value) }));
 
-const merchantOverviewSchema = z
-  .object({
-    merchant_name: z.string(),
-    total_outlets_active: z.number(),
-    total_employees_active: z.number(),
-    total_products_active: z.number(),
-    total_categories: z.number(),
-    last_ai_analysis: isoDateTime.nullable().optional(),
-    ai_available_today: z.boolean(),
-  })
-  .transform((value) => ({
-    merchantName: value.merchant_name,
-    totalOutletsActive: value.total_outlets_active,
-    totalEmployeesActive: value.total_employees_active,
-    totalProductsActive: value.total_products_active,
-    totalCategories: value.total_categories,
-    lastAiAnalysis: value.last_ai_analysis ?? null,
-    /** Drives the "analyse now" button; AI is Owner-only and manual. */
-    aiAvailableToday: value.ai_available_today,
-  }));
+export type TimePattern = z.infer<typeof timePatternSchema>;
+export type TimePatternPoint = TimePattern['points'][number];
 
-const periodBoundsSchema = z
-  .object({
-    start_date: isoDate,
-    end_date: isoDate,
-    total_revenue: money,
-    total_transactions: z.number(),
-  })
-  .transform((value) => ({
-    startDate: value.start_date,
-    endDate: value.end_date,
-    totalRevenue: value.total_revenue,
-    totalTransactions: value.total_transactions,
-  }));
-
-const periodComparisonSchema = z
-  .object({
-    current_period: periodBoundsSchema,
-    previous_period: periodBoundsSchema,
-    changes: z.object({
-      revenue_percentage: percentage,
-      transactions_percentage: percentage,
-      aov_percentage: percentage,
-    }),
-  })
-  .transform((value) => ({
-    currentPeriod: value.current_period,
-    previousPeriod: value.previous_period,
-    changes: {
-      revenuePercentage: value.changes.revenue_percentage,
-      transactionsPercentage: value.changes.transactions_percentage,
-      aovPercentage: value.changes.aov_percentage,
-    },
-  }));
-
-export const ownerDashboardSchema = z
-  .object({
-    summary: summarySchema,
-    sales_trend: salesTrendSchema,
-    outlet_performance: z.array(outletPerformanceSchema),
-    top_products: z.object({
-      by_revenue: z.array(rankedProductSchema),
-      by_quantity: z.array(rankedProductSchema),
-    }),
-    underperforming_products: z.array(underperformingSchema),
-    time_pattern: timePatternSchema,
-    aov_trend: aovTrendSchema,
-    recent_transactions: z.array(recentTransactionSchema),
-    merchant_overview: merchantOverviewSchema,
-    period_comparison: periodComparisonSchema,
-  })
-  .transform((value) => ({
-    summary: value.summary,
-    salesTrend: value.sales_trend,
-    outletPerformance: value.outlet_performance,
-    topProducts: {
-      byRevenue: value.top_products.by_revenue,
-      byQuantity: value.top_products.by_quantity,
-    },
-    underperformingProducts: value.underperforming_products,
-    timePattern: value.time_pattern,
-    aovTrend: value.aov_trend,
-    recentTransactions: value.recent_transactions,
-    merchantOverview: value.merchant_overview,
-    periodComparison: value.period_comparison,
-  }));
-
-export type OwnerDashboard = z.infer<typeof ownerDashboardSchema>;
-
-/* -------------------------------------------------------------------------- */
-/* Admin dashboard                                                             */
-/* -------------------------------------------------------------------------- */
-
-const outOfStockAlertSchema = z
+/** §6.4 `TopProductsResult` — best and worst sellers in one response. */
+const productRankSchema = z
   .object({
     product_id: id,
-    product_name: z.string(),
-    sku: gapField(z.string(), ''),
-    outlet_id: id,
-    outlet_name: z.string(),
+    name: z.string(),
+    units_sold: z.number(),
+    omzet: money,
   })
   .transform((value) => ({
     productId: value.product_id,
-    productName: value.product_name,
-    sku: value.sku,
-    outletId: value.outlet_id,
-    outletName: value.outlet_name,
+    name: value.name,
+    unitsSold: value.units_sold,
+    omzet: value.omzet,
   }));
 
-export type OutOfStockAlert = z.infer<typeof outOfStockAlertSchema>;
-
-const outletQuickStatsSchema = z
+const topProductsSchema = z
   .object({
-    outlet_id: id,
-    outlet_name: z.string(),
-    total_products: z.number(),
-    total_stock: z.number(),
-    low_stock_count: z.number(),
-    out_of_stock_count: z.number(),
+    top_selling: z.array(productRankSchema),
+    least_selling: z.array(productRankSchema),
+    ...dashboardMetaFields,
   })
   .transform((value) => ({
-    outletId: value.outlet_id,
-    outletName: value.outlet_name,
-    totalProducts: value.total_products,
-    totalStock: value.total_stock,
-    lowStockCount: value.low_stock_count,
-    outOfStockCount: value.out_of_stock_count,
+    topSelling: value.top_selling,
+    leastSelling: value.least_selling,
+    meta: toDashboardMeta(value),
   }));
 
-export const adminDashboardSchema = z
+export type TopProducts = z.infer<typeof topProductsSchema>;
+export type ProductRank = z.infer<typeof productRankSchema>;
+
+/** §6.4 `OutletComparisonItem`. */
+const outletComparisonSchema = z
   .object({
-    summary: z
-      .object({
-        total_outlets: z.number(),
-        total_products: z.number(),
-        total_stock_value: money,
-        total_stock_items: z.number(),
-        low_stock_products_count: z.number(),
-        out_of_stock_products_count: z.number(),
-      })
-      .transform((value) => ({
-        totalOutlets: value.total_outlets,
-        totalProducts: value.total_products,
-        /** Integer rupiah: quantity times price across every outlet. */
-        totalStockValue: value.total_stock_value,
-        totalStockItems: value.total_stock_items,
-        lowStockProductsCount: value.low_stock_products_count,
-        outOfStockProductsCount: value.out_of_stock_products_count,
-      })),
-    low_stock_alerts: z.array(lowStockAlertSchema),
-    out_of_stock_alerts: z.array(outOfStockAlertSchema),
-    outlet_quick_stats: z.array(outletQuickStatsSchema),
+    items: z.array(
+      z
+        .object({
+          outlet_id: id,
+          outlet_name: z.string(),
+          omzet: money,
+          transaction_count: z.number(),
+        })
+        .transform((item) => ({
+          outletId: item.outlet_id,
+          outletName: item.outlet_name,
+          omzet: item.omzet,
+          transactionCount: item.transaction_count,
+        }))
+    ),
+    ...dashboardMetaFields,
   })
-  .transform((value) => ({
-    summary: value.summary,
-    lowStockAlerts: value.low_stock_alerts,
-    outOfStockAlerts: value.out_of_stock_alerts,
-    outletQuickStats: value.outlet_quick_stats,
-  }));
+  .transform((value) => ({ items: value.items, meta: toDashboardMeta(value) }));
 
-export type AdminDashboard = z.infer<typeof adminDashboardSchema>;
+export type OutletComparison = z.infer<typeof outletComparisonSchema>;
+export type OutletComparisonItem = OutletComparison['items'][number];
+
+/**
+ * §6.4 `LowStockItem`.
+ *
+ * The threshold arrives resolved: `effective_low_stock_threshold` is the
+ * override where one exists and the product's base threshold otherwise. Screens
+ * compare quantity against that, never against the base.
+ */
+const lowStockSchema = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          product_id: id,
+          name: z.string(),
+          outlet_id: id,
+          outlet_name: z.string(),
+          quantity: z.number(),
+          base_low_stock_threshold: z.number(),
+          low_stock_threshold_override: z.number().nullable(),
+          effective_low_stock_threshold: z.number(),
+        })
+        .transform((item) => ({
+          productId: item.product_id,
+          productName: item.name,
+          outletId: item.outlet_id,
+          outletName: item.outlet_name,
+          quantity: item.quantity,
+          baseLowStockThreshold: item.base_low_stock_threshold,
+          lowStockThresholdOverride: item.low_stock_threshold_override,
+          effectiveLowStockThreshold: item.effective_low_stock_threshold,
+        }))
+    ),
+    ...dashboardMetaFields,
+  })
+  .transform((value) => ({ items: value.items, meta: toDashboardMeta(value) }));
+
+export type LowStockReport = z.infer<typeof lowStockSchema>;
+export type LowStockItem = LowStockReport['items'][number];
+
+export type { DashboardMeta };
 
 /* -------------------------------------------------------------------------- */
-/* Requests                                                                    */
+/* Client                                                                      */
 /* -------------------------------------------------------------------------- */
-
-export type OwnerDashboardParams = { period?: Period; outlet_id?: string };
 
 export const dashboardApi = {
-  /** The entire Owner dashboard in one response. One query, one loading state. */
-  owner: (params: OwnerDashboardParams = {}) =>
+  /** OWNER only. 400 when `date_from` is after `date_to` or the span is too wide. */
+  summary: (query: PeriodQuery) =>
+    request({ method: 'GET', path: '/dashboard/summary', query, schema: summarySchema }),
+
+  /** ADMIN and OWNER. Current state, so it has no period. */
+  operations: (query: OutletQuery = {}) =>
+    request({ method: 'GET', path: '/dashboard/operations', query, schema: operationsSchema }),
+
+  salesTrend: (query: TrendQuery) =>
+    request({ method: 'GET', path: '/dashboard/sales-trend', query, schema: salesTrendSchema }),
+
+  aovTrend: (query: TrendQuery) =>
+    request({ method: 'GET', path: '/dashboard/aov-trend', query, schema: aovTrendSchema }),
+
+  timePattern: (query: PeriodQuery) =>
+    request({ method: 'GET', path: '/dashboard/time-pattern', query, schema: timePatternSchema }),
+
+  /** `limit` is 1–100 and defaults to 10 server-side. */
+  topProducts: (query: TopProductsQuery) =>
+    request({ method: 'GET', path: '/dashboard/top-products', query, schema: topProductsSchema }),
+
+  /** Merchant-wide by design — there is no outlet filter on a comparison. */
+  outletComparison: (query: Omit<PeriodQuery, 'outlet_id'>) =>
     request({
       method: 'GET',
-      path: '/dashboard/owner',
-      query: { period: params.period, outlet_id: params.outlet_id },
-      schema: ownerDashboardSchema,
+      path: '/dashboard/outlet-comparison',
+      query,
+      schema: outletComparisonSchema,
     }),
 
-  admin: (outletId?: string) =>
-    request({
-      method: 'GET',
-      path: '/dashboard/admin',
-      query: { outlet_id: outletId },
-      schema: adminDashboardSchema,
-    }),
+  /** ADMIN and OWNER. The stock-alert list behind the Admin's landing screen. */
+  lowStock: (query: OutletQuery = {}) =>
+    request({ method: 'GET', path: '/dashboard/low-stock', query, schema: lowStockSchema }),
 };

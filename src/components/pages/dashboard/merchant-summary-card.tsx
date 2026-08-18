@@ -4,6 +4,13 @@
  * The AI block is a link, not a trigger. Running an analysis is a deliberate
  * act with its own screen (S-05); firing it from a dashboard tile would make it
  * too easy to start one by accident.
+ *
+ * Nothing here comes from a single endpoint — the contract has no "merchant
+ * overview". The name is `GET /merchant` (§2.2), the counts are the
+ * `total_elements` of the lists the Owner may read plus
+ * `GET /dashboard/operations`, and the last analysis timestamp is the job on
+ * `GET /insights` (§7.2). Composed in use-owner-dashboard.ts so this stays a
+ * presentational card.
  */
 
 import { Sparkles } from 'lucide-react';
@@ -13,15 +20,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
-import type { OwnerDashboard } from '@/services/dashboard';
 import { formatDateTime } from '@/lib/date';
 import { formatCount } from '@/lib/number';
+
+export type MerchantOverview = {
+  merchantName: string;
+  activeOutlets: number;
+  activeStaff: number;
+  activeProducts: number;
+  totalCategories: number;
+  /** Null until the merchant has ever triggered an analysis. */
+  lastAiAnalysis: string | null;
+};
 
 export function MerchantSummaryCard({
   overview,
   className,
 }: {
-  overview: OwnerDashboard['merchantOverview'];
+  overview: MerchantOverview;
   className?: string;
 }) {
   return (
@@ -36,12 +52,9 @@ export function MerchantSummaryCard({
         </Text>
 
         <div className="flex flex-col gap-sm">
-          <DefinitionRow label="Outlet aktif" value={formatCount(overview.totalOutletsActive)} />
-          <DefinitionRow
-            label="Karyawan aktif"
-            value={formatCount(overview.totalEmployeesActive)}
-          />
-          <DefinitionRow label="Produk aktif" value={formatCount(overview.totalProductsActive)} />
+          <DefinitionRow label="Outlet aktif" value={formatCount(overview.activeOutlets)} />
+          <DefinitionRow label="Karyawan aktif" value={formatCount(overview.activeStaff)} />
+          <DefinitionRow label="Produk aktif" value={formatCount(overview.activeProducts)} />
           <DefinitionRow label="Kategori" value={formatCount(overview.totalCategories)} />
         </div>
 
@@ -61,7 +74,7 @@ export function MerchantSummaryCard({
 
           <Link
             to="/ai-insights"
-            className="inline-flex min-h-touch items-center justify-center gap-sm self-start rounded-md bg-subtle px-md py-sm outline-none transition-colors hover:bg-border focus-visible:ring-2 focus-visible:ring-accent"
+            className="inline-flex min-h-touch items-center justify-center gap-sm self-start rounded-md bg-subtle px-md py-sm outline-none transition-colors hover:bg-border focus-ring"
           >
             <Text variant="body-strong">Lihat Insight</Text>
           </Link>

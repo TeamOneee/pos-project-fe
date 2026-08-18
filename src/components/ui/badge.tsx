@@ -24,14 +24,15 @@ const badgeVariants = cva('inline-flex items-center gap-xs self-start rounded-fu
   },
 });
 
+/** 13px on a subtle tint: text contrast, so the `*-text` tokens. */
 const badgeTextVariants = cva('type-label', {
   variants: {
     variant: {
       neutral: 'text-fg-muted',
-      accent: 'text-accent',
-      success: 'text-success',
-      warning: 'text-warning',
-      danger: 'text-danger',
+      accent: 'text-accent-text',
+      success: 'text-success-text',
+      warning: 'text-warning-text',
+      danger: 'text-danger-text',
       outline: 'text-fg-muted',
     },
   },

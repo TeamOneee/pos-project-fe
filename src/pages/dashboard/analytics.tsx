@@ -1,3 +1,11 @@
+/**
+ * S-04 · Analitik — the Owner's deep dive.
+ *
+ * Four tabs over the same reporting endpoints the dashboard uses (§6.2); the
+ * difference is the controls, not the data source. Owner only: §6.1 rule 1
+ * keeps revenue, AOV and business analytics away from the Admin entirely.
+ */
+
 import * as React from 'react';
 
 import { Text } from '@/components/ui/text';
@@ -41,10 +49,10 @@ export default function AnalyticsPage() {
         accessibilityLabel="Bagian analitik"
       />
 
-      {activeTab === 'SALES' && <SalesTrendPanel outlets={outlets.data ?? []} />}
-      {activeTab === 'TIME' && <TimePatternPanel outlets={outlets.data ?? []} />}
-      {activeTab === 'AOV' && <AovTrendPanel outlets={outlets.data ?? []} />}
-      {activeTab === 'PRODUCTS' && <ProductPerformancePanel outlets={outlets.data ?? []} />}
+      {activeTab === 'SALES' && <SalesTrendPanel outlets={outlets.data?.items ?? []} />}
+      {activeTab === 'TIME' && <TimePatternPanel outlets={outlets.data?.items ?? []} />}
+      {activeTab === 'AOV' && <AovTrendPanel outlets={outlets.data?.items ?? []} />}
+      {activeTab === 'PRODUCTS' && <ProductPerformancePanel outlets={outlets.data?.items ?? []} />}
     </div>
   );
 }

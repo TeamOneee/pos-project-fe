@@ -19,9 +19,8 @@ export const httpTransport = async (request: ApiRequest): Promise<ApiRawResponse
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  // Checkout is idempotent (contract §4.9): the same key must never produce a
-  // second transaction.
-  if (request.idempotencyKey) headers['Idempotency-Key'] = request.idempotencyKey;
+  // Contract §0: propagate the caller's trace id when it supplied one.
+  if (request.correlationId) headers['X-Correlation-Id'] = request.correlationId;
 
   let response: Response;
   try {

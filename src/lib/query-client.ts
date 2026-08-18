@@ -41,48 +41,54 @@ function isClientError(error: unknown): boolean {
  * clears every filtered list and every single-product query under it.
  */
 export const queryKeys = {
+  /** Claims decoded from the access token — there is no `GET /auth/me` (§1.2). */
   session: ['session'] as const,
   merchant: ['merchant'] as const,
 
   outlets: (filters?: Record<string, unknown>) =>
     filters ? (['outlets', 'list', filters] as const) : (['outlets'] as const),
-  outlet: (id: string) => ['outlets', 'detail', id] as const,
 
-  users: (filters?: Record<string, unknown>) =>
-    filters ? (['users', 'list', filters] as const) : (['users'] as const),
-  user: (id: string) => ['users', 'detail', id] as const,
+  staff: (filters?: Record<string, unknown>) =>
+    filters ? (['staff', 'list', filters] as const) : (['staff'] as const),
 
-  categories: ['categories'] as const,
+  categories: (filters?: Record<string, unknown>) =>
+    filters ? (['categories', 'list', filters] as const) : (['categories'] as const),
 
   products: (filters?: Record<string, unknown>) =>
     filters ? (['products', 'list', filters] as const) : (['products'] as const),
-  product: (id: string) => ['products', 'detail', id] as const,
+
+  /** The cashier catalogue (§4.2) — scoped per outlet, distinct from products. */
+  catalog: (filters?: Record<string, unknown>) =>
+    filters ? (['catalog', 'list', filters] as const) : (['catalog'] as const),
 
   inventory: (filters?: Record<string, unknown>) =>
     filters ? (['inventory', 'list', filters] as const) : (['inventory'] as const),
-  inventoryItem: (outletId: string, productId: string) =>
-    ['inventory', 'detail', outletId, productId] as const,
-  lowStock: (outletId?: string) => ['inventory', 'low-stock', outletId ?? 'all'] as const,
-
-  /** The cashier's server-side cart. One per session. */
-  cart: ['cart'] as const,
+  movements: (filters?: Record<string, unknown>) =>
+    filters
+      ? (['inventory', 'movements', filters] as const)
+      : (['inventory', 'movements'] as const),
 
   transactions: (filters?: Record<string, unknown>) =>
     filters ? (['transactions', 'list', filters] as const) : (['transactions'] as const),
   transaction: (id: string) => ['transactions', 'detail', id] as const,
+  receipt: (id: string) => ['transactions', 'receipt', id] as const,
 
+  /**
+   * One key per `/dashboard/*` endpoint. The previous single fat owner/admin
+   * endpoints are gone (§6.2), so a screen composes several of these and each
+   * caches on its own period.
+   */
   dashboard: ['dashboard'] as const,
-  /** One key for the whole Owner dashboard — it is a single fat endpoint. */
-  dashboardOwner: (params?: Record<string, unknown>) =>
-    ['dashboard', 'owner', params ?? {}] as const,
-  dashboardAdmin: (outletId?: string) => ['dashboard', 'admin', outletId ?? 'all'] as const,
+  dashboardSummary: (params: Record<string, unknown>) => ['dashboard', 'summary', params] as const,
+  dashboardOperations: (outletId?: string) =>
+    ['dashboard', 'operations', outletId ?? 'all'] as const,
+  salesTrend: (params: Record<string, unknown>) => ['dashboard', 'sales-trend', params] as const,
+  aovTrend: (params: Record<string, unknown>) => ['dashboard', 'aov-trend', params] as const,
+  timePattern: (params: Record<string, unknown>) => ['dashboard', 'time-pattern', params] as const,
+  topProducts: (params: Record<string, unknown>) => ['dashboard', 'top-products', params] as const,
+  outletComparison: (params: Record<string, unknown>) =>
+    ['dashboard', 'outlet-comparison', params] as const,
+  lowStock: (outletId?: string) => ['dashboard', 'low-stock', outletId ?? 'all'] as const,
 
-  analytics: ['analytics'] as const,
-  salesTrend: (params: Record<string, unknown>) => ['analytics', 'sales-trend', params] as const,
-  timePattern: (params: Record<string, unknown>) => ['analytics', 'time-pattern', params] as const,
-  aovTrend: (params: Record<string, unknown>) => ['analytics', 'aov-trend', params] as const,
-  productPerformance: (params: Record<string, unknown>) =>
-    ['analytics', 'product-performance', params] as const,
-
-  aiInsights: ['ai-insights'] as const,
+  insights: ['insights'] as const,
 } as const;

@@ -1,29 +1,43 @@
 /**
  * Row 2 left — revenue and transaction count over the period, with the four
  * figures that describe the series underneath.
+ *
+ * §6.2 reports the series and nothing else: `{ bucket, points[] }`, with no
+ * precomputed totals. The four figures below the chart are therefore derived
+ * from the points on screen — which is honest arithmetic over the server's own
+ * aggregate, not a second opinion about it.
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useChartColors } from '@/lib/chart-colors';
+import { ChartFigure } from '@/components/pages/charts/chart-figure';
 import { ChartFrame } from '@/components/pages/charts/chart-frame';
 import { SalesTrendChart } from '@/components/pages/charts/sales-trend-chart';
-import type { OwnerDashboard } from '@/services/dashboard';
-import { formatIDR } from '@/lib/money';
+import type { SalesTrend } from '@/services/dashboard';
+import { formatIDR, sumRupiah } from '@/lib/money';
+import { formatCount } from '@/lib/number';
 
 type SalesTrendCardProps = {
-  trend: OwnerDashboard['salesTrend'];
+  trend: SalesTrend;
   height: number;
   compact: boolean;
   className?: string;
 };
 
 export function SalesTrendCard({ trend, height, compact, className }: SalesTrendCardProps) {
-  const points = trend.labels.map((label, index) => ({
-    label: shortDate(label),
-    revenue: trend.revenue[index] ?? 0,
-    transactions: trend.transactions[index] ?? 0,
+  const points = trend.points.map((point) => ({
+    label: bucketLabel(point.bucketStart, trend.bucket),
+    revenue: point.omzet,
+    transactions: point.transactionCount,
   }));
+
+  const revenues = points.map((point) => point.revenue);
+  const total = sumRupiah(revenues);
+  const highest = revenues.length > 0 ? Math.max(...revenues) : 0;
+  const lowest = revenues.length > 0 ? Math.min(...revenues) : 0;
+  // Truncated, never rounded up into money nobody took.
+  const average = revenues.length > 0 ? Math.trunc(total / revenues.length) : 0;
 
   return (
     <Card className={className}>
@@ -33,17 +47,31 @@ export function SalesTrendCard({ trend, height, compact, className }: SalesTrend
       </CardHeader>
 
       <CardContent className="flex flex-col gap-md">
-        <ChartFrame height={height}>
-          {(width) => (
-            <SalesTrendChart points={points} width={width} height={height} compact={compact} />
-          )}
-        </ChartFrame>
+        <ChartFigure
+          summary={`Tren penjualan ${points.length} periode. Total omzet ${formatIDR(
+            total
+          )}, tertinggi ${formatIDR(highest)}, terendah ${formatIDR(lowest)}.`}
+          rowLabels={points.map((point) => point.label)}
+          series={[
+            { label: 'Omzet', values: points.map((point) => formatIDR(point.revenue)) },
+            {
+              label: 'Transaksi',
+              values: points.map((point) => formatCount(point.transactions)),
+            },
+          ]}
+        >
+          <ChartFrame height={height}>
+            {(width) => (
+              <SalesTrendChart points={points} width={width} height={height} compact={compact} />
+            )}
+          </ChartFrame>
+        </ChartFigure>
 
         <div className="flex flex-row flex-wrap gap-md">
-          <SummaryFigure label="Tertinggi" value={formatIDR(trend.summary.highestRevenue)} />
-          <SummaryFigure label="Terendah" value={formatIDR(trend.summary.lowestRevenue)} />
-          <SummaryFigure label="Rata-rata" value={formatIDR(trend.summary.averageRevenue)} />
-          <SummaryFigure label="Total" value={formatIDR(trend.summary.totalRevenue)} />
+          <SummaryFigure label="Tertinggi" value={formatIDR(highest)} />
+          <SummaryFigure label="Terendah" value={formatIDR(lowest)} />
+          <SummaryFigure label="Rata-rata" value={formatIDR(average)} />
+          <SummaryFigure label="Total" value={formatIDR(total)} />
         </div>
       </CardContent>
     </Card>
@@ -86,13 +114,19 @@ function SummaryFigure({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** "2026-08-01" → "1 Agu". Axis labels have no room for the year. */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-export function shortDate(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!match) return iso;
+/**
+ * An axis label for a bucket start.
+ *
+ * §6.4 sends `bucket_start` as a full ISO-8601 timestamp, and the two bucket
+ * widths want different labels: a DAY bucket reads as "1 Agu", an HOUR bucket
+ * as "14.00". Neither has room for a year.
+ */
+export function bucketLabel(iso: string, bucket: 'HOUR' | 'DAY'): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
 
-  const month = Number(match[2]) - 1;
-  return `${Number(match[3])} ${MONTHS[month] ?? ''}`.trim();
+  if (bucket === 'HOUR') return `${String(date.getHours()).padStart(2, '0')}.00`;
+  return `${date.getDate()} ${MONTHS[date.getMonth()] ?? ''}`.trim();
 }
