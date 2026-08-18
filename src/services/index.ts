@@ -7,7 +7,7 @@
  *
  * Module layout follows docs/07-iterasi-1-api-contract.md: identity (§1),
  * tenant (§2), catalog (§3), inventory (§4), sales (§5), reporting (§6) and
- * insight (§7).
+ * insight (§7), plus the platform health read (§8).
  */
 
 export {
@@ -53,6 +53,8 @@ export {
   type CreateProductInput,
   type Product,
   type ProductFilters,
+  type ProductOutletPrice,
+  type SetOutletPriceInput,
   type UpdateProductInput,
 } from '@/services/products';
 
@@ -64,7 +66,9 @@ export {
   type AdjustStockInput,
   type InventoryFilters,
   type InventoryItem,
+  type LowStockThresholdResult,
   type MovementFilters,
+  type SetLowStockThresholdInput,
   type StockMovement,
 } from '@/services/inventory';
 
@@ -105,3 +109,5 @@ export {
   type InsightsResponse,
   type TriggerResult,
 } from '@/services/insights';
+
+export { healthApi, type Health } from '@/services/health';

@@ -25,6 +25,7 @@ import {
   id,
   isoDateTime,
   movementTypeSchema,
+  noData,
   paginated,
   type MovementType,
   type Page,
@@ -151,6 +152,27 @@ const adjustmentResultSchema = z
 
 export type AdjustmentResult = z.infer<typeof adjustmentResultSchema>;
 
+/** §4.2 response after setting a per-outlet low-stock threshold. */
+export const lowStockThresholdResultSchema = z
+  .object({
+    product_id: id,
+    outlet_id: id,
+    base_low_stock_threshold: z.number(),
+    low_stock_threshold_override: z.number(),
+    effective_low_stock_threshold: z.number(),
+    updated_at: isoDateTime,
+  })
+  .transform((value) => ({
+    productId: value.product_id,
+    outletId: value.outlet_id,
+    baseLowStockThreshold: value.base_low_stock_threshold,
+    lowStockThresholdOverride: value.low_stock_threshold_override,
+    effectiveLowStockThreshold: value.effective_low_stock_threshold,
+    updatedAt: value.updated_at,
+  }));
+
+export type LowStockThresholdResult = z.infer<typeof lowStockThresholdResultSchema>;
+
 /**
  * §4.4 `AdjustStockRequest`. `delta` is signed and may not be zero; `reason` is
  * mandatory. There is no target-quantity form of this call.
@@ -161,6 +183,8 @@ export type AdjustStockInput = {
   delta: number;
   reason: string;
 };
+
+export type SetLowStockThresholdInput = { threshold: number };
 
 /* -------------------------------------------------------------------------- */
 /* Client                                                                      */
@@ -208,5 +232,22 @@ export const inventoryApi = {
         size: filters.size,
       },
       schema: paginated(stockMovementSchema),
+    }),
+
+  /** Upsert the threshold override, creating a zero-quantity inventory row if needed. */
+  setLowStockThreshold: (productId: string, outletId: string, input: SetLowStockThresholdInput) =>
+    request({
+      method: 'PUT',
+      path: `/inventory/${productId}/outlets/${outletId}/low-stock-threshold`,
+      body: input,
+      schema: lowStockThresholdResultSchema,
+    }),
+
+  /** Clear the override so the product's base threshold becomes effective again. */
+  removeLowStockThreshold: (productId: string, outletId: string) =>
+    request({
+      method: 'DELETE',
+      path: `/inventory/${productId}/outlets/${outletId}/low-stock-threshold`,
+      schema: noData,
     }),
 };

@@ -27,6 +27,7 @@ import {
   findInventory,
   findOutlet,
   findProduct,
+  findProductOutletPrice,
   findStaff,
   getDb,
   isLowStock,
@@ -682,6 +683,61 @@ function updateProduct(context: MockContext): MockEnvelope {
   return ok(productView(product), 'Produk berhasil diperbarui');
 }
 
+function putOutletPrice(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const product = findProduct(context.params.productId ?? '');
+  const outlet = findOutlet(context.params.outletId ?? '');
+  if (!product || !outlet) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  const price = readString(context.body, 'price');
+  if (!price) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('price', 'wajib'));
+  }
+
+  let parsedPrice: number;
+  try {
+    parsedPrice = parseMoney(price);
+  } catch {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('price', 'harga tidak valid'));
+  }
+  if (parsedPrice < 0) {
+    throw new MockHttpError(400, 'Validasi gagal', fieldError('price', 'wajib >= 0'));
+  }
+
+  const state = getDb();
+  let override = findProductOutletPrice(product.id, outlet.id);
+  if (override) {
+    override.price = toWireMoney(parsedPrice);
+    override.updated_at = NOW;
+  } else {
+    override = {
+      product_id: product.id,
+      outlet_id: outlet.id,
+      price: toWireMoney(parsedPrice),
+      updated_at: NOW,
+    };
+    state.productOutletPrices.push(override);
+  }
+
+  return ok(override, 'Harga outlet berhasil disimpan');
+}
+
+function deleteOutletPrice(context: MockContext): MockEnvelope {
+  requireRole('OWNER', 'ADMIN');
+
+  const productId = context.params.productId ?? '';
+  const outletId = context.params.outletId ?? '';
+  const state = getDb();
+  const index = state.productOutletPrices.findIndex(
+    (entry) => entry.product_id === productId && entry.outlet_id === outletId
+  );
+  if (index < 0) throw new MockHttpError(404, 'Data tidak ditemukan');
+
+  state.productOutletPrices.splice(index, 1);
+  return noContent();
+}
+
 /**
  * §4.2 `GET /products/catalog` — the cashier's catalogue.
  *
@@ -720,7 +776,7 @@ function listCatalog(context: MockContext): MockEnvelope {
     .map((product) => ({
       id: product.id,
       name: product.name,
-      price: toWireMoney(priceOf(product)),
+      price: toWireMoney(priceOf(product, outletId)),
       category_id: product.category_id,
       stock_quantity: findInventory(outletId, product.id)?.quantity ?? 0,
     }));
@@ -925,7 +981,7 @@ function checkout(context: MockContext): MockEnvelope {
       throw new MockHttpError(409, 'Kategori produk tidak aktif', fieldError(field, product.name));
     }
 
-    const unitPrice = priceOf(product);
+    const unitPrice = priceOf(product, outlet.id);
 
     const expected = typeof item.expected_unit_price === 'string' ? item.expected_unit_price : null;
     if (expected !== null && parseMoney(expected) !== unitPrice) {
@@ -1371,7 +1427,11 @@ function triggerInsights(): MockEnvelope {
 /* -------------------------------------------------------------------------- */
 
 function health(): MockEnvelope {
-  return ok({ status: 'ok', database: 'up', redis: 'up', worker: 'up' }, 'Layanan sehat');
+  const pending = getDb().analysisJob?.status === 'PENDING' ? 1 : 0;
+  return ok(
+    { status: 'ok', database: 'ok', worker_backlog: { ai_job_pending: pending } },
+    'Sistem sehat'
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1412,6 +1472,16 @@ const ROUTES: Route[] = [
   { method: 'POST', template: '/products', handle: createProduct },
   { method: 'GET', template: '/products', handle: listProducts },
   { method: 'PATCH', template: '/products/:id', handle: updateProduct },
+  {
+    method: 'PUT',
+    template: '/products/:productId/outlet-prices/:outletId',
+    handle: putOutletPrice,
+  },
+  {
+    method: 'DELETE',
+    template: '/products/:productId/outlet-prices/:outletId',
+    handle: deleteOutletPrice,
+  },
 
   { method: 'POST', template: '/inventory/adjustments', handle: adjustStock },
   { method: 'GET', template: '/inventory/movements', handle: listMovements },

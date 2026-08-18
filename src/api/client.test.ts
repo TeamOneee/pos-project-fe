@@ -14,6 +14,8 @@ import { z } from 'zod';
 
 import { request, setTransport } from '@/api/client';
 import { dashboardApi } from '@/services/dashboard';
+import { healthApi } from '@/services/health';
+import { inventoryApi } from '@/services/inventory';
 import { productsApi } from '@/services/products';
 import { staffApi } from '@/services/staff';
 import { transactionsApi } from '@/services/transactions';
@@ -191,6 +193,93 @@ describe('204 responses', () => {
     });
 
     expect(result).toBeNull();
+  });
+});
+
+describe('override and platform endpoint mappings', () => {
+  it('maps an outlet price PUT and converts its response money', async () => {
+    setTransport(async (request) => {
+      expect(request).toMatchObject({
+        method: 'PUT',
+        path: '/products/prd_1/outlet-prices/otl_a',
+        body: { price: '17500.00' },
+      });
+      return envelope({
+        product_id: 'prd_1',
+        outlet_id: 'otl_a',
+        price: '17500.00',
+        updated_at: '2026-08-13T14:30:00.000Z',
+      });
+    });
+
+    const result = await productsApi.setOutletPrice('prd_1', 'otl_a', {
+      price: '17500.00',
+    });
+
+    expect(result).toMatchObject({ productId: 'prd_1', outletId: 'otl_a', price: 17500 });
+  });
+
+  it('maps the outlet price DELETE and accepts its empty 204', async () => {
+    setTransport(async (request) => {
+      expect(request).toMatchObject({
+        method: 'DELETE',
+        path: '/products/prd_1/outlet-prices/otl_a',
+      });
+      return { status: 204, body: null };
+    });
+
+    await expect(productsApi.removeOutletPrice('prd_1', 'otl_a')).resolves.toBeNull();
+  });
+
+  it('maps threshold PUT/DELETE and transforms the effective result', async () => {
+    setTransport(async (request) => {
+      if (request.method === 'DELETE') {
+        expect(request.path).toBe('/inventory/prd_1/outlets/otl_a/low-stock-threshold');
+        return { status: 204, body: null };
+      }
+
+      expect(request).toMatchObject({
+        method: 'PUT',
+        path: '/inventory/prd_1/outlets/otl_a/low-stock-threshold',
+        body: { threshold: 25 },
+      });
+      return envelope({
+        product_id: 'prd_1',
+        outlet_id: 'otl_a',
+        base_low_stock_threshold: 10,
+        low_stock_threshold_override: 25,
+        effective_low_stock_threshold: 25,
+        updated_at: '2026-08-13T14:30:00.000Z',
+      });
+    });
+
+    const result = await inventoryApi.setLowStockThreshold('prd_1', 'otl_a', { threshold: 25 });
+    expect(result).toMatchObject({
+      productId: 'prd_1',
+      outletId: 'otl_a',
+      baseLowStockThreshold: 10,
+      lowStockThresholdOverride: 25,
+      effectiveLowStockThreshold: 25,
+    });
+
+    await expect(inventoryApi.removeLowStockThreshold('prd_1', 'otl_a')).resolves.toBeNull();
+  });
+
+  it('maps the operational health payload without adding a UI shape', async () => {
+    setTransport(async (request) => {
+      expect(request).toMatchObject({ method: 'GET', path: '/health' });
+      return envelope({
+        status: 'ok',
+        database: 'ok',
+        worker_backlog: { ai_job_pending: 3 },
+      });
+    });
+
+    await expect(healthApi.get()).resolves.toEqual({
+      status: 'ok',
+      database: 'ok',
+      workerBacklog: { aiJobPending: 3 },
+    });
   });
 });
 

@@ -14,7 +14,7 @@
 import { z } from 'zod';
 
 import { request } from '@/api/client';
-import { id, isoDateTime, money, paginated, type Page } from '@/api/schema';
+import { id, isoDateTime, money, noData, paginated, type Page } from '@/api/schema';
 
 /** §3.4 `ProductDto`, plus the `category_name` the list endpoint joins in. */
 export const productSchema = z
@@ -47,6 +47,24 @@ export const productSchema = z
 
 export type Product = z.infer<typeof productSchema>;
 
+/** §3.4 `ProductOutletPriceDto`. */
+export const productOutletPriceSchema = z
+  .object({
+    product_id: id,
+    outlet_id: id,
+    price: money,
+    updated_at: isoDateTime,
+  })
+  .transform((value) => ({
+    productId: value.product_id,
+    outletId: value.outlet_id,
+    /** Integer rupiah, scoped to this product/outlet pairing. */
+    price: value.price,
+    updatedAt: value.updated_at,
+  }));
+
+export type ProductOutletPrice = z.infer<typeof productOutletPriceSchema>;
+
 /** §3.2: search matches the product name only — there is no SKU to match. */
 export type ProductFilters = {
   category_id?: string;
@@ -66,6 +84,7 @@ export type CreateProductInput = {
 };
 
 export type UpdateProductInput = Partial<CreateProductInput>;
+export type SetOutletPriceInput = { price: string };
 
 export const productsApi = {
   /** OWNER and ADMIN. The cashier's catalogue is a different endpoint (§4.2). */
@@ -101,5 +120,22 @@ export const productsApi = {
       path: `/products/${productId}`,
       body: { is_active: false },
       schema: productSchema,
+    }),
+
+  /** Upsert the effective price override for one outlet (§3.2, OD-002). */
+  setOutletPrice: (productId: string, outletId: string, input: SetOutletPriceInput) =>
+    request({
+      method: 'PUT',
+      path: `/products/${productId}/outlet-prices/${outletId}`,
+      body: input,
+      schema: productOutletPriceSchema,
+    }),
+
+  /** Remove an override so the outlet falls back to the product master price. */
+  removeOutletPrice: (productId: string, outletId: string) =>
+    request({
+      method: 'DELETE',
+      path: `/products/${productId}/outlet-prices/${outletId}`,
+      schema: noData,
     }),
 };

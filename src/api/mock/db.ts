@@ -78,6 +78,13 @@ export type WireProduct = {
   updated_at: string;
 };
 
+export type WireProductOutletPrice = {
+  product_id: string;
+  outlet_id: string;
+  price: string;
+  updated_at: string;
+};
+
 export type WireInventory = {
   id: string;
   merchant_id: string;
@@ -156,6 +163,7 @@ export type Db = {
   outlets: WireOutlet[];
   categories: WireCategory[];
   products: WireProduct[];
+  productOutletPrices: WireProductOutletPrice[];
   inventory: WireInventory[];
   movements: WireMovement[];
   transactions: WireTransaction[];
@@ -234,6 +242,7 @@ function seed(): Db {
     outlets: OUTLETS.map((outlet) => ({ ...outlet })),
     categories: CATEGORIES.map((category) => ({ ...category })),
     products,
+    productOutletPrices: [],
     inventory: INVENTORY.map((row) => ({ ...row })),
     movements: [],
     transactions,
@@ -253,6 +262,15 @@ export function findOutlet(outletId: string): WireOutlet | undefined {
 
 export function findProduct(productId: string): WireProduct | undefined {
   return getDb().products.find((product) => product.id === productId);
+}
+
+export function findProductOutletPrice(
+  productId: string,
+  outletId: string
+): WireProductOutletPrice | undefined {
+  return getDb().productOutletPrices.find(
+    (entry) => entry.product_id === productId && entry.outlet_id === outletId
+  );
 }
 
 export function findCategory(categoryId: string): WireCategory | undefined {
@@ -310,17 +328,10 @@ export function isLowStock(row: WireInventory): boolean {
   return row.quantity <= effectiveThreshold(row);
 }
 
-/**
- * §3.2 (OD-002): the price a product actually sells for.
- *
- * The contract supports a `product_outlet_price` override keyed on the outlet,
- * but per-outlet pricing is on this product's Out-of-scope list, so nothing
- * here ever writes one and the effective price is always the master price.
- * Building the override would give this an `outletId` parameter and a lookup;
- * carrying an unused one now would only pretend that work is done.
- */
-export function priceOf(product: WireProduct): number {
-  return parseMoney(product.price);
+/** §3.2 (OD-002): outlet override when present, master price otherwise. */
+export function priceOf(product: WireProduct, outletId?: string): number {
+  const override = outletId ? findProductOutletPrice(product.id, outletId) : undefined;
+  return parseMoney(override?.price ?? product.price);
 }
 
 /** Integer rupiah back to the contract's decimal string (§0). */

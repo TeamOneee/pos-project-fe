@@ -14,6 +14,7 @@ import { authApi } from '@/services/auth';
 import { catalogApi } from '@/services/catalog';
 import { categoriesApi } from '@/services/categories';
 import { dashboardApi } from '@/services/dashboard';
+import { healthApi } from '@/services/health';
 import { insightsApi } from '@/services/insights';
 import { inventoryApi } from '@/services/inventory';
 import { merchantApi } from '@/services/merchant';
@@ -170,6 +171,52 @@ describe('stock levels', () => {
 
     expect(out.length).toBeGreaterThan(0);
     expect(out.length).toBeLessThan(report.items.length);
+  });
+});
+
+describe('per-outlet threshold overrides', () => {
+  beforeEach(() => signIn(ADMIN));
+
+  it('creates a zero-stock inventory row, then falls back to the product base on delete', async () => {
+    const product = await productsApi.create({
+      name: 'Produk Ambang Baru',
+      price: '9000.00',
+      category_id: 'cat_minuman',
+      low_stock_threshold: 7,
+    });
+
+    const override = await inventoryApi.setLowStockThreshold(product.productId, 'otl_a', {
+      threshold: 19,
+    });
+    expect(override).toMatchObject({
+      baseLowStockThreshold: 7,
+      lowStockThresholdOverride: 19,
+      effectiveLowStockThreshold: 19,
+    });
+
+    const created = await inventoryApi.list({
+      product_id: product.productId,
+      outlet_id: 'otl_a',
+    });
+    expect(created.items[0]).toMatchObject({
+      quantity: 0,
+      lowStockThresholdOverride: 19,
+      effectiveLowStockThreshold: 19,
+    });
+
+    await expect(
+      inventoryApi.removeLowStockThreshold(product.productId, 'otl_a')
+    ).resolves.toBeNull();
+
+    const fallback = await inventoryApi.list({
+      product_id: product.productId,
+      outlet_id: 'otl_a',
+    });
+    expect(fallback.items[0]).toMatchObject({
+      quantity: 0,
+      lowStockThresholdOverride: null,
+      effectiveLowStockThreshold: 7,
+    });
   });
 });
 
@@ -346,6 +393,49 @@ describe('the cashier catalogue', () => {
 
     expect(cola?.stockQuantity).toBe(5);
     expect(cola?.price).toBe(15000);
+  });
+});
+
+describe('per-outlet price overrides', () => {
+  it('prices the catalog and checkout from the override, then restores the master price', async () => {
+    await signIn(ADMIN);
+    const override = await productsApi.setOutletPrice('prd_cc1500', 'otl_a', {
+      price: '17250.00',
+    });
+    expect(override.price).toBe(17250);
+
+    await signIn(CASHIER_A);
+    const overriddenCatalog = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    expect(overriddenCatalog.items.find((item) => item.productId === 'prd_cc1500')?.price).toBe(
+      17250
+    );
+
+    const sale = await transactionsApi.checkout({
+      checkout_request_id: mintCheckoutRequestId(),
+      outlet_id: 'otl_a',
+      payment_method: 'CASH',
+      items: [{ product_id: 'prd_cc1500', quantity: 1, expected_unit_price: '17250.00' }],
+    });
+    expect(sale.items[0]?.unitPrice).toBe(17250);
+
+    await signIn(ADMIN);
+    await expect(productsApi.removeOutletPrice('prd_cc1500', 'otl_a')).resolves.toBeNull();
+
+    await signIn(CASHIER_A);
+    const fallbackCatalog = await catalogApi.list({ outlet_id: 'otl_a', size: 100 });
+    expect(fallbackCatalog.items.find((item) => item.productId === 'prd_cc1500')?.price).toBe(
+      15000
+    );
+  });
+});
+
+describe('platform health', () => {
+  it('returns the contract health shape without requiring a session', async () => {
+    await expect(healthApi.get()).resolves.toEqual({
+      status: 'ok',
+      database: 'ok',
+      workerBacklog: { aiJobPending: 0 },
+    });
   });
 });
 
