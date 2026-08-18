@@ -1,17 +1,21 @@
 /**
- * Outlet module — contract §4.3. Owner only.
+ * Outlet module — contract §2.2.
  *
- * Delete is a soft delete: the outlet becomes INACTIVE and keeps its history.
+ * Reading is OWNER and ADMIN; creating and changing is OWNER only. There is no
+ * `DELETE` and no `GET /outlets/:id`: an outlet is retired by patching it to
+ * `INACTIVE`, which makes it read-only for business operations — no checkout
+ * and no stock adjustment against it (§2.2 warning, FR-TEN-004).
  */
 
 import { z } from 'zod';
 
 import { request } from '@/api/client';
-import { id, isoDateTime, noData, statusSchema, type Status } from '@/api/schema';
+import { id, isoDateTime, paginated, statusSchema, type Page, type Status } from '@/api/schema';
 
+/** §2.4 `OutletDto`. */
 export const outletSchema = z
   .object({
-    outlet_id: id,
+    id,
     merchant_id: id.optional(),
     name: z.string(),
     address: z.string().nullable().optional(),
@@ -20,7 +24,7 @@ export const outletSchema = z
     updated_at: isoDateTime.optional(),
   })
   .transform((value) => ({
-    outletId: value.outlet_id,
+    outletId: value.id,
     merchantId: value.merchant_id ?? null,
     name: value.name,
     address: value.address ?? null,
@@ -31,30 +35,34 @@ export const outletSchema = z
 
 export type Outlet = z.infer<typeof outletSchema>;
 
-export type OutletFilters = { status?: Status };
+export type OutletFilters = { status?: Status; page?: number; size?: number };
 
-export type CreateOutletInput = { name: string; address: string; status?: Status };
-export type UpdateOutletInput = Partial<CreateOutletInput>;
+/** §2.2: an outlet is always born ACTIVE, so status is not a create field. */
+export type CreateOutletInput = { name: string; address?: string };
+
+export type UpdateOutletInput = { name?: string; address?: string; status?: Status };
 
 export const outletsApi = {
-  list: (filters: OutletFilters = {}) =>
+  list: (filters: OutletFilters = {}): Promise<Page<Outlet>> =>
     request({
       method: 'GET',
       path: '/outlets',
-      query: { status: filters.status },
-      schema: z.array(outletSchema),
+      query: { status: filters.status, page: filters.page, size: filters.size },
+      schema: paginated(outletSchema),
     }),
-
-  get: (outletId: string) =>
-    request({ method: 'GET', path: `/outlets/${outletId}`, schema: outletSchema }),
 
   create: (input: CreateOutletInput) =>
     request({ method: 'POST', path: '/outlets', body: input, schema: outletSchema }),
 
   update: (outletId: string, input: UpdateOutletInput) =>
-    request({ method: 'PUT', path: `/outlets/${outletId}`, body: input, schema: outletSchema }),
+    request({ method: 'PATCH', path: `/outlets/${outletId}`, body: input, schema: outletSchema }),
 
-  /** Soft delete — the outlet is deactivated, never removed. */
+  /** Retirement is a status patch — the outlet and its history are never removed. */
   deactivate: (outletId: string) =>
-    request({ method: 'DELETE', path: `/outlets/${outletId}`, schema: noData }),
+    request({
+      method: 'PATCH',
+      path: `/outlets/${outletId}`,
+      body: { status: 'INACTIVE' },
+      schema: outletSchema,
+    }),
 };

@@ -4,6 +4,10 @@
  * One of the two surfaces behind `/dashboard`; the Admin's operational stock
  * dashboard is the other. The role picks between them in `pages/dashboard`,
  * and the route guard keeps a Cashier out of both.
+ *
+ * The screen is composed from seven `/dashboard/*` reads plus a few supporting
+ * ones — see use-owner-dashboard.ts, which does the fan-out. What is left here
+ * is layout, the period and outlet controls, and the three states.
  */
 
 import * as React from 'react';
@@ -23,10 +27,9 @@ import { PeriodComparisonCard } from '@/components/pages/dashboard/period-compar
 import { TopProductsCard, UnderperformingCard } from '@/components/pages/dashboard/products-cards';
 import { SalesTrendCard } from '@/components/pages/dashboard/sales-trend-card';
 import { TimePatternCard } from '@/components/pages/dashboard/time-pattern-card';
-import { useOwnerDashboard } from '@/hooks/use-dashboard';
+import { useOwnerDashboard } from '@/hooks/use-owner-dashboard';
 import { FreshnessCaption, OutletSelect, PeriodSegmented } from '@/components/pages/owner/controls';
-import type { OwnerDashboard } from '@/services/dashboard';
-import type { Period } from '@/api/schema';
+import type { Period } from '@/lib/period';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 
 export default function OwnerDashboardPage() {
@@ -34,25 +37,10 @@ export default function OwnerDashboardPage() {
   const [period, setPeriod] = React.useState<Period>('THIS_MONTH');
   const [outletId, setOutletId] = React.useState<string | null>(null);
 
-  // One fat endpoint and one screen loading state. Filter changes update this
-  // key, so selecting a different period or outlet refetches the whole surface.
-  const dashboard = useOwnerDashboard({
-    period,
-    ...(outletId ? { outlet_id: outletId } : {}),
-  });
+  const dashboard = useOwnerDashboard(period, outletId);
 
   const chartHeight = mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.default;
-  const outletOptions = React.useMemo(
-    () =>
-      dashboard.data?.outletPerformance.map((outlet) => ({
-        outletId: outlet.outletId,
-        name: outlet.outletName,
-      })) ?? [],
-    [dashboard.data]
-  );
-  const snapshotUpdatedAt = dashboard.dataUpdatedAt > 0 ? dashboard.dataUpdatedAt - 120_000 : 0;
-  const { refetch } = dashboard;
-  const refreshDashboard = React.useCallback(() => void refetch(), [refetch]);
+  const { outletOptions, refetch, isFetching, dataUpdatedAt, freshness } = dashboard;
 
   // Memoized so useTopBarActions sees a stable node: the top bar slot is fed
   // through an effect, and a fresh element each render would loop the update.
@@ -62,13 +50,14 @@ export default function OwnerDashboardPage() {
         <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
         <PeriodSegmented value={period} onChange={setPeriod} />
         <FreshnessCaption
-          updatedAt={snapshotUpdatedAt}
-          refreshing={dashboard.isFetching}
-          onRefresh={refreshDashboard}
+          updatedAt={dataUpdatedAt}
+          stale={freshness === 'STALE'}
+          refreshing={isFetching}
+          onRefresh={refetch}
         />
       </div>
     ),
-    [outletOptions, outletId, period, snapshotUpdatedAt, dashboard.isFetching, refreshDashboard]
+    [outletOptions, outletId, period, dataUpdatedAt, freshness, isFetching, refetch]
   );
 
   useTopBarActions(!mobile ? controls : null);
@@ -80,9 +69,10 @@ export default function OwnerDashboardPage() {
           <div className="flex flex-col gap-md">
             <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
             <FreshnessCaption
-              updatedAt={snapshotUpdatedAt}
-              refreshing={dashboard.isFetching}
-              onRefresh={() => void dashboard.refetch()}
+              updatedAt={dataUpdatedAt}
+              stale={freshness === 'STALE'}
+              refreshing={isFetching}
+              onRefresh={refetch}
             />
           </div>
           <PeriodSegmented value={period} onChange={setPeriod} />
@@ -91,78 +81,100 @@ export default function OwnerDashboardPage() {
 
       {dashboard.isPending ? (
         <DashboardSkeleton chartHeight={chartHeight} />
-      ) : dashboard.isError || !dashboard.data ? (
+      ) : dashboard.isError || !dashboard.summary ? (
         <LoadFailure />
       ) : (
-        <OwnerDashboardBody dashboard={dashboard.data} chartHeight={chartHeight} compact={mobile} />
+        <DashboardBody dashboard={dashboard} chartHeight={chartHeight} compact={mobile} />
       )}
     </div>
   );
 }
 
-function OwnerDashboardBody({
+function DashboardBody({
   dashboard,
   chartHeight,
   compact,
 }: {
-  dashboard: OwnerDashboard;
+  dashboard: ReturnType<typeof useOwnerDashboard>;
   chartHeight: number;
   compact: boolean;
 }) {
-  const noSales = dashboard.summary.totalTransactions === 0;
+  const summary = dashboard.summary;
+  if (!summary) return null;
+
+  const noSales = summary.transactionCount === 0;
 
   return (
     <div className="flex flex-col gap-lg">
-      <KpiRow dashboard={dashboard} />
+      <KpiRow summary={summary} deltas={dashboard.deltas} />
 
       {noSales ? (
         <DashboardEmpty />
       ) : (
         <>
           <div className="flex flex-col gap-lg desktop:flex-row">
-            <SalesTrendCard
-              trend={dashboard.salesTrend}
-              height={chartHeight}
-              compact={compact}
-              className="desktop:w-[66%]"
+            {dashboard.salesTrend && (
+              <SalesTrendCard
+                trend={dashboard.salesTrend}
+                height={chartHeight}
+                compact={compact}
+                className="desktop:w-[66%]"
+              />
+            )}
+            <MerchantSummaryCard
+              overview={dashboard.merchantOverview}
+              className="desktop:flex-1"
             />
-            <MerchantSummaryCard overview={dashboard.merchantOverview} className="desktop:flex-1" />
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">
             <OutletPerformanceCard
-              outlets={dashboard.outletPerformance}
+              outlets={dashboard.outletComparison?.items ?? []}
               className="desktop:w-[58%]"
             />
-            <TimePatternCard
-              pattern={dashboard.timePattern}
-              height={chartHeight}
-              compact={compact}
-              className="desktop:flex-1"
-            />
+            {dashboard.timePattern && (
+              <TimePatternCard
+                pattern={dashboard.timePattern}
+                height={chartHeight}
+                compact={compact}
+                className="desktop:flex-1"
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">
-            <TopProductsCard products={dashboard.topProducts} className="desktop:flex-1" />
+            <TopProductsCard
+              products={dashboard.topProducts?.topSelling ?? []}
+              className="desktop:flex-1"
+            />
             <UnderperformingCard
-              products={dashboard.underperformingProducts}
+              products={dashboard.topProducts?.leastSelling ?? []}
               className="desktop:flex-1"
             />
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">
-            <AovTrendCard
-              trend={dashboard.aovTrend}
-              height={chartHeight}
-              className="desktop:flex-1"
-            />
+            {dashboard.aovTrend && (
+              <AovTrendCard
+                trend={dashboard.aovTrend}
+                delta={dashboard.deltas.averageTransactionValue}
+                height={chartHeight}
+                className="desktop:flex-1"
+              />
+            )}
             <RecentTransactionsCard
               transactions={dashboard.recentTransactions}
               className="desktop:flex-1"
             />
           </div>
 
-          <PeriodComparisonCard comparison={dashboard.periodComparison} />
+          <PeriodComparisonCard
+            current={summary}
+            previous={dashboard.previousSummary}
+            currentRange={dashboard.range}
+            previousRange={dashboard.previousRange}
+            deltas={dashboard.deltas}
+          />
         </>
       )}
     </div>

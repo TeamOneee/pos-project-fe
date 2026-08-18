@@ -20,7 +20,18 @@ export const INACTIVE_CATEGORY_HINT =
   'Kategorinya nonaktif, jadi produk ini tidak muncul di katalog kasir. Produk sendiri tetap aktif.';
 
 export function StatusBadge({ status }: { status: Status }) {
-  return status === 'ACTIVE' ? (
+  return <ActiveBadge active={status === 'ACTIVE'} />;
+}
+
+/**
+ * The catalog spelling of the same thing.
+ *
+ * §3.4 gives Category and Product a boolean `is_active` rather than the
+ * `ACTIVE`/`INACTIVE` enum that staff, outlets and the merchant use. The badge
+ * reads identically either way; only the input differs.
+ */
+export function ActiveBadge({ active }: { active: boolean }) {
+  return active ? (
     <Badge variant="success">
       <Text>AKTIF</Text>
     </Badge>

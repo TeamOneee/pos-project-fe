@@ -97,6 +97,15 @@ export async function requestWithStatus<TSchema extends z.ZodTypeAny>(
     );
   }
 
+  // Contract §0: `204 No Content` is the one success that carries neither a
+  // body nor an envelope. The override deletes in §3.2 and §4.2 answer this
+  // way, so it is a success to be parsed as null, not a malformed response.
+  if (raw.status === 204) {
+    const empty = schema.safeParse(null);
+    if (!empty.success) throw ApiError.parse(request.path, empty.error);
+    return { data: empty.data, status: raw.status, message: '' };
+  }
+
   if (!envelope || envelope.success !== true) {
     throw ApiError.parse(request.path, raw.body);
   }

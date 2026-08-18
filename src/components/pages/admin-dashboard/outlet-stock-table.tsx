@@ -2,8 +2,12 @@
  * S-14 row 2 — "Stok Per Outlet".
  *
  * The bridge from the dashboard to the work: every row ends in a link that
- * opens S-15 already scoped to that outlet, which matters because the inventory
- * screen cannot show a table until an outlet is chosen.
+ * opens S-15 already scoped to that outlet.
+ *
+ * Each row is one `GET /dashboard/operations?outlet_id=` read (§6.2). That
+ * endpoint reports how many product/outlet rows exist and how many are low or
+ * out — but no total unit count, so the old "Total Stok" column is gone rather
+ * than filled with a number the API does not produce.
  */
 
 import { ArrowRight } from 'lucide-react';
@@ -14,11 +18,18 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { AlertCountChip } from '@/components/pages/inventory/stock-status';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import type { AdminDashboard } from '@/services/dashboard';
 import { formatCount } from '@/lib/number';
 import { cn } from '@/lib/utils';
 
-type OutletStats = AdminDashboard['outletQuickStats'][number];
+/** One row, assembled by the page from an outlet and its operations read. */
+export type OutletStats = {
+  outletId: string;
+  outletName: string;
+  /** Product/outlet pairings that hold a stock row at this outlet. */
+  stockedProducts: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+};
 
 export function OutletStockTable({
   outlets,
@@ -49,11 +60,8 @@ export function OutletStockTable({
                 className="flex flex-col gap-sm rounded-md border border-border p-md"
               >
                 <Text variant="body-strong">{outlet.outletName}</Text>
-                <Line label="Total Produk">
-                  <Text variant="mono">{formatCount(outlet.totalProducts)}</Text>
-                </Line>
-                <Line label="Total Stok">
-                  <Text variant="mono">{formatCount(outlet.totalStock)}</Text>
+                <Line label="Produk Berstok">
+                  <Text variant="mono">{formatCount(outlet.stockedProducts)}</Text>
                 </Line>
                 <Line label="Stok Menipis">
                   <AlertCountChip
@@ -77,8 +85,7 @@ export function OutletStockTable({
           <div>
             <div className="flex flex-row gap-md border-b border-border pb-sm">
               <Head className="flex-[2]">Outlet</Head>
-              <Head className="flex-1 justify-end">Total Produk</Head>
-              <Head className="flex-1 justify-end">Total Stok</Head>
+              <Head className="flex-1 justify-end">Produk Berstok</Head>
               <Head className="flex-1">Stok Menipis</Head>
               <Head className="flex-1">Stok Habis</Head>
               <Head className="w-[150px] shrink-0" />
@@ -95,10 +102,7 @@ export function OutletStockTable({
                   </Text>
                 </div>
                 <div className="flex flex-1 justify-end">
-                  <Text variant="mono">{formatCount(outlet.totalProducts)}</Text>
-                </div>
-                <div className="flex flex-1 justify-end">
-                  <Text variant="mono">{formatCount(outlet.totalStock)}</Text>
+                  <Text variant="mono">{formatCount(outlet.stockedProducts)}</Text>
                 </div>
                 <div className="flex-1">
                   <AlertCountChip

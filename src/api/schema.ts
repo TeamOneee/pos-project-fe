@@ -8,6 +8,9 @@
  *    "15750000.00" — it sees the integer 15750000.
  * 2. snake_case wire fields become camelCase domain types, so screens never
  *    reach into the transport's naming.
+ *
+ * The contract is docs/07-iterasi-1-api-contract.md; section references below
+ * point at it.
  */
 
 import { z } from 'zod';
@@ -19,9 +22,10 @@ import { MoneyParseError, parseMoney } from '@/lib/money';
 /* -------------------------------------------------------------------------- */
 
 /**
- * A money field. Accepts the contract's decimal string ("15750000.00") or a
- * plain integer, and yields integer rupiah. A fractional rupiah is a contract
- * violation and fails the parse rather than rounding silently.
+ * A money field. §0 makes every rupiah value an explicit decimal string
+ * ("15750000.00") and never a JSON number; a plain integer is still accepted
+ * so fixtures stay readable. A fractional rupiah is a contract violation and
+ * fails the parse rather than rounding silently.
  */
 export const money = z
   .union([z.string(), z.number()])
@@ -40,7 +44,7 @@ export const money = z
   })
   .transform((value) => parseMoney(value));
 
-/** Money that the backend may omit or null out. Absent means zero. */
+/** Money the backend may omit or null out. Absent means zero. */
 export const moneyOrZero = money
   .or(z.null())
   .or(z.undefined())
@@ -54,7 +58,7 @@ export const isoDateTime = z.string().refine((value) => !Number.isNaN(Date.parse
   message: 'Format tanggal tidak valid',
 });
 
-/** A calendar date, "YYYY-MM-DD". */
+/** A calendar date, "YYYY-MM-DD". `analysis_date` is the one field shaped this way. */
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal tidak valid');
 
 /** A percentage the API sends as a float (12.5 means 12,5%). Never money. */
@@ -67,60 +71,115 @@ export const percentage = z.number();
 export const roleSchema = z.enum(['OWNER', 'ADMIN', 'CASHIER']);
 export type Role = z.infer<typeof roleSchema>;
 
+/** §1.1, §2.1: AccountStatus, shared by staff, merchant and outlet. */
 export const statusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 export type Status = z.infer<typeof statusSchema>;
 
 /**
- * Transaction status. The Prisma schema has no such column yet (CLAUDE.md
- * § Known backend gaps), so live responses may omit it — the client type keeps
- * it and the mock serves it. Absent is treated as COMPLETED, which is what the
- * backend implicitly means today.
+ * §5.1: TransactionStatus is `COMPLETED` and nothing else on the MVP. A failed
+ * checkout is an HTTP error that writes no Transaction row, so there is no
+ * PENDING to observe and no CANCELLED to reach.
  */
-export const transactionStatusSchema = z.enum(['COMPLETED', 'PENDING', 'CANCELLED']);
+export const transactionStatusSchema = z.enum(['COMPLETED']);
 export type TransactionStatus = z.infer<typeof transactionStatusSchema>;
 
-/**
- * Payment method. There is no Payment model in the schema yet, same gap. This
- * is a label on a completed sale, not a gateway integration — payment
- * processing is explicitly out of scope.
- */
-export const paymentMethodSchema = z.enum(['CASH', 'QRIS', 'DEBIT', 'TRANSFER']);
+/** §5.1 (OD-001). Three methods; there is no DEBIT and no Payment entity. */
+export const paymentMethodSchema = z.enum(['CASH', 'QRIS', 'TRANSFER']);
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 
-/** Period selector shared by the dashboard and analytics endpoints. */
-export const periodSchema = z.enum([
-  'TODAY',
-  'THIS_WEEK',
-  'THIS_MONTH',
-  'THIS_QUARTER',
-  'THIS_YEAR',
-]);
-export type Period = z.infer<typeof periodSchema>;
+/** §5.4: payment status is always CONFIRMED — confirmation is manual (FR-PAY-002). */
+export const paymentStatusSchema = z.enum(['CONFIRMED']);
 
-export const intervalSchema = z.enum(['DAILY', 'WEEKLY', 'MONTHLY']);
-export type Interval = z.infer<typeof intervalSchema>;
+/** §4.1: a stock movement is either a manual adjustment or the effect of a sale. */
+export const movementTypeSchema = z.enum(['ADJUSTMENT', 'SALE']);
+export type MovementType = z.infer<typeof movementTypeSchema>;
+
+/** §6.2: the only two bucket widths the trend endpoints accept. */
+export const bucketSchema = z.enum(['HOUR', 'DAY']);
+export type Bucket = z.infer<typeof bucketSchema>;
+
+/**
+ * §6.1: a dashboard read is FRESH or STALE. STALE still arrives as HTTP 200
+ * carrying the last aggregate — the dashboard renders it with a caveat rather
+ * than treating it as an error.
+ */
+export const freshnessSchema = z.enum(['FRESH', 'STALE']);
+export type Freshness = z.infer<typeof freshnessSchema>;
+
+/** §7.1: the five BI insight types one analysis can produce. */
+export const insightTypeSchema = z.enum([
+  'SALES_TREND',
+  'OUTLET_COMPARISON',
+  'TOP_PRODUCTS',
+  'TIME_PATTERN',
+  'AOV_TREND',
+]);
+export type InsightType = z.infer<typeof insightTypeSchema>;
+
+/** §7.1: a completed AiInsight row. Process state lives on the job, not here. */
+export const insightStatusSchema = z.enum(['READY', 'STALE']);
+export type InsightStatus = z.infer<typeof insightStatusSchema>;
+
+/** §7.1: AiAnalysisJob state machine, which is what the screen polls. */
+export const analysisJobStatusSchema = z.enum([
+  'PENDING',
+  'PROCESSING',
+  'READY',
+  'RETRY_SCHEDULED',
+  'FAILED',
+]);
+export type AnalysisJobStatus = z.infer<typeof analysisJobStatusSchema>;
 
 /* -------------------------------------------------------------------------- */
-/* Gap helpers                                                                 */
+/* Dashboard metadata                                                          */
 /* -------------------------------------------------------------------------- */
 
 /**
- * A field the API contract specifies but the current backend does not send.
- * Absent or null collapses to the given fallback, so screens can rely on the
- * field existing while the backend catches up.
+ * §6.4 `DashboardMeta`, carried inline by every `/dashboard/*` response rather
+ * than nested. `period_start` / `period_end` are present on the Owner's
+ * business endpoints and absent on the current-state ones (operations,
+ * low-stock), which have no period to report.
  */
-export function gapField<T extends z.ZodTypeAny>(schema: T, fallback: z.infer<T>) {
-  return schema
-    .or(z.null())
-    .or(z.undefined())
-    .transform((value) => (value ?? fallback) as z.infer<T>);
+export const dashboardMetaFields = {
+  data_updated_at: isoDateTime,
+  freshness_status: freshnessSchema,
+  timezone: z.string(),
+  period_start: isoDateTime.nullish(),
+  period_end: isoDateTime.nullish(),
+};
+
+export type DashboardMeta = {
+  dataUpdatedAt: string;
+  freshness: Freshness;
+  timezone: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+};
+
+type RawDashboardMeta = {
+  data_updated_at: string;
+  freshness_status: Freshness;
+  timezone: string;
+  period_start?: string | null;
+  period_end?: string | null;
+};
+
+/** Lifts the inline meta fields into one nested object for the screens. */
+export function toDashboardMeta(value: RawDashboardMeta): DashboardMeta {
+  return {
+    dataUpdatedAt: value.data_updated_at,
+    freshness: value.freshness_status,
+    timezone: value.timezone,
+    periodStart: value.period_start ?? null,
+    periodEnd: value.period_end ?? null,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
 /* Envelopes                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Contract §2: every successful response is wrapped in this envelope. */
+/** §0: every successful response with a body is wrapped in this envelope. */
 export function successEnvelope<T extends z.ZodTypeAny>(data: T) {
   return z.object({
     success: z.literal(true),
@@ -130,35 +189,46 @@ export function successEnvelope<T extends z.ZodTypeAny>(data: T) {
   });
 }
 
-/** Contract §2: the paginated `data` block. */
+/**
+ * §0: the paginated `data` block — `content`, zero-based `page`, `size`,
+ * `total_elements`, `total_pages`.
+ *
+ * The §4.2 `GET /products/catalog` example prints `items` instead of `content`
+ * and omits `size`; §0 is the global convention and wins. Filed with the
+ * backend as a documentation defect rather than special-cased here.
+ */
 export function paginated<T extends z.ZodTypeAny>(item: T) {
   return z
     .object({
-      items: z.array(item),
-      total: z.number(),
+      content: z.array(item),
       page: z.number(),
-      limit: z.number(),
+      size: z.number(),
+      total_elements: z.number(),
       total_pages: z.number(),
     })
     .transform((value) => ({
-      items: value.items,
-      total: value.total,
+      items: value.content,
       page: value.page,
-      limit: value.limit,
+      size: value.size,
+      total: value.total_elements,
       totalPages: value.total_pages,
     }));
 }
 
-/** A page of results, after the transform above. */
+/** A page of results, after the transform above. `page` is zero-based (§0). */
 export type Page<T> = {
   items: T[];
-  total: number;
   page: number;
-  limit: number;
+  size: number;
+  total: number;
   totalPages: number;
 };
 
-/** Endpoints whose `data` is null (logout, every soft delete). */
+/** §0 defaults: `size=20`, hard maximum 100. */
+export const PAGE_SIZE_DEFAULT = 20;
+export const PAGE_SIZE_MAX = 100;
+
+/** Endpoints answering `204 No Content` (§3.2, §4.2 override deletes). */
 export const noData = z
   .union([z.null(), z.undefined(), z.object({}).passthrough()])
   .transform(() => null);

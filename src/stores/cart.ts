@@ -6,14 +6,18 @@ import { lineTotal, sumRupiah, type Rupiah } from '@/lib/money';
  * Cart state — the only thing Zustand holds. Everything else is server state
  * and belongs to TanStack Query (CLAUDE.md § Stack).
  *
+ * Contract §5.2 makes this the *whole* cart: "Cart Iterasi 1 = client-side
+ * only… tidak ada endpoint REST `/cart/*`". Nothing here is mirrored on the
+ * server, nothing is reconciled with it, and the basket is submitted inline at
+ * checkout. A refresh loses it, which is the contract's accepted behaviour.
+ *
  * Prices are integer rupiah from the moment they cross the API boundary; this
  * store never sees a decimal string and never does float arithmetic.
  */
 export type CartLine = {
   productId: string;
   name: string;
-  sku: string;
-  /** Integer rupiah. */
+  /** Integer rupiah — the outlet's effective price, as the catalogue served it. */
   unitPrice: Rupiah;
   quantity: number;
   /** Stock at the cashier's outlet, so the stepper can stop at the ceiling. */
@@ -28,8 +32,6 @@ type CartState = {
   decrement: (productId: string) => void;
   removeLine: (productId: string) => void;
   clear: () => void;
-  /** Seeds the cart from the server's, once, when the POS screen opens. */
-  hydrate: (lines: CartLine[]) => void;
   /**
    * Rewrites unit prices after the server rejects a checkout with
    * PRICE_CHANGED and the cashier accepts the new ones.
@@ -99,8 +101,6 @@ export const useCartStore = create<CartState>()((set) => ({
 
   clear: () => set({ lines: [] }),
 
-  hydrate: (lines) => set({ lines: lines.filter((line) => line.quantity > 0) }),
-
   applyPrices: (priceByProduct) =>
     set((state) => ({
       lines: state.lines.map((line) =>
@@ -143,8 +143,7 @@ export function selectSubtotal(state: CartState): Rupiah {
 /**
  * Total units in the cart, for the badge and the mobile bar ("3 item").
  *
- * Note this counts units, not lines: two Coca Cola and one Sprite is "3 item".
- * The API's `total_items` counts lines instead, so the two deliberately differ.
+ * This counts units, not lines: two Coca Cola and one Sprite is "3 item".
  */
 export function selectItemCount(state: CartState): number {
   return state.lines.reduce((count, line) => count + line.quantity, 0);

@@ -2,7 +2,13 @@
  * The sidebar footer: who is signed in, and the way out.
  *
  * Initials rather than a photo — there is no avatar upload in this product.
- * The role sits in a badge next to the name, never as a colour alone.
+ * The role sits in a badge next to the identity, never as a colour alone.
+ *
+ * The identity is an **email**, not a name, and that is a contract limit rather
+ * than a design choice: §1.2 returns no user object from login, offers no
+ * `GET /auth/me`, and puts no name in the JWT claims. The email is what the
+ * person typed to get in, kept locally beside the token. After a cold reload
+ * even that is gone, and the chip falls back to the role alone.
  */
 
 import { LogOut, User as UserIcon } from 'lucide-react';
@@ -28,10 +34,13 @@ type UserChipProps = {
 };
 
 export function UserChip({ compact = false, placement = 'above' }: UserChipProps) {
-  const { user, role, signOut } = useAuth();
+  const { session, role, signOut } = useAuth();
   const [open, setOpen] = React.useState(false);
 
-  if (!user || !role) return null;
+  if (!session || !role) return null;
+
+  // Empty after a reload that restored the token but not the email hint.
+  const identity = session.email || ROLE_LABEL[role];
 
   return (
     <div className="relative">
@@ -59,7 +68,7 @@ export function UserChip({ compact = false, placement = 'above' }: UserChipProps
       )}
 
       <button
-        aria-label={`${user.name}, ${ROLE_LABEL[role]}. Buka menu akun`}
+        aria-label={`${identity}, ${ROLE_LABEL[role]}. Buka menu akun`}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={cn(
@@ -69,14 +78,14 @@ export function UserChip({ compact = false, placement = 'above' }: UserChipProps
       >
         <Avatar className="h-9 w-9">
           <AvatarFallback>
-            <Text>{initials(user.name)}</Text>
+            <Text>{initials(identity)}</Text>
           </AvatarFallback>
         </Avatar>
 
         {!compact && (
           <span className="flex min-w-0 flex-1 flex-col items-start gap-xs">
             <Text variant="body-strong" className="truncate">
-              {user.name}
+              {identity}
             </Text>
             <Badge variant="accent">
               <Text>{ROLE_LABEL[role]}</Text>

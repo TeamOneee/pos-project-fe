@@ -4,12 +4,26 @@
  * Built once and rendered three ways: the collapsible breakdown in the success
  * modal, the printable 80mm sheet, and the file that gets shared. Keeping it a
  * plain object means those three cannot drift apart.
+ *
+ * Two sources feed it, and they differ in what they can supply:
+ *
+ *   • `GET /receipts/:transaction_id` (§5.4 `ReceiptDto`) is complete — it adds
+ *     `merchant_name`, `outlet_name` and `outlet_address` on top of the sale.
+ *     This is the only endpoint that names the outlet to a cashier, so a
+ *     reprint should always come through here.
+ *   • The checkout response (§5.4 `CheckoutResult`) has the sale but no header
+ *     fields, so the immediate success modal supplies the merchant and outlet
+ *     names from the session's own context.
+ *
+ * Cash received and change are checkout-time facts that the API never stores —
+ * §5.1 is explicit that there is no payment amount field, since the transaction
+ * total *is* the amount. A reprint therefore names the method and does not
+ * invent a change figure.
  */
 
 import type { PaymentMethod } from '@/lib/checkout-machine';
-import type { Transaction, TransactionItem } from '@/services/transactions';
+import type { Receipt, TransactionDetail, TransactionItem } from '@/services/transactions';
 import { sumRupiah, type Rupiah } from '@/lib/money';
-import type { CartLine } from '@/stores/cart';
 
 export type ReceiptLine = {
   name: string;
@@ -21,6 +35,7 @@ export type ReceiptLine = {
 export type ReceiptData = {
   merchantName: string;
   outletName: string;
+  /** The operator who rang the sale — a cashier, or an owner working a till. */
   cashierName: string;
   transactionNumber: string;
   /** ISO timestamp; formatted at render time. */
@@ -34,93 +49,83 @@ export type ReceiptData = {
   change: Rupiah | null;
 };
 
-type BuildInput = {
-  transaction: Transaction;
-  /** Server lines when the response carried them; the cart is the fallback. */
-  items: TransactionItem[];
-  cartLines: CartLine[];
+/**
+ * §5.1 records three methods; the receipt, like the till, only distinguishes
+ * cash from everything else.
+ */
+function tillMethod(method: TransactionDetail['payment']['method']): PaymentMethod {
+  return method === 'CASH' ? 'CASH' : 'NON_CASH';
+}
+
+function toLines(items: TransactionItem[]): ReceiptLine[] {
+  return items.map((item) => ({
+    // The snapshot name, not a live product lookup — a renamed product must not
+    // change what an old receipt says (BR-006).
+    name: item.name,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    subtotal: item.subtotal,
+  }));
+}
+
+/**
+ * The receipt for the sale that was just rung up.
+ *
+ * `merchantName` and `outletName` come from the caller because the checkout
+ * response does not carry them. Either may be empty — a cashier has no endpoint
+ * that names their outlet (§2.2) — and an empty header line is preferable to a
+ * placeholder that looks like data.
+ */
+export function receiptFromCheckout(input: {
+  transaction: TransactionDetail;
   merchantName: string;
   outletName: string;
-  cashierName: string;
-  method: PaymentMethod;
   received: Rupiah | null;
-};
-
-export function buildReceipt(input: BuildInput): ReceiptData {
-  const lines = receiptLines(input.items, input.cartLines);
-  const subtotal = input.transaction.subtotal || sumRupiah(lines.map((line) => line.subtotal));
+}): ReceiptData {
+  const { transaction } = input;
+  const lines = toLines(transaction.items);
+  const subtotal = transaction.subtotal || sumRupiah(lines.map((line) => line.subtotal));
+  // Rule 2: total is subtotal. Not recomputed from anything else.
+  const total = transaction.total || subtotal;
+  const method = tillMethod(transaction.payment.method);
 
   return {
     merchantName: input.merchantName,
     outletName: input.outletName,
-    cashierName: input.cashierName,
-    transactionNumber: input.transaction.transactionNumber,
-    issuedAt: input.transaction.createdAt ?? new Date().toISOString(),
+    cashierName: transaction.operator.name,
+    transactionNumber: transaction.transactionNumber,
+    issuedAt: transaction.createdAt,
     lines,
     subtotal,
-    // Rule 2: total is subtotal. Not recomputed from anything else.
-    total: input.transaction.total || subtotal,
-    method: input.method,
-    received: input.method === 'CASH' ? input.received : null,
-    change:
-      input.method === 'CASH' && input.received !== null
-        ? input.received - (input.transaction.total || subtotal)
-        : null,
+    total,
+    method,
+    received: method === 'CASH' ? input.received : null,
+    change: method === 'CASH' && input.received !== null ? input.received - total : null,
   };
 }
 
 /**
  * The same receipt, rebuilt from a stored sale (S-22).
  *
- * Deliberately the same `ReceiptData` the checkout path produces, so the printed
- * document is byte-identical for the same transaction rather than a second
- * rendering that drifts. Everything it needs is persisted — lines carry the
- * price they were sold at — with one exception: cash received and change are a
- * checkout-time detail the API does not store (there is no Payment model yet;
- * CLAUDE.md § Known backend gaps). A reprint therefore names the method and does
- * not invent a change figure.
+ * Deliberately the same `ReceiptData` the checkout path produces, so a reprint
+ * is the same document rather than a second rendering that drifts. Everything
+ * it needs is persisted and snapshotted — except the cash tendered, as above.
  */
-export function receiptFromTransaction(input: {
-  transaction: Transaction;
-  items: TransactionItem[];
-  merchantName: string;
-  outletName: string;
-  cashierName: string;
-}): ReceiptData {
-  return buildReceipt({
-    transaction: input.transaction,
-    items: input.items,
-    cartLines: [],
-    merchantName: input.merchantName,
-    // Both are on the transaction itself; the caller's values are the fallback
-    // for a payload that omitted the embedded objects.
-    outletName: input.transaction.outlet?.name ?? input.outletName,
-    cashierName: input.transaction.cashier?.name ?? input.cashierName,
-    // The receipt only distinguishes cash from everything else, exactly as the
-    // checkout path does — the four API methods collapse the same way here.
-    method: input.transaction.payment?.method === 'CASH' ? 'CASH' : 'NON_CASH',
+export function receiptFromDto(receipt: Receipt): ReceiptData {
+  const lines = toLines(receipt.items);
+  const subtotal = receipt.subtotal || sumRupiah(lines.map((line) => line.subtotal));
+
+  return {
+    merchantName: receipt.merchantName,
+    outletName: receipt.outletName,
+    cashierName: receipt.operator.name,
+    transactionNumber: receipt.transactionNumber,
+    issuedAt: receipt.createdAt,
+    lines,
+    subtotal,
+    total: receipt.total || subtotal,
+    method: tillMethod(receipt.payment.method),
     received: null,
-  });
-}
-
-/**
- * An idempotent replay returns the transaction without its items, so the cart
- * that produced it stands in. Both describe the same sale.
- */
-function receiptLines(items: TransactionItem[], cartLines: CartLine[]): ReceiptLine[] {
-  if (items.length > 0) {
-    return items.map((item) => ({
-      name: item.product?.name ?? '',
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      subtotal: item.subtotal,
-    }));
-  }
-
-  return cartLines.map((line) => ({
-    name: line.name,
-    quantity: line.quantity,
-    unitPrice: line.unitPrice,
-    subtotal: line.unitPrice * line.quantity,
-  }));
+    change: null,
+  };
 }

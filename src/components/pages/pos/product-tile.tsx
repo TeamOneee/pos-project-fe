@@ -15,7 +15,6 @@ import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
 import type { PosProduct } from '@/lib/pos-catalog';
-import { stockLevel } from '@/lib/stock';
 import { formatIDR } from '@/lib/money';
 import { formatCount } from '@/lib/number';
 import { cn } from '@/lib/utils';
@@ -27,12 +26,17 @@ type ProductTileProps = {
   product: PosProduct;
   /** Units of this product already in the cart; 0 hides the count circle. */
   inCart: number;
-  threshold: number;
   onPress: (product: PosProduct) => void;
 };
 
-function ProductTileComponent({ product, inCart, threshold, onPress }: ProductTileProps) {
-  const level = stockLevel(product.stock, threshold);
+function ProductTileComponent({ product, inCart, onPress }: ProductTileProps) {
+  /**
+   * Two states, not three. §4.2's cashier catalogue reports `stock_quantity`
+   * and no threshold — "menipis" is an Admin judgement made against a
+   * per-outlet threshold the till has no endpoint for. So the tile says
+   * "available" or "habis", which is the part it can know.
+   */
+  const level = product.stock <= 0 ? 'out' : 'ok';
   const soldOut = level === 'out';
 
   return (
@@ -75,7 +79,7 @@ function ProductTileComponent({ product, inCart, threshold, onPress }: ProductTi
           </Badge>
         ) : (
           // Never colour alone: the number is always spelled out.
-          <Text variant="caption" tone={level === 'low' ? 'warning' : 'subtle'}>
+          <Text variant="caption" tone="subtle">
             Stok: {formatCount(product.stock)}
           </Text>
         )}
@@ -103,6 +107,5 @@ export const ProductTile = React.memo(
     previous.product.price === next.product.price &&
     previous.product.name === next.product.name &&
     previous.inCart === next.inCart &&
-    previous.threshold === next.threshold &&
     previous.onPress === next.onPress
 );

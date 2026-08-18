@@ -7,13 +7,17 @@
  * shortcuts — each is a button that scrolls to the table listing exactly the
  * products it is counting.
  *
+ * All four come from `GET /dashboard/operations` (§6.2), which is deliberately
+ * revenue-free. There is no "Total Stok" tile because the endpoint reports no
+ * unit total — only how many product/outlet rows exist.
+ *
  * The alarm colour is never the only signal: the label names the condition and
  * the tile says what tapping it does.
  */
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import type { AdminDashboard } from '@/services/dashboard';
+import type { DashboardOperations } from '@/services/dashboard';
 import { formatCount } from '@/lib/number';
 import { cn } from '@/lib/utils';
 
@@ -22,24 +26,28 @@ export function StockKpiRow({
   onShowLowStock,
   onShowOutOfStock,
 }: {
-  summary: AdminDashboard['summary'];
+  summary: DashboardOperations;
   onShowLowStock: () => void;
   onShowOutOfStock: () => void;
 }) {
   return (
     <div className="flex flex-row flex-wrap gap-lg">
-      <KpiTile label="Total Produk" value={formatCount(summary.totalProducts)} />
-      <KpiTile label="Total Stok" value={formatCount(summary.totalStockItems)} unit="unit" />
+      <KpiTile label="Produk Aktif" value={formatCount(summary.activeProductCount)} />
+      <KpiTile
+        label="Produk Berstok"
+        value={formatCount(summary.inventoryItemCount)}
+        hint="Kombinasi produk & outlet"
+      />
       <KpiTile
         label="Stok Menipis"
-        value={formatCount(summary.lowStockProductsCount)}
+        value={formatCount(summary.lowStockItemCount)}
         tone="warning"
         onPress={onShowLowStock}
         hint="Lihat daftar"
       />
       <KpiTile
         label="Stok Habis"
-        value={formatCount(summary.outOfStockProductsCount)}
+        value={formatCount(summary.outOfStockItemCount)}
         tone="danger"
         onPress={onShowOutOfStock}
         hint="Lihat daftar"

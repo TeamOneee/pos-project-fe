@@ -20,7 +20,7 @@ import { useTopBarActionsValue, useTopBarTitleOverride } from '@/components/layo
 import { Sidebar } from '@/components/layouts/sidebar';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useMerchant } from '@/hooks/use-merchant';
-import { can, type Role } from '@/lib/permissions';
+import type { Role } from '@/lib/permissions';
 
 /** Routes that render without any shell chrome, at every breakpoint. */
 const CHROMELESS = ['/pos'];
@@ -36,9 +36,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const titleOverride = useTopBarTitleOverride();
   const topBarActions = useTopBarActionsValue();
 
-  // Only the Owner may read the merchant, so only the Owner's sidebar can show
-  // its name. Everyone else falls back to the product wordmark.
-  const merchant = useMerchant({ enabled: role !== null && can(role, 'merchant') });
+  // §2.2 opens `GET /merchant` to every role, so every sidebar can carry the
+  // merchant name — it is no longer an Owner-only fact.
+  const merchant = useMerchant();
 
   if (!role) return null;
 

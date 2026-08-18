@@ -1,91 +1,55 @@
 /**
- * Inventory. Admin adjusts, transfers and bulk-updates; Owner and Cashier read.
+ * Inventory. Admin and Owner adjust and read; the cashier never touches it.
  *
- * Every write invalidates the low-stock alerts and the Admin dashboard, because
- * both are derived from the same quantities.
+ * One write exists — `POST /inventory/adjustments` — and it takes a signed
+ * delta plus a reason (§4.2). Bulk adjustment and transfer between outlets are
+ * not in this contract and have no client here.
+ *
+ * Every write invalidates the low-stock report and the operational dashboard,
+ * because both are derived from the same quantities.
  */
 
-import {
-  keepPreviousData,
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useGuardedMutation, type Requirement } from '@/hooks/use-guarded-mutation';
 import {
   inventoryApi,
-  type AdjustInventoryInput,
-  type BulkAdjustInput,
+  type AdjustStockInput,
   type InventoryFilters,
-  type TransferStockInput,
+  type MovementFilters,
 } from '@/services/inventory';
 import { queryKeys } from '@/lib/query-client';
 
-/** Requires an outlet: inventory is always read one outlet at a time. */
-export function useInventory(filters: Partial<InventoryFilters> & { outlet_id?: string }) {
-  const outletId = filters.outlet_id;
+const MANAGE_INVENTORY: Requirement = { resource: 'inventory', access: 'manage' };
 
+/**
+ * Stock levels. Unlike the previous contract, the outlet filter is optional —
+ * omitting it spans every outlet in the merchant, which is what the all-outlets
+ * view wants.
+ */
+export function useInventory(filters: InventoryFilters = {}) {
   return useQuery({
     queryKey: queryKeys.inventory(filters),
-    queryFn: () => inventoryApi.list({ ...filters, outlet_id: outletId ?? '' }),
-    enabled: Boolean(outletId),
+    queryFn: () => inventoryApi.list(filters),
     placeholderData: keepPreviousData,
   });
 }
 
-/** Answers quantity 0 rather than 404 when the pairing has no row yet. */
-export function useInventoryForProduct(
-  outletId: string | undefined,
-  productId: string | undefined
-) {
+/** One product's stock across outlets, for the per-outlet drawer (S-15b). */
+export function useProductStock(productId: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.inventoryItem(outletId ?? '', productId ?? ''),
-    queryFn: () => inventoryApi.getForProduct(outletId ?? '', productId ?? ''),
-    enabled: Boolean(outletId && productId),
+    queryKey: queryKeys.inventory({ product_id: productId }),
+    queryFn: () => inventoryApi.list({ product_id: productId ?? '', size: 100 }),
+    enabled: Boolean(productId),
   });
 }
 
-/**
- * One product's stock in every outlet, for the per-outlet drawer (S-15b).
- *
- * There is no cross-outlet inventory endpoint, so this fans out over the
- * per-pairing one. The keys are the same ones `useInventoryForProduct` uses,
- * so an adjustment made from the drawer refreshes the row it was made on.
- */
-export function useProductStockByOutlet(
-  productId: string | undefined,
-  outletIds: readonly string[]
-) {
-  return useQueries({
-    queries: outletIds.map((outletId) => ({
-      queryKey: queryKeys.inventoryItem(outletId, productId ?? ''),
-      queryFn: () => inventoryApi.getForProduct(outletId, productId ?? ''),
-      enabled: Boolean(productId),
-    })),
-  });
-}
-
-/**
- * Several products' stock at one outlet — the transpose of the above, for the
- * bulk-update table. It also resolves each row's `inventoryId`, which is what
- * `PUT /inventory/bulk` addresses rows by and which a product picked from the
- * catalogue does not carry.
- */
-export function useStockForProducts(outletId: string | undefined, productIds: readonly string[]) {
-  return useQueries({
-    queries: productIds.map((productId) => ({
-      queryKey: queryKeys.inventoryItem(outletId ?? '', productId),
-      queryFn: () => inventoryApi.getForProduct(outletId ?? '', productId),
-      enabled: Boolean(outletId),
-    })),
-  });
-}
-
-export function useLowStock(outletId?: string) {
+/** The movement ledger. Read-only, Owner and Admin (§4.2). */
+export function useStockMovements(filters: MovementFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.lowStock(outletId),
-    queryFn: () => inventoryApi.lowStock(outletId),
+    queryKey: queryKeys.movements(filters),
+    queryFn: () => inventoryApi.movements(filters),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -93,48 +57,35 @@ export function useLowStock(outletId?: string) {
  * What a write to stock makes stale.
  *
  * Both keys are bare domain prefixes, so one call covers everything derived
- * from the quantity that just changed: every filtered inventory list, every
- * per-outlet/product row behind the drawer, the low-stock alerts, and the
- * Admin dashboard whose four KPI tiles and three tables are all computed from
- * current stock. An adjustment anywhere therefore moves the dashboard counts.
+ * from the quantity that just changed: every filtered inventory list, the
+ * movement ledger, the low-stock report and the operational dashboard, whose
+ * counts are all computed from current stock.
  */
 function useInventoryInvalidation() {
   const queryClient = useQueryClient();
 
   return () => {
-    // ['inventory'] — list, detail and low-stock all hang off this prefix.
+    // ['inventory'] — lists and movements both hang off this prefix.
     void queryClient.invalidateQueries({ queryKey: queryKeys.inventory() });
-    // ['dashboard'] — the Admin stock dashboard, per outlet and across all.
+    // ['dashboard'] — operations and low-stock are computed from stock.
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    // A product that was out of stock can reappear in the cashier catalogue.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalog() });
   };
 }
 
-/** 400 without a reason, 403 for anyone who is not an Admin. */
-export function useAdjustInventory() {
+/**
+ * Adjust stock by a signed delta.
+ *
+ * 400 for a zero delta or a missing reason, 403 when the outlet is inactive,
+ * and 409 when the result would go negative — in which case §4.6 guarantees
+ * nothing was written at all, so no optimistic update is safe here.
+ */
+export function useAdjustStock() {
   const invalidate = useInventoryInvalidation();
 
-  return useMutation({
-    mutationFn: ({ inventoryId, input }: { inventoryId: string; input: AdjustInventoryInput }) =>
-      inventoryApi.adjust(inventoryId, input),
-    onSuccess: invalidate,
-  });
-}
-
-export function useBulkAdjustInventory() {
-  const invalidate = useInventoryInvalidation();
-
-  return useMutation({
-    mutationFn: (input: BulkAdjustInput) => inventoryApi.bulkAdjust(input),
-    onSuccess: invalidate,
-  });
-}
-
-/** 400 with the shortfall when the source outlet cannot cover the quantity. */
-export function useTransferStock() {
-  const invalidate = useInventoryInvalidation();
-
-  return useMutation({
-    mutationFn: (input: TransferStockInput) => inventoryApi.transfer(input),
+  return useGuardedMutation(MANAGE_INVENTORY, {
+    mutationFn: (input: AdjustStockInput) => inventoryApi.adjust(input),
     onSuccess: invalidate,
   });
 }

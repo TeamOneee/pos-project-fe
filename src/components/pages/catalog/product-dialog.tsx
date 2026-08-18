@@ -1,11 +1,17 @@
 /**
  * S-12 · Tambah / Edit Produk.
  *
- * Deliberately four fields and a toggle. There is no discount field, no tax
- * field and no per-outlet price, because none of those exist in this product:
- * total equals subtotal (CLAUDE.md rule 2) and a product carries one price for
- * the whole merchant. A form that offers them would be promising arithmetic the
- * backend does not do.
+ * Deliberately four fields and a toggle. There is no discount field and no tax
+ * field, because neither exists in this product: total equals subtotal
+ * (CLAUDE.md rule 2). There is no per-outlet price field either — §3.2 does
+ * define `PUT /products/:id/outlet-prices/:outlet_id`, but per-outlet price
+ * overrides are on the product's Out-of-scope list, so the override is left
+ * unbuilt rather than half-exposed here.
+ *
+ * The SKU field is gone: §3.4 `ProductDto` has no SKU, and nothing in the
+ * contract accepts or returns one. In its place is `low_stock_threshold`, which
+ * §3.2 makes **required** on create — it is the base value every outlet's stock
+ * is judged against until that outlet overrides it (§4.1 rule 5).
  *
  * Two things the form has to say out loud:
  *
@@ -49,7 +55,7 @@ import { useCreateProduct, useUpdateProduct } from '@/hooks/use-products';
 import type { Category } from '@/services/categories';
 import type { Product } from '@/services/products';
 import { fieldErrors, isApiError } from '@/api/errors';
-import { formatIDR } from '@/lib/money';
+import { formatIDR, formatMoneyForApi } from '@/lib/money';
 import { requiredString, rupiahInput } from '@/lib/validation';
 
 /** The 400 the API answers when the category cannot take a product. */
@@ -68,7 +74,10 @@ const priceRupiah = rupiahInput('Harga');
 
 const productFormSchema = z.object({
   name: requiredString('Nama produk'),
-  sku: requiredString('SKU', 64),
+  lowStockThreshold: z
+    .number({ required_error: 'Batas stok rendah wajib diisi' })
+    .int('Batas stok harus berupa angka bulat')
+    .min(0, 'Batas stok tidak boleh negatif'),
   categoryId: z
     .string({ required_error: 'Kategori wajib dipilih' })
     .min(1, 'Kategori wajib dipilih'),
@@ -128,7 +137,7 @@ function ProductForm({
   const update = useUpdateProduct();
   const { toast } = useToast();
 
-  const activeCategories = categories.filter((category) => category.status === 'ACTIVE');
+  const activeCategories = categories.filter((category) => category.isActive);
   const pending = create.isPending || update.isPending;
   const error = create.error ?? update.error;
 
@@ -136,7 +145,7 @@ function ProductForm({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: product?.name ?? '',
-      sku: product?.sku ?? '',
+      lowStockThreshold: product?.lowStockThreshold ?? 0,
       // An edited product may sit in a deactivated category; the field starts
       // empty in that case so saving forces a valid choice.
       categoryId:
@@ -144,7 +153,7 @@ function ProductForm({
           ? product.categoryId
           : '',
       price: product ? groupThousands(String(product.price)) : '',
-      active: product ? product.status === 'ACTIVE' : true,
+      active: product ? product.isActive : true,
     },
   });
 
@@ -157,8 +166,8 @@ function ProductForm({
     const name = entries.find((entry) => entry.field === 'name');
     if (name) setError('name', { message: name.message });
 
-    const sku = entries.find((entry) => entry.field === 'sku');
-    if (sku) setError('sku', { message: sku.message });
+    const threshold = entries.find((entry) => entry.field === 'low_stock_threshold');
+    if (threshold) setError('lowStockThreshold', { message: threshold.message });
 
     // A validation 400 with no field breakdown is still about the category on
     // this endpoint — it is the only precondition POST /products has.
@@ -180,11 +189,11 @@ function ProductForm({
 
     const input = {
       name: values.name,
-      sku: values.sku,
-      // Integer rupiah on the way out; the contract wants a decimal string.
-      price: String(price),
+      // §0: money goes out as an explicit decimal string, never a JSON number.
+      price: formatMoneyForApi(price),
       category_id: values.categoryId,
-      status: values.active ? ('ACTIVE' as const) : ('INACTIVE' as const),
+      low_stock_threshold: values.lowStockThreshold,
+      is_active: values.active,
     };
 
     const onSuccess = () => {
@@ -243,20 +252,23 @@ function ProductForm({
 
         <Controller
           control={control}
-          name="sku"
+          name="lowStockThreshold"
           render={({ field, fieldState }) => (
             <FormField
-              label="SKU"
-              htmlFor="product-sku"
+              label="Batas Stok Rendah"
+              htmlFor="product-threshold"
               required
               error={fieldState.error?.message}
-              hint="Kode unik produk, contoh: CC-1500"
+              hint="Stok di bawah atau sama dengan angka ini ditandai menipis. Tiap outlet bisa punya batas sendiri."
             >
               <Input
-                {...field}
-                id="product-sku"
-                placeholder="CC-1500"
-                autoCapitalize="characters"
+                id="product-threshold"
+                numeric
+                inputMode="numeric"
+                value={String(field.value ?? '')}
+                onBlur={field.onBlur}
+                onChange={(event) => field.onChange(Number(event.target.value.replace(/\D/g, '')))}
+                placeholder="10"
                 disabled={pending}
                 invalid={Boolean(fieldState.error)}
                 className="type-mono"

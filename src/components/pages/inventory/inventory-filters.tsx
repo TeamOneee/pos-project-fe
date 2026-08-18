@@ -40,10 +40,11 @@ export function matchesCondition(
 }
 
 /** Matches a product name or SKU, case-insensitively. */
-export function matchesQuery(row: { name: string; sku: string }, query: string): boolean {
+/** Name only — §3.4 gives a product no SKU to match against. */
+export function matchesQuery(row: { name: string }, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  return row.name.toLowerCase().includes(needle) || row.sku.toLowerCase().includes(needle);
+  return row.name.toLowerCase().includes(needle);
 }
 
 export function InventoryFilterBar({

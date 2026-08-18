@@ -30,8 +30,7 @@ export const mockTransport: Transport = async (request: ApiRequest): Promise<Api
         request.method,
         request.path,
         stringifyQuery(request.query),
-        asBody(request.body),
-        request.idempotencyKey
+        asBody(request.body)
       )
     );
   } catch (error) {

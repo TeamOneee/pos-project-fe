@@ -6,8 +6,9 @@
  * sale differently.
  *
  * Three things this screen deliberately does not have: an edit button, a void
- * button and a refund button. A completed transaction is immutable in this MVP —
- * the API answers 501 on cancel — and the screen does not imply otherwise.
+ * button and a refund button. §5.1 gives `TransactionStatus` exactly one member,
+ * `COMPLETED`, and the contract defines no endpoint that changes a sale — so a
+ * completed transaction is immutable and the screen does not imply otherwise.
  *
  * The line prices are historical. The caption says so, because a product's price
  * can have moved since, and the natural assumption is that a screen showing a
@@ -27,28 +28,34 @@ import { formatCount } from '@/lib/number';
 
 export const HISTORICAL_PRICE_NOTE = 'Harga yang ditampilkan adalah harga saat transaksi terjadi.';
 
+/** §5.1 (OD-001) records three methods. There is no card/debit member. */
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   CASH: 'Tunai',
   QRIS: 'QRIS',
-  DEBIT: 'Kartu Debit',
   TRANSFER: 'Transfer Bank',
 };
 
 export function TransactionDetailBody({
-  detail,
+  transaction,
+  outletName,
   onPrint,
   onDownload,
   busy = false,
   /** Shown under the actions, e.g. how to save the print output as a PDF. */
   actionHint,
 }: {
-  detail: TransactionDetail;
+  transaction: TransactionDetail;
+  /**
+   * §5.4 `CheckoutResult` carries `outlet_id` but no outlet name — only
+   * `GET /receipts/:id` does. Passed in when the caller has it, blank otherwise.
+   */
+  outletName?: string;
   onPrint: () => void;
   onDownload: () => void;
   busy?: boolean;
   actionHint?: string;
 }) {
-  const { transaction, items } = detail;
+  const items = transaction.items;
 
   return (
     <div className="flex flex-col gap-lg">
@@ -62,15 +69,12 @@ export function TransactionDetailBody({
       <Separator />
 
       <div className="flex flex-col gap-sm">
-        <MetaRow
-          label="Tanggal"
-          value={transaction.createdAt ? formatDateTime(transaction.createdAt) : '—'}
-        />
-        <MetaRow label="Outlet" value={transaction.outlet?.name ?? '—'} />
-        <MetaRow label="Kasir" value={transaction.cashier?.name ?? '—'} />
+        <MetaRow label="Tanggal" value={formatDateTime(transaction.createdAt)} />
+        <MetaRow label="Outlet" value={outletName || '—'} />
+        <MetaRow label="Kasir" value={transaction.operator.name} />
         <MetaRow
           label="Metode Pembayaran"
-          value={transaction.payment ? METHOD_LABEL[transaction.payment.method] : '—'}
+          value={METHOD_LABEL[transaction.payment.method]}
         />
       </div>
 
@@ -80,10 +84,11 @@ export function TransactionDetailBody({
         <Text variant="h3">{`Item (${formatCount(items.length)})`}</Text>
 
         {items.map((item) => (
-          <div key={item.transactionItemId} className="flex flex-row items-start gap-md">
+          <div key={item.productId} className="flex flex-row items-start gap-md">
             <div className="flex min-w-0 flex-1 flex-col gap-xs">
+              {/* The snapshot name, not a live lookup (BR-006). */}
               <Text variant="body-strong" className="block truncate">
-                {item.product?.name ?? 'Produk tidak dikenal'}
+                {item.name}
               </Text>
               {/* The frozen unit price, spelled out against the quantity. */}
               <Text variant="caption" tone="muted" className="type-mono">

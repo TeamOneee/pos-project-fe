@@ -3,9 +3,16 @@
  * the dedicated low-stock screen (S-15c).
  *
  * Both are cross-outlet, so the outlet is a column rather than a page-level
- * choice — these are the one place stock is read across every outlet at once,
- * because they come from `/dashboard/admin` and `/inventory/low-stock`, not
- * from the outlet-scoped list endpoint.
+ * choice — they come from `GET /dashboard/low-stock` (§6.2), which spans every
+ * outlet in the merchant unless one is selected.
+ *
+ * Low stock and out of stock are two views of one payload. §6.2 reports a
+ * single `items[]` of everything at or below its effective threshold, and zero
+ * is at or below every threshold — so the out-of-stock rows are the subset with
+ * `quantity === 0` rather than a separate fetch.
+ *
+ * The threshold shown is the **effective** one: an outlet's override where it
+ * has set one, the product's base value otherwise (§4.1 rule 5).
  */
 
 import * as React from 'react';
@@ -14,34 +21,43 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import type { OutOfStockAlert } from '@/services/dashboard';
-import type { LowStockAlert } from '@/services/inventory';
+import type { LowStockItem } from '@/services/dashboard';
 import { formatCount } from '@/lib/number';
-import { byUrgency } from '@/lib/stock';
+import { byUrgency, isOutOfStock } from '@/lib/stock';
 import { cn } from '@/lib/utils';
 
-type AlertProduct = { productId: string; name: string; sku: string };
+type AlertProduct = { productId: string; name: string };
 
 type RowActions = {
   /** Admin only. Absent means no action column is rendered at all. */
-  onAdjust?: ((alert: LowStockAlert) => void) | undefined;
+  onAdjust?: ((alert: LowStockItem) => void) | undefined;
   onOpenStockPerOutlet: (product: AlertProduct) => void;
 };
+
+/** Most urgent first: lowest stock relative to its own effective threshold. */
+export function sortByUrgency(alerts: readonly LowStockItem[]): LowStockItem[] {
+  return [...alerts].sort(byUrgency);
+}
+
+/** The rows that are low but still sellable. */
+export function lowStockOnly(alerts: readonly LowStockItem[]): LowStockItem[] {
+  return alerts.filter((alert) => !isOutOfStock(alert));
+}
+
+/** The rows that have run out entirely. */
+export function outOfStockOnly(alerts: readonly LowStockItem[]): LowStockItem[] {
+  return alerts.filter(isOutOfStock);
+}
 
 /* -------------------------------------------------------------------------- */
 /* Low stock                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Most urgent first: lowest stock relative to its own threshold. */
-export function sortByUrgency(alerts: readonly LowStockAlert[]): LowStockAlert[] {
-  return [...alerts].sort(byUrgency);
-}
-
 export function LowStockTable({
   alerts,
   onAdjust,
   onOpenStockPerOutlet,
-}: { alerts: LowStockAlert[] } & RowActions) {
+}: { alerts: LowStockItem[] } & RowActions) {
   const stacked = useBreakpoint() === 'mobile';
 
   if (stacked) {
@@ -61,13 +77,11 @@ export function LowStockTable({
             </Line>
             <Line label="Stok Saat Ini">
               <Badge variant="warning">
-                <Text>{formatCount(alert.currentStock)}</Text>
+                <Text>{formatCount(alert.quantity)}</Text>
               </Badge>
             </Line>
             <Line label="Batas">
-              <Text variant="mono" tone="muted">
-                {formatCount(alert.threshold)}
-              </Text>
+              <ThresholdText alert={alert} />
             </Line>
             {onAdjust ? (
               <Button variant="secondary" size="sm" onClick={() => onAdjust(alert)}>
@@ -84,7 +98,6 @@ export function LowStockTable({
     <div>
       <div className="flex flex-row gap-md border-b border-border pb-sm">
         <Head className="flex-[3]">Produk</Head>
-        <Head className="flex-1">SKU</Head>
         <Head className="flex-[2]">Outlet</Head>
         <Head className="flex-1">Stok Saat Ini</Head>
         <Head className="flex-1 justify-end">Batas</Head>
@@ -102,11 +115,6 @@ export function LowStockTable({
               onOpen={() => onOpenStockPerOutlet(toProduct(alert))}
             />
           </div>
-          <div className="min-w-0 flex-1">
-            <Text variant="mono" tone="muted" className="block truncate">
-              {alert.sku || '—'}
-            </Text>
-          </div>
           <div className="min-w-0 flex-[2]">
             <Text variant="body" className="block truncate">
               {alert.outletName}
@@ -114,13 +122,11 @@ export function LowStockTable({
           </div>
           <div className="flex-1">
             <Badge variant="warning">
-              <Text>{formatCount(alert.currentStock)}</Text>
+              <Text>{formatCount(alert.quantity)}</Text>
             </Badge>
           </div>
           <div className="flex flex-1 justify-end">
-            <Text variant="mono" tone="muted">
-              {formatCount(alert.threshold)}
-            </Text>
+            <ThresholdText alert={alert} />
           </div>
           {onAdjust ? (
             <div className="w-[160px] shrink-0">
@@ -143,12 +149,7 @@ export function OutOfStockTable({
   alerts,
   onAdjust,
   onOpenStockPerOutlet,
-}: {
-  alerts: OutOfStockAlert[];
-  /** Takes the same shape as the low-stock action; stock is zero, threshold unknown. */
-  onAdjust?: ((alert: OutOfStockAlert) => void) | undefined;
-  onOpenStockPerOutlet: (product: AlertProduct) => void;
-}) {
+}: { alerts: LowStockItem[] } & RowActions) {
   const stacked = useBreakpoint() === 'mobile';
 
   if (stacked) {
@@ -186,7 +187,6 @@ export function OutOfStockTable({
     <div>
       <div className="flex flex-row gap-md border-b border-border pb-sm">
         <Head className="flex-[3]">Produk</Head>
-        <Head className="flex-1">SKU</Head>
         <Head className="flex-[2]">Outlet</Head>
         <Head className="flex-1">Status</Head>
         {onAdjust ? <Head className="w-[160px] shrink-0">Aksi</Head> : null}
@@ -202,11 +202,6 @@ export function OutOfStockTable({
               product={toProduct(alert)}
               onOpen={() => onOpenStockPerOutlet(toProduct(alert))}
             />
-          </div>
-          <div className="min-w-0 flex-1">
-            <Text variant="mono" tone="muted" className="block truncate">
-              {alert.sku || '—'}
-            </Text>
           </div>
           <div className="min-w-0 flex-[2]">
             <Text variant="body" className="block truncate">
@@ -235,8 +230,30 @@ export function OutOfStockTable({
 /* Shared                                                                      */
 /* -------------------------------------------------------------------------- */
 
-function toProduct(alert: { productId: string; productName: string; sku: string }): AlertProduct {
-  return { productId: alert.productId, name: alert.productName, sku: alert.sku };
+function toProduct(alert: LowStockItem): AlertProduct {
+  return { productId: alert.productId, name: alert.productName };
+}
+
+/**
+ * The threshold this row was actually judged against, marked when it is an
+ * outlet override rather than the product's own — otherwise an Admin comparing
+ * two outlets sees two different limits with no explanation.
+ */
+function ThresholdText({ alert }: { alert: LowStockItem }) {
+  const overridden = alert.lowStockThresholdOverride !== null;
+
+  return (
+    <Text
+      variant="mono"
+      tone="muted"
+      {...(overridden
+        ? { title: `Batas khusus outlet ini (dasar produk: ${alert.baseLowStockThreshold})` }
+        : {})}
+    >
+      {formatCount(alert.effectiveLowStockThreshold)}
+      {overridden ? '*' : ''}
+    </Text>
+  );
 }
 
 function ProductButton({ product, onOpen }: { product: AlertProduct; onOpen: () => void }) {

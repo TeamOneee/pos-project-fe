@@ -1,8 +1,12 @@
 /**
  * S-14 · Admin stock dashboard — the Admin's landing screen.
  *
- * `GET /dashboard/admin` is one endpoint carrying the whole surface, so this
- * screen has one query and one loading state, exactly like the Owner's.
+ * Contract §6.2 replaced the single `/dashboard/admin` payload with granular
+ * endpoints, so this screen composes three reads:
+ *
+ *   • `GET /dashboard/operations` — the four KPI tiles.
+ *   • `GET /dashboard/operations?outlet_id=` per outlet — the per-outlet table.
+ *   • `GET /dashboard/low-stock` — both alert tables, split on quantity.
  *
  * The Admin has no analytics, no AI insight and no transaction history: the
  * role matrix closes all three, and nothing on this screen links to them.
@@ -16,31 +20,42 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { LowStockCard, OutOfStockCard } from '@/components/pages/admin-dashboard/alert-cards';
-import { OutletStockTable } from '@/components/pages/admin-dashboard/outlet-stock-table';
+import {
+  OutletStockTable,
+  type OutletStats,
+} from '@/components/pages/admin-dashboard/outlet-stock-table';
 import { StockKpiRow } from '@/components/pages/admin-dashboard/stock-kpi-row';
 import {
   AdjustStockDialog,
   type AdjustTarget,
 } from '@/components/pages/inventory/adjust-stock-dialog';
-import { sortByUrgency } from '@/components/pages/inventory/alert-tables';
+import {
+  lowStockOnly,
+  outOfStockOnly,
+  sortByUrgency,
+} from '@/components/pages/inventory/alert-tables';
 import {
   StockPerOutletDrawer,
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
 import { OutletSelect } from '@/components/pages/owner/controls';
-import { useAdminDashboard } from '@/hooks/use-dashboard';
+import {
+  useDashboardOperations,
+  useLowStock,
+  useOperationsByOutlet,
+} from '@/hooks/use-dashboard';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useOutlets } from '@/hooks/use-outlets';
-import type { OutOfStockAlert } from '@/services/dashboard';
-import type { LowStockAlert } from '@/services/inventory';
-import { thresholdFromAlerts } from '@/lib/stock';
+import type { LowStockItem } from '@/services/dashboard';
 
 export default function AdminDashboardPage() {
   const mobile = useBreakpoint() === 'mobile';
   const navigate = useNavigate();
 
   const [outletId, setOutletId] = React.useState<string | null>(null);
-  const dashboard = useAdminDashboard(outletId ?? undefined);
+
+  const operations = useDashboardOperations({ outlet_id: outletId ?? undefined });
+  const lowStock = useLowStock({ outlet_id: outletId ?? undefined });
   const outlets = useOutlets({ status: 'ACTIVE' });
 
   const [adjustTarget, setAdjustTarget] = React.useState<AdjustTarget | null>(null);
@@ -50,8 +65,35 @@ export default function AdminDashboardPage() {
   const outOfStockRef = React.useRef<HTMLDivElement>(null);
 
   const outletOptions = React.useMemo(
-    () => (outlets.data ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
+    () =>
+      (outlets.data?.items ?? []).map((outlet) => ({
+        outletId: outlet.outletId,
+        name: outlet.name,
+      })),
     [outlets.data]
+  );
+
+  // The per-outlet table always spans every outlet, even when the page filter
+  // narrows the tiles — that is the point of the table.
+  const outletIds = React.useMemo(
+    () => outletOptions.map((outlet) => outlet.outletId),
+    [outletOptions]
+  );
+  const perOutlet = useOperationsByOutlet(outletIds);
+
+  const outletRows = React.useMemo<OutletStats[]>(
+    () =>
+      outletOptions.map((outlet, index) => {
+        const stats = perOutlet[index]?.data;
+        return {
+          outletId: outlet.outletId,
+          outletName: outlet.name,
+          stockedProducts: stats?.inventoryItemCount ?? 0,
+          lowStockCount: stats?.lowStockItemCount ?? 0,
+          outOfStockCount: stats?.outOfStockItemCount ?? 0,
+        };
+      }),
+    [outletOptions, perOutlet]
   );
 
   // Memoized so the top-bar slot sees a stable node — it is fed through an
@@ -62,12 +104,17 @@ export default function AdminDashboardPage() {
   );
   useTopBarActions(!mobile ? controls : null);
 
-  const data = dashboard.data;
-  const lowStockAlerts = React.useMemo(
-    () => sortByUrgency(data?.lowStockAlerts ?? []),
-    [data?.lowStockAlerts]
+  // One payload, two tables: §6.2 reports everything at or below its effective
+  // threshold, and a quantity of zero is at or below every threshold.
+  const alerts = React.useMemo(
+    () => sortByUrgency(lowStock.data?.items ?? []),
+    [lowStock.data]
   );
-  const threshold = thresholdFromAlerts(data?.lowStockAlerts);
+  const low = React.useMemo(() => lowStockOnly(alerts), [alerts]);
+  const out = React.useMemo(() => outOfStockOnly(alerts), [alerts]);
+
+  const isPending = operations.isPending || lowStock.isPending;
+  const isError = operations.isError || lowStock.isError;
 
   const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) =>
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -81,34 +128,34 @@ export default function AdminDashboardPage() {
 
       {mobile && <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />}
 
-      {dashboard.isPending ? (
+      {isPending ? (
         <StockDashboardSkeleton />
-      ) : dashboard.isError || !data ? (
+      ) : isError || !operations.data ? (
         <LoadFailure />
       ) : (
         <>
           <StockKpiRow
-            summary={data.summary}
+            summary={operations.data}
             onShowLowStock={() => scrollTo(lowStockRef)}
             onShowOutOfStock={() => scrollTo(outOfStockRef)}
           />
 
           <OutletStockTable
-            outlets={data.outletQuickStats}
+            outlets={outletRows}
             onManage={(outlet) => navigate(`/inventory?outlet=${encodeURIComponent(outlet)}`)}
           />
 
           <LowStockCard
             anchorRef={lowStockRef}
-            alerts={lowStockAlerts}
-            onAdjust={(alert) => setAdjustTarget(fromLowStock(alert))}
+            alerts={low}
+            onAdjust={(alert) => setAdjustTarget(toAdjustTarget(alert))}
             onOpenStockPerOutlet={setDrawerProduct}
           />
 
           <OutOfStockCard
             anchorRef={outOfStockRef}
-            alerts={data.outOfStockAlerts}
-            onAdjust={(alert) => setAdjustTarget(fromOutOfStock(alert))}
+            alerts={out}
+            onAdjust={(alert) => setAdjustTarget(toAdjustTarget(alert))}
             onOpenStockPerOutlet={setDrawerProduct}
           />
         </>
@@ -128,8 +175,6 @@ export default function AdminDashboardPage() {
         onOpenChange={(open) => {
           if (!open) setDrawerProduct(null);
         }}
-        outlets={outletOptions}
-        threshold={threshold}
         onAdjust={(target) => {
           setDrawerProduct(null);
           setAdjustTarget(target);
@@ -139,28 +184,17 @@ export default function AdminDashboardPage() {
   );
 }
 
-function fromLowStock(alert: LowStockAlert): AdjustTarget {
+/**
+ * Both tables hand the modal the same shape — an adjustment is addressed by
+ * outlet and product, never by an inventory row id (§4.2).
+ */
+function toAdjustTarget(alert: LowStockItem): AdjustTarget {
   return {
-    inventoryId: alert.inventoryId,
     productId: alert.productId,
     productName: alert.productName,
-    sku: alert.sku,
     outletId: alert.outletId,
     outletName: alert.outletName,
-    currentStock: alert.currentStock,
-  };
-}
-
-/** Out-of-stock alerts carry no inventory id; the modal resolves it. */
-function fromOutOfStock(alert: OutOfStockAlert): AdjustTarget {
-  return {
-    inventoryId: null,
-    productId: alert.productId,
-    productName: alert.productName,
-    sku: alert.sku,
-    outletId: alert.outletId,
-    outletName: alert.outletName,
-    currentStock: 0,
+    currentStock: alert.quantity,
   };
 }
 

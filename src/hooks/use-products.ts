@@ -1,13 +1,14 @@
 /**
- * Products. Admin manages, Owner reads, Cashier reads through the POS.
+ * Products. Admin and Owner manage; `GET /products` is Owner and Admin only.
+ *
+ * A cashier never reaches this module — their catalogue is `GET /products/catalog`
+ * in use-catalog.ts, which is a different endpoint with different scoping.
  *
  * Lists are paginated; `placeholderData` keeps the previous page on screen
  * while the next one loads, so paging does not flash a skeleton.
  *
- * Every write below goes through `useGuardedMutation` with the `catalog: manage`
- * requirement, so the matrix — not the screen that happened to render a button —
- * decides whether a request is ever sent. For the Owner these hooks exist and
- * reject; there is no code path from an Owner session to a POST /products.
+ * There is no `GET /products/:id`, so a screen that needs one product takes it
+ * from the list it already loaded.
  */
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,21 +33,15 @@ export function useProducts(filters: ProductFilters = {}) {
   });
 }
 
-export function useProduct(productId: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.product(productId ?? ''),
-    queryFn: () => productsApi.get(productId ?? ''),
-    enabled: Boolean(productId),
-  });
-}
-
 function useProductInvalidation() {
   const queryClient = useQueryClient();
 
   return () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.products() });
-    // Inventory rows embed the product name and price.
+    // Inventory rows carry the product name and its base threshold.
     void queryClient.invalidateQueries({ queryKey: queryKeys.inventory() });
+    // The cashier catalogue prices and filters from the same product row.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.catalog() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
   };
 }
@@ -62,23 +57,21 @@ export function useCreateProduct() {
 }
 
 /**
- * Editing a price is what makes an open cart fail checkout with PRICE_CHANGED,
- * so the cart is invalidated alongside the catalog.
+ * Editing a price is what makes an open basket fail checkout with
+ * `PRICE_CHANGED` — the cart is client-side now, so there is nothing on the
+ * server to invalidate, but the catalogue the tiles are priced from is.
  */
 export function useUpdateProduct() {
-  const queryClient = useQueryClient();
   const invalidate = useProductInvalidation();
 
   return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: ({ productId, input }: { productId: string; input: UpdateProductInput }) =>
       productsApi.update(productId, input),
-    onSuccess: () => {
-      invalidate();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cart });
-    },
+    onSuccess: invalidate,
   });
 }
 
+/** Soft-deactivation. Past sales keep their own name and price snapshot. */
 export function useDeactivateProduct() {
   const invalidate = useProductInvalidation();
 

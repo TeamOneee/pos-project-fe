@@ -23,14 +23,19 @@ import { isDismissable, repricedTotal as computeReprice } from '@/lib/checkout-m
 import { MethodCards } from '@/components/pages/checkout/method-cards';
 import type { useCheckout } from '@/hooks/use-checkout';
 import { formatIDR, type Rupiah } from '@/lib/money';
+import type { CartLine } from '@/stores/cart';
 
 type PaymentDialogProps = {
   open: boolean;
   onClose: () => void;
   checkout: ReturnType<typeof useCheckout>;
   total: Rupiah;
-  /** Quantities by product, for recomputing the total at the server's prices. */
-  quantities: Record<string, number>;
+  /**
+   * The basket as submitted, in order. §5.2 reports a faulted line by its
+   * position in the request, so both the failure body and the reprice
+   * calculation need the same array that was sent.
+   */
+  lines: readonly CartLine[];
   /** Flags the offending lines in the cart and closes the modal. */
   onAdjustCart: (productIds: string[]) => void;
   /** Rewrites the cart at the server's prices, then resubmits. */
@@ -42,7 +47,7 @@ export function PaymentDialog({
   onClose,
   checkout,
   total,
-  quantities,
+  lines,
   onAdjustCart,
   onAcceptNewPrices,
 }: PaymentDialogProps) {
@@ -54,7 +59,7 @@ export function PaymentDialog({
 
   const reprice =
     state.failure?.kind === 'price_changed'
-      ? computeReprice(state.failure.items, quantities, total)
+      ? computeReprice(state.failure.items, lines, total)
       : total;
 
   return (
@@ -85,7 +90,11 @@ export function PaymentDialog({
         ) : (
           <div className="flex flex-col gap-lg">
             {state.failure && (
-              <CheckoutFailureBody failure={state.failure} repricedTotal={reprice} />
+              <CheckoutFailureBody
+                failure={state.failure}
+                lines={lines}
+                repricedTotal={reprice}
+              />
             )}
 
             <div className="flex flex-col items-center gap-xs rounded-md bg-subtle p-lg">
@@ -141,7 +150,10 @@ export function PaymentDialog({
     }
 
     if (state.failure?.kind === 'insufficient_stock') {
-      const productIds = state.failure.items.map((item) => item.productId);
+      // Positions back to product ids, so the cart can flag the right rows.
+      const productIds = state.failure.items
+        .map((item) => (item.itemIndex === null ? null : (lines[item.itemIndex]?.productId ?? null)))
+        .filter((id): id is string => id !== null);
       return (
         <>
           <Button variant="ghost" onClick={onClose}>

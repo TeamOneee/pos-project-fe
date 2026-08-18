@@ -15,7 +15,6 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -24,7 +23,6 @@ import {
   AdjustStockDialog,
   type AdjustTarget,
 } from '@/components/pages/inventory/adjust-stock-dialog';
-import { BulkUpdateDialog } from '@/components/pages/inventory/bulk-update-dialog';
 import {
   InventoryFilterBar,
   matchesCondition,
@@ -41,11 +39,9 @@ import {
   StockPerOutletDrawer,
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
-import { TransferStockDialog } from '@/components/pages/inventory/transfer-stock-dialog';
-import { useInventory, useLowStock } from '@/hooks/use-inventory';
+import { useInventory } from '@/hooks/use-inventory';
 import { useOutlets } from '@/hooks/use-outlets';
 import { canManage } from '@/lib/permissions';
-import { thresholdFromAlerts } from '@/lib/stock';
 
 /** One outlet rarely carries more rows than this; paging would add a control for nothing. */
 const PAGE_LIMIT = 200;
@@ -63,20 +59,15 @@ export default function InventoryPage() {
   const [condition, setCondition] = React.useState<StockCondition>('ALL');
   const [adjustTarget, setAdjustTarget] = React.useState<AdjustTarget | null>(null);
   const [drawerProduct, setDrawerProduct] = React.useState<DrawerProduct | null>(null);
-  const [bulkOpen, setBulkOpen] = React.useState(false);
-  const [transferOpen, setTransferOpen] = React.useState(false);
 
   const outlets = useOutlets({ status: 'ACTIVE' });
   const inventory = useInventory({
     ...(outletId ? { outlet_id: outletId } : {}),
-    limit: PAGE_LIMIT,
+    size: PAGE_LIMIT,
   });
-  // Only for the threshold that decides where AMAN turns into MENIPIS.
-  const lowStock = useLowStock(outletId ?? undefined);
-  const threshold = thresholdFromAlerts(lowStock.data);
 
   const outletOptions = React.useMemo(
-    () => (outlets.data ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
+    () => (outlets.data?.items ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
     [outlets.data]
   );
   const outletName =
@@ -89,9 +80,13 @@ export default function InventoryPage() {
   const rows = React.useMemo(
     () =>
       allRows.filter(
-        (row) => matchesQuery(row, query) && matchesCondition(row.quantity, threshold, condition)
+        (row) =>
+          matchesQuery(row, query) &&
+          // Each row carries the threshold it was judged against (§4.1 rule 5),
+          // so the filter no longer needs one figure for the whole outlet.
+          matchesCondition(row.quantity, row.effectiveLowStockThreshold, condition)
       ),
-    [allRows, query, condition, threshold]
+    [allRows, query, condition]
   );
 
   const selectOutlet = (next: string) => {
@@ -101,10 +96,8 @@ export default function InventoryPage() {
   const openAdjust = (row: InventoryRow) => {
     if (!outletId) return;
     setAdjustTarget({
-      inventoryId: row.inventoryId,
       productId: row.productId,
       productName: row.name,
-      sku: row.sku,
       outletId,
       outletName,
       currentStock: row.quantity,
@@ -124,17 +117,12 @@ export default function InventoryPage() {
           </Text>
         )}
 
-        {/* Owner variant: no header buttons in the DOM at all. */}
-        {editable && (
-          <div className="flex shrink-0 flex-row gap-md">
-            <Button variant="secondary" onClick={() => setBulkOpen(true)}>
-              <Text>Update Massal</Text>
-            </Button>
-            <Button onClick={() => setTransferOpen(true)}>
-              <Text>Transfer Stok</Text>
-            </Button>
-          </div>
-        )}
+        {/*
+          There are no header actions any more. §4.2 gives inventory exactly one
+          write — `POST /inventory/adjustments`, one product at a time — so the
+          bulk-update and transfer-between-outlets buttons had no endpoint behind
+          them and are gone rather than left to 404. Adjustment lives on the row.
+        */}
       </div>
 
       <OutletPicker
@@ -172,10 +160,9 @@ export default function InventoryPage() {
               ) : (
                 <InventoryTable
                   rows={rows}
-                  threshold={threshold}
                   onAdjust={editable ? openAdjust : undefined}
                   onOpenStockPerOutlet={(row) =>
-                    setDrawerProduct({ productId: row.productId, name: row.name, sku: row.sku })
+                    setDrawerProduct({ productId: row.productId, name: row.name })
                   }
                   // Two different empty states: an outlet with no stock rows at
                   // all, and a filter that matched none of the rows it has.
@@ -210,20 +197,7 @@ export default function InventoryPage() {
             }}
           />
 
-          <BulkUpdateDialog
-            open={bulkOpen}
-            onOpenChange={setBulkOpen}
-            outlets={outletOptions}
-            outletId={outletId}
-            outletLocked={Boolean(outletId)}
-          />
 
-          <TransferStockDialog
-            open={transferOpen}
-            onOpenChange={setTransferOpen}
-            outlets={outletOptions}
-            defaultFromOutletId={outletId}
-          />
         </>
       )}
 
@@ -233,8 +207,6 @@ export default function InventoryPage() {
         onOpenChange={(open) => {
           if (!open) setDrawerProduct(null);
         }}
-        outlets={outletOptions}
-        threshold={threshold}
         onAdjust={
           editable
             ? (target) => {

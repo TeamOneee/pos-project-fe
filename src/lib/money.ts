@@ -107,3 +107,19 @@ export function sumRupiah(amounts: readonly Rupiah[]): Rupiah {
 export function lineTotal(unitPrice: Rupiah, quantity: number): Rupiah {
   return Math.trunc(unitPrice) * Math.trunc(quantity);
 }
+
+/**
+ * Render integer rupiah back as the contract's decimal string.
+ *
+ * §0 requires every money field on the wire to be an explicit decimal string
+ * and never a JSON number, so anything we send — `price` on a product,
+ * `expected_unit_price` on a checkout line — has to come back through here.
+ * Built by string concatenation, never `toFixed`, so no float ever touches it.
+ *
+ *   formatMoneyForApi(8500) === "8500.00"
+ */
+export function formatMoneyForApi(amount: Rupiah): string {
+  if (!Number.isInteger(amount)) throw new MoneyParseError(amount);
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}${Math.abs(amount)}.00`;
+}

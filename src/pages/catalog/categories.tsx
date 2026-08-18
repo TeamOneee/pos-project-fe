@@ -49,7 +49,7 @@ export default function CategoriesPage() {
   const [deactivating, setDeactivating] = React.useState<Category | null>(null);
 
   const categories = useCategories();
-  const products = useProducts({ limit: COUNT_LIMIT });
+  const products = useProducts({ size: COUNT_LIMIT });
   const deactivate = useDeactivateCategory();
 
   /** Products per category id, counting inactive products too — they still hold it. */
@@ -62,7 +62,7 @@ export default function CategoriesPage() {
     return tally;
   }, [products.data]);
 
-  const rows = categories.data ?? [];
+  const rows = categories.data?.items ?? [];
 
   const openEditor = (category: Category | null) => {
     setEditing(category);
@@ -72,7 +72,7 @@ export default function CategoriesPage() {
   const rowMenu = editable
     ? (category: Category): RowMenuItem[] => [
         { label: 'Edit', onSelect: () => openEditor(category) },
-        ...(category.status === 'ACTIVE'
+        ...(category.isActive
           ? [
               {
                 label: 'Nonaktifkan',
@@ -164,7 +164,7 @@ export default function CategoriesPage() {
                   key={category.categoryId}
                   className={cn(
                     'flex flex-col gap-sm rounded-md border border-border p-md',
-                    category.status !== 'ACTIVE' && 'opacity-60'
+                    !category.isActive && 'opacity-60'
                   )}
                 >
                   <div className="flex flex-row items-center justify-between gap-md">
@@ -181,7 +181,7 @@ export default function CategoriesPage() {
                       <Text variant="caption" tone="subtle">
                         Jumlah produk
                       </Text>
-                      <StatusBadge status={category.status} />
+                      <StatusBadge status={(category.isActive ? 'ACTIVE' : 'INACTIVE')} />
                     </div>
                     {rowMenu ? (
                       <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
@@ -204,7 +204,7 @@ export default function CategoriesPage() {
                   key={category.categoryId}
                   className={cn(
                     'flex flex-row items-center gap-md border-b border-border py-md',
-                    category.status !== 'ACTIVE' && 'opacity-60'
+                    !category.isActive && 'opacity-60'
                   )}
                 >
                   <div className="min-w-0 flex-[2]">
@@ -220,7 +220,7 @@ export default function CategoriesPage() {
                   </div>
 
                   <div className="flex-1">
-                    <StatusBadge status={category.status} />
+                    <StatusBadge status={(category.isActive ? 'ACTIVE' : 'INACTIVE')} />
                   </div>
 
                   {rowMenu ? (

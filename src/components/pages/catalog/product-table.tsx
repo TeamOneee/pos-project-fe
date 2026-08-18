@@ -14,7 +14,7 @@ import * as React from 'react';
 
 import { RowMenu, type RowMenuItem } from '@/components/ui/row-menu';
 import { Text } from '@/components/ui/text';
-import { CategoryBadge, StatusBadge } from '@/components/pages/catalog/catalog-badges';
+import { ActiveBadge, CategoryBadge } from '@/components/pages/catalog/catalog-badges';
 import { ProductIdentity } from '@/components/pages/catalog/product-identity';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import type { Product } from '@/services/products';
@@ -45,7 +45,7 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
             key={product.productId}
             className={cn(
               'flex flex-col gap-sm rounded-md border border-border p-md',
-              product.status !== 'ACTIVE' && 'opacity-60'
+              !product.isActive && 'opacity-60'
             )}
           >
             <div className="flex flex-row items-start justify-between gap-md">
@@ -64,11 +64,8 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
             </div>
 
             <div className="flex flex-row flex-wrap items-center gap-sm">
-              <Text variant="mono" tone="muted">
-                {product.sku || '—'}
-              </Text>
-              <CategoryBadge name={product.category?.name ?? null} />
-              <StatusBadge status={product.status} />
+              <CategoryBadge name={product.categoryName} />
+              <ActiveBadge active={product.isActive} />
             </div>
           </div>
         ))}
@@ -80,9 +77,9 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
     <div>
       <div className="flex flex-row gap-md border-b border-border pb-sm">
         <Head className="flex-[3]">Produk</Head>
-        <Head className="flex-1">SKU</Head>
         <Head className="flex-1">Kategori</Head>
         <Head className="flex-1 justify-end">Harga</Head>
+        <Head className="flex-1 justify-end">Batas Stok</Head>
         <Head className="flex-1">Status</Head>
         {rowMenu ? <Head className="w-touch shrink-0">Aksi</Head> : null}
       </div>
@@ -92,7 +89,7 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
           key={product.productId}
           className={cn(
             'flex flex-row items-center gap-md border-b border-border py-md',
-            product.status !== 'ACTIVE' && 'opacity-60'
+            !product.isActive && 'opacity-60'
           )}
         >
           <div className="min-w-0 flex-[3]">
@@ -104,21 +101,22 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
           </div>
 
           <div className="min-w-0 flex-1">
-            <Text variant="mono" tone="muted" className="block truncate">
-              {product.sku || '—'}
-            </Text>
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <CategoryBadge name={product.category?.name ?? null} />
+            <CategoryBadge name={product.categoryName} />
           </div>
 
           <div className="flex flex-1 justify-end">
             <Text variant="mono">{formatIDR(product.price)}</Text>
           </div>
 
+          {/* The base threshold from §3.4; an outlet may override it (§4.2). */}
+          <div className="flex flex-1 justify-end">
+            <Text variant="mono" tone="muted">
+              {product.lowStockThreshold}
+            </Text>
+          </div>
+
           <div className="flex-1">
-            <StatusBadge status={product.status} />
+            <ActiveBadge active={product.isActive} />
           </div>
 
           {rowMenu ? (

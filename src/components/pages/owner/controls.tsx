@@ -1,10 +1,14 @@
 /**
  * The controls shared by the Owner's dashboard and analytics screens.
  *
- * The freshness caption is not decoration. `GET /dashboard/owner` is computed
- * server-side and cached; the figures on screen are minutes old, and a screen
- * that looks live while being stale is the kind of thing a business decision
- * gets made on. It says how old, and offers a refresh.
+ * The freshness caption is not decoration. §6.1 rule 3 builds the Owner's
+ * aggregates cache-aside with a 30-minute TTL, and every response reports both
+ * `data_updated_at` and a `FRESH`/`STALE` flag. The figures on screen are
+ * genuinely minutes old, and a screen that looks live while being stale is the
+ * kind of thing a business decision gets made on. So the caption reads the
+ * server's own timestamp — not the moment we fetched it — and surfaces STALE
+ * explicitly, since §6.2 deliberately returns stale aggregates as 200s rather
+ * than failing.
  */
 
 import { RefreshCw } from 'lucide-react';
@@ -20,9 +24,13 @@ import {
 } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import type { Outlet } from '@/services/outlets';
-import type { Period } from '@/api/schema';
+import { PERIODS, PERIOD_LABELS, type Period } from '@/lib/period';
 import { formatTimeAgo } from '@/lib/date';
 import { cn } from '@/lib/utils';
+
+/** Re-exported so screens can import the chip set alongside the control. */
+export { PERIODS };
+export type { Period };
 
 /* -------------------------------------------------------------------------- */
 /* Outlet                                                                      */
@@ -63,14 +71,6 @@ export function OutletSelect({
 /* -------------------------------------------------------------------------- */
 /* Period                                                                      */
 /* -------------------------------------------------------------------------- */
-
-const PERIOD_LABELS: Record<Period, string> = {
-  TODAY: 'Hari Ini',
-  THIS_WEEK: 'Minggu Ini',
-  THIS_MONTH: 'Bulan Ini',
-  THIS_QUARTER: 'Kuartal Ini',
-  THIS_YEAR: 'Tahun Ini',
-};
 
 /**
  * A segmented control that scrolls horizontally when it has to. That is the
@@ -120,14 +120,6 @@ export function Segmented<T extends string>({
   );
 }
 
-export const PERIODS = [
-  'TODAY',
-  'THIS_WEEK',
-  'THIS_MONTH',
-  'THIS_QUARTER',
-  'THIS_YEAR',
-] as const satisfies readonly Period[];
-
 export function PeriodSegmented({
   value,
   onChange,
@@ -154,11 +146,17 @@ export function PeriodSegmented({
 
 export function FreshnessCaption({
   updatedAt,
+  stale = false,
   refreshing,
   onRefresh,
 }: {
-  /** Epoch millis of the last successful fetch; 0 while it has never loaded. */
+  /**
+   * Epoch millis of the server's `data_updated_at` — when the aggregate was
+   * built, not when we fetched it. 0 while nothing has loaded.
+   */
   updatedAt: number;
+  /** The server flagged this read `STALE` (§6.1); say so rather than hide it. */
+  stale?: boolean;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -172,10 +170,12 @@ export function FreshnessCaption({
 
   return (
     <div className="flex items-center gap-xs">
-      <Text variant="caption" tone="subtle">
-        {updatedAt > 0
-          ? `Data tidak real-time · Diperbarui ${formatTimeAgo(updatedAt)}`
-          : 'Memuat…'}
+      <Text variant="caption" tone={stale ? 'warning' : 'subtle'}>
+        {updatedAt === 0
+          ? 'Memuat…'
+          : stale
+            ? `Data kedaluwarsa · Dihitung ${formatTimeAgo(updatedAt)}`
+            : `Data tidak real-time · Dihitung ${formatTimeAgo(updatedAt)}`}
       </Text>
       <button
         type="button"

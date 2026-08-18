@@ -1,107 +1,105 @@
 /**
- * Product module — contract §4.6.
- *
- * `sku` is a known backend gap — specified by the contract, absent from the
- * Prisma schema. It stays in the client type and the mock serves it.
+ * Product master — contract §3.2.
  *
  * `price` crosses the boundary as a decimal string and leaves this file as
  * integer rupiah. Nothing downstream ever sees the string form.
+ *
+ * Two shapes that were in the previous contract are gone from §3.4 and so are
+ * gone from here: there is **no `sku`** on `ProductDto`, and there is no
+ * `DELETE` — a product is retired with `PATCH { is_active: false }` (BR-019).
+ * Price and status changes never rewrite past sales, which snapshot their own
+ * name and unit price (§3.2 warning).
  */
 
 import { z } from 'zod';
 
 import { request } from '@/api/client';
-import {
-  gapField,
-  id,
-  isoDateTime,
-  money,
-  noData,
-  paginated,
-  statusSchema,
-  type Page,
-  type Status,
-} from '@/api/schema';
+import { id, isoDateTime, money, paginated, type Page } from '@/api/schema';
 
-/** The trimmed category a product carries inline. */
-const embeddedCategorySchema = z
-  .object({ category_id: id, name: z.string() })
-  .transform((value) => ({ categoryId: value.category_id, name: value.name }));
-
+/** §3.4 `ProductDto`, plus the `category_name` the list endpoint joins in. */
 export const productSchema = z
   .object({
-    product_id: id,
+    id,
     merchant_id: id.optional(),
-    category_id: id.nullable().optional(),
+    category_id: id,
+    category_name: z.string().nullable().optional(),
     name: z.string(),
-    sku: gapField(z.string(), ''),
     price: money,
-    status: statusSchema,
+    /** §4.1 rule 5: the base threshold, overridable per outlet on inventory. */
+    low_stock_threshold: z.number(),
+    is_active: z.boolean(),
     created_at: isoDateTime.optional(),
     updated_at: isoDateTime.optional(),
-    category: embeddedCategorySchema.nullable().optional(),
   })
   .transform((value) => ({
-    productId: value.product_id,
+    productId: value.id,
     merchantId: value.merchant_id ?? null,
-    categoryId: value.category_id ?? null,
+    categoryId: value.category_id,
+    categoryName: value.category_name ?? null,
     name: value.name,
-    sku: value.sku,
-    /** Integer rupiah. */
+    /** Integer rupiah. The master price, before any per-outlet override. */
     price: value.price,
-    status: value.status,
+    lowStockThreshold: value.low_stock_threshold,
+    isActive: value.is_active,
     createdAt: value.created_at ?? null,
     updatedAt: value.updated_at ?? null,
-    category: value.category ?? null,
   }));
 
 export type Product = z.infer<typeof productSchema>;
 
+/** §3.2: search matches the product name only — there is no SKU to match. */
 export type ProductFilters = {
   category_id?: string;
-  status?: Status;
-  /** Matches name or SKU. */
+  is_active?: boolean;
   search?: string;
   page?: number;
-  limit?: number;
+  size?: number;
 };
 
 export type CreateProductInput = {
   name: string;
-  sku: string;
   /** Decimal string, as the contract expects on the way in. */
   price: string;
   category_id: string;
-  status?: Status;
+  low_stock_threshold: number;
+  is_active?: boolean;
 };
 
 export type UpdateProductInput = Partial<CreateProductInput>;
 
 export const productsApi = {
+  /** OWNER and ADMIN. The cashier's catalogue is a different endpoint (§4.2). */
   list: (filters: ProductFilters = {}): Promise<Page<Product>> =>
     request({
       method: 'GET',
       path: '/products',
       query: {
         category_id: filters.category_id,
-        status: filters.status,
+        is_active: filters.is_active,
         search: filters.search,
         page: filters.page,
-        limit: filters.limit,
+        size: filters.size,
       },
       schema: paginated(productSchema),
     }),
-
-  get: (productId: string) =>
-    request({ method: 'GET', path: `/products/${productId}`, schema: productSchema }),
 
   /** 400 when the category is inactive or belongs to another merchant. */
   create: (input: CreateProductInput) =>
     request({ method: 'POST', path: '/products', body: input, schema: productSchema }),
 
   update: (productId: string, input: UpdateProductInput) =>
-    request({ method: 'PUT', path: `/products/${productId}`, body: input, schema: productSchema }),
+    request({
+      method: 'PATCH',
+      path: `/products/${productId}`,
+      body: input,
+      schema: productSchema,
+    }),
 
   deactivate: (productId: string) =>
-    request({ method: 'DELETE', path: `/products/${productId}`, schema: noData }),
+    request({
+      method: 'PATCH',
+      path: `/products/${productId}`,
+      body: { is_active: false },
+      schema: productSchema,
+    }),
 };

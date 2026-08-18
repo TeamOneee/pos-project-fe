@@ -8,6 +8,13 @@
  * Below tablet the table becomes stacked cards (brief §7.3): the product stays
  * the identifier and everything else becomes a labelled line. A table that
  * scrolls sideways on a phone is not a table anyone reads.
+ *
+ * Two columns the previous contract fed are gone, because §4.4 `InventoryDto`
+ * carries neither: the product's **SKU** (no such field exists anywhere in this
+ * contract) and its **price** (a catalog concern — inventory reports quantity).
+ * In their place is the row's effective threshold, which is worth showing now
+ * that it is genuinely per-row: the same product can be "low" at 5 in one
+ * outlet and at 20 in another (§4.1 rule 5).
  */
 
 import * as React from 'react';
@@ -18,37 +25,42 @@ import { StockBadge, rowTint } from '@/components/pages/inventory/stock-status';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import type { InventoryItem } from '@/services/inventory';
 import { formatDateTime, formatTimeAgo } from '@/lib/date';
-import { formatIDR } from '@/lib/money';
 import { formatCount } from '@/lib/number';
 import { stockLevel } from '@/lib/stock';
 import { cn } from '@/lib/utils';
+import { initials } from '@/components/ui/avatar';
 
 export type InventoryRow = {
-  inventoryId: string | null;
+  inventoryId: string;
   productId: string;
   name: string;
-  sku: string;
-  price: number;
+  outletId: string;
+  outletName: string;
   quantity: number;
+  /** Override where the outlet set one, product base otherwise (§4.1 rule 5). */
+  effectiveLowStockThreshold: number;
+  /** The server's own verdict, kept for callers that would rather not recompute. */
+  isLowStock: boolean;
   updatedAt: string | null;
 };
 
-/** Flattens the embedded product an inventory row carries into a flat row. */
+/** The list payload is already flat — this only renames it into domain terms. */
 export function toInventoryRow(item: InventoryItem): InventoryRow {
   return {
     inventoryId: item.inventoryId,
     productId: item.productId,
-    name: item.product?.name ?? 'Produk tidak dikenal',
-    sku: item.product?.sku ?? '',
-    price: item.product?.price ?? 0,
+    name: item.productName,
+    outletId: item.outletId,
+    outletName: item.outletName,
     quantity: item.quantity,
+    effectiveLowStockThreshold: item.effectiveLowStockThreshold,
+    isLowStock: item.isLowStock,
     updatedAt: item.updatedAt,
   };
 }
 
 type InventoryTableProps = {
   rows: InventoryRow[];
-  threshold: number;
   /** Admin only. Absent means no action column is rendered. */
   onAdjust?: ((row: InventoryRow) => void) | undefined;
   onOpenStockPerOutlet: (row: InventoryRow) => void;
@@ -62,7 +74,6 @@ type InventoryTableProps = {
 
 export function InventoryTable({
   rows,
-  threshold,
   onAdjust,
   onOpenStockPerOutlet,
   emptyMessage,
@@ -89,11 +100,11 @@ export function InventoryTable({
     return (
       <div className="flex flex-col gap-md">
         {rows.map((row) => {
-          const level = stockLevel(row.quantity, threshold);
+          const level = stockLevel(row.quantity, row.effectiveLowStockThreshold);
 
           return (
             <div
-              key={row.productId}
+              key={row.inventoryId}
               className={cn(
                 'flex flex-col gap-sm rounded-md border border-border p-md',
                 rowTint(level)
@@ -101,12 +112,17 @@ export function InventoryTable({
             >
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
 
-              <Line label="Harga">
-                <Text variant="mono">{formatIDR(row.price)}</Text>
+              <Line label="Outlet">
+                <Text variant="body">{row.outletName}</Text>
               </Line>
               <Line label="Stok">
                 <Text variant="body-strong" className="tabular-nums">
                   {formatCount(row.quantity)}
+                </Text>
+              </Line>
+              <Line label="Batas">
+                <Text variant="mono" tone="muted">
+                  {formatCount(row.effectiveLowStockThreshold)}
                 </Text>
               </Line>
               <Line label="Status Stok">
@@ -116,7 +132,7 @@ export function InventoryTable({
                 <UpdatedAt value={row.updatedAt} />
               </Line>
 
-              {onAdjust && row.inventoryId ? (
+              {onAdjust ? (
                 <Button variant="secondary" size="sm" onClick={() => onAdjust(row)}>
                   <Text>Sesuaikan</Text>
                 </Button>
@@ -132,20 +148,20 @@ export function InventoryTable({
     <div>
       <div className="flex flex-row gap-md border-b border-border pb-sm">
         <Head className="flex-[3]">Produk</Head>
-        <Head className="flex-1">SKU</Head>
-        <Head className="flex-1 justify-end">Harga</Head>
+        <Head className="flex-[2]">Outlet</Head>
         <Head className="flex-1 justify-end">Stok</Head>
+        <Head className="flex-1 justify-end">Batas</Head>
         <Head className="flex-1">Status Stok</Head>
         <Head className="flex-1">Terakhir Diubah</Head>
         {onAdjust ? <Head className="w-[120px] shrink-0">Aksi</Head> : null}
       </div>
 
       {rows.map((row) => {
-        const level = stockLevel(row.quantity, threshold);
+        const level = stockLevel(row.quantity, row.effectiveLowStockThreshold);
 
         return (
           <div
-            key={row.productId}
+            key={row.inventoryId}
             className={cn(
               'flex flex-row items-center gap-md border-b border-border py-md',
               rowTint(level)
@@ -155,20 +171,22 @@ export function InventoryTable({
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
             </div>
 
-            <div className="min-w-0 flex-1">
-              <Text variant="mono" tone="muted" className="block truncate">
-                {row.sku || '—'}
+            <div className="min-w-0 flex-[2]">
+              <Text variant="body" className="block truncate">
+                {row.outletName}
               </Text>
-            </div>
-
-            <div className="flex flex-1 justify-end">
-              <Text variant="mono">{formatIDR(row.price)}</Text>
             </div>
 
             {/* The number the screen exists for: large, mono, right-aligned. */}
             <div className="flex flex-1 justify-end">
               <Text variant="h3" className="tabular-nums">
                 {formatCount(row.quantity)}
+              </Text>
+            </div>
+
+            <div className="flex flex-1 justify-end">
+              <Text variant="mono" tone="muted">
+                {formatCount(row.effectiveLowStockThreshold)}
               </Text>
             </div>
 
@@ -182,15 +200,9 @@ export function InventoryTable({
 
             {onAdjust ? (
               <div className="w-[120px] shrink-0">
-                {row.inventoryId ? (
-                  <Button variant="secondary" size="sm" onClick={() => onAdjust(row)}>
-                    <Text>Sesuaikan</Text>
-                  </Button>
-                ) : (
-                  <Text variant="caption" tone="subtle">
-                    Belum ada stok
-                  </Text>
-                )}
+                <Button variant="secondary" size="sm" onClick={() => onAdjust(row)}>
+                  <Text>Sesuaikan</Text>
+                </Button>
               </div>
             ) : null}
           </div>
@@ -251,7 +263,7 @@ function Line({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function Head({ children, className }: { children: React.ReactNode; className?: string }) {
+function Head({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <div className={cn('flex', className)}>
       <Text variant="caption" tone="subtle">
@@ -259,13 +271,4 @@ function Head({ children, className }: { children: React.ReactNode; className?: 
       </Text>
     </div>
   );
-}
-
-/** Stands in for a product photo, which the catalogue does not carry. */
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
 }

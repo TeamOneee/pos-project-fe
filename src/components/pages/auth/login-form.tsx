@@ -51,7 +51,7 @@ export function LoginForm() {
 
   const submit = handleSubmit((values) => {
     login.mutate(values, {
-      onSuccess: (result) => navigate(landingRoute(result.user.role), { replace: true }),
+      onSuccess: (result) => navigate(landingRoute(result.role), { replace: true }),
     });
   });
 

@@ -6,10 +6,12 @@
  * be raced by two events dispatched in the same tick — a double tap, or Enter
  * arriving while a press is already in flight. The ref closes that window.
  *
- * The idempotency key is minted once per attempt and reused for retries, so a
+ * `checkout_request_id` is minted once per attempt and reused for retries, so a
  * resend after a dropped connection returns the sale the server already made
- * instead of making a second one. Accepting new prices deliberately mints a
- * fresh key, because at that point a different request is being sent.
+ * instead of making a second one (§5.2). Accepting new prices deliberately
+ * mints a fresh id, because at that point a genuinely different request is
+ * being sent — reusing the old id would earn an `IDEMPOTENCY_CONFLICT` rather
+ * than a sale.
  */
 
 import * as React from 'react';
@@ -22,25 +24,25 @@ import {
   type PaymentMethod,
 } from '@/lib/checkout-machine';
 import { useCheckout as useCheckoutMutation } from '@/hooks/use-transactions';
-import type { CheckoutInput } from '@/services/transactions';
+import { mintCheckoutRequestId, type CheckoutInput } from '@/services/transactions';
+import { formatMoneyForApi } from '@/lib/money';
 import type { Rupiah } from '@/lib/money';
 import type { CartLine } from '@/stores/cart';
 
 type Options = {
-  cartId: string | null;
+  /** Required by §5.2. A cashier's own outlet; an Owner's selected outlet. */
+  outletId: string | null;
   lines: CartLine[];
   total: Rupiah;
 };
 
 /**
- * Non-Tunai collapses QRIS, transfer and card into one choice, per S-17. The
- * API has no NON_CASH member, so it is recorded as QRIS — the closest thing
- * the contract offers. Worth a backend ticket if the distinction ever matters
- * for reporting.
+ * §5.1 lists `CASH`, `QRIS` and `TRANSFER`. The till offers two buttons, so
+ * Non-Tunai is recorded as `QRIS` — the closest thing the contract offers.
  */
 const METHOD_FOR_API = { CASH: 'CASH', NON_CASH: 'QRIS' } as const;
 
-export function useCheckout({ cartId, lines, total }: Options) {
+export function useCheckout({ outletId, lines, total }: Options) {
   const [state, dispatch] = React.useReducer(checkoutReducer, initialCheckoutState);
 
   const mutation = useCheckoutMutation();
@@ -48,47 +50,48 @@ export function useCheckout({ cartId, lines, total }: Options) {
   /** The real lock. Synchronous, so nothing can slip past it. */
   const inFlight = React.useRef(false);
 
-  const latest = React.useRef({ state, lines, total, cartId });
+  const latest = React.useRef({ state, lines, total, outletId });
   React.useEffect(() => {
-    latest.current = { state, lines, total, cartId };
-  }, [state, lines, total, cartId]);
+    latest.current = { state, lines, total, outletId };
+  }, [state, lines, total, outletId]);
 
   const send = React.useCallback(() => {
     const current = latest.current;
 
     if (inFlight.current) return;
+    if (!current.outletId) return;
     if (!canConfirm(current.state, current.total)) return;
 
     inFlight.current = true;
 
-    const idempotencyKey = current.state.idempotencyKey ?? mintKey();
-    dispatch({ type: 'submit', idempotencyKey });
+    const checkoutRequestId = current.state.checkoutRequestId ?? mintCheckoutRequestId();
+    dispatch({ type: 'submit', checkoutRequestId });
 
-    const paymentMethod = METHOD_FOR_API[current.state.method];
-    const input: CheckoutInput =
-      current.state.payload === 'cart' && current.cartId
-        ? { cart_id: current.cartId, payment_method: paymentMethod }
-        : {
-            items: current.lines.map((line) => ({
-              product_id: line.productId,
-              quantity: line.quantity,
-            })),
-            payment_method: paymentMethod,
-          };
+    const input: CheckoutInput = {
+      checkout_request_id: checkoutRequestId,
+      outlet_id: current.outletId,
+      payment_method: METHOD_FOR_API[current.state.method],
+      items: current.lines.map((line) => ({
+        product_id: line.productId,
+        quantity: line.quantity,
+        // Omitted once the cashier has accepted the server's prices, which is
+        // what turns the next attempt into "sell at whatever it costs now".
+        ...(current.state.assertPrices
+          ? { expected_unit_price: formatMoneyForApi(line.unitPrice) }
+          : {}),
+      })),
+    };
 
-    mutation.mutate(
-      { input, idempotencyKey },
-      {
-        onSuccess: (result) => {
-          inFlight.current = false;
-          dispatch({ type: 'resolve', result });
-        },
-        onError: (error) => {
-          inFlight.current = false;
-          dispatch({ type: 'reject', failure: classifyFailure(error) });
-        },
-      }
-    );
+    mutation.mutate(input, {
+      onSuccess: (result) => {
+        inFlight.current = false;
+        dispatch({ type: 'resolve', result });
+      },
+      onError: (error) => {
+        inFlight.current = false;
+        dispatch({ type: 'reject', failure: classifyFailure(error) });
+      },
+    });
   }, [mutation]);
 
   const selectMethod = React.useCallback(
@@ -101,15 +104,15 @@ export function useCheckout({ cartId, lines, total }: Options) {
     []
   );
 
-  /** Resends the identical request — same key, same payload. */
+  /** Resends the identical request — same id, same payload. */
   const retry = React.useCallback(() => send(), [send]);
 
   /**
    * Accepts the server's prices and resubmits at them.
    *
    * The resubmit waits for the reducer to settle, because the new request has
-   * to be built from the switched payload and the cleared key, not the ones
-   * that were rejected.
+   * to be built from the cleared id and the dropped price assertions, not the
+   * ones that were rejected.
    */
   const repriceThenSend = React.useRef(false);
 
@@ -120,11 +123,11 @@ export function useCheckout({ cartId, lines, total }: Options) {
 
   React.useEffect(() => {
     if (!repriceThenSend.current) return;
-    if (state.status !== 'idle' || state.payload !== 'items') return;
+    if (state.status !== 'idle' || state.assertPrices) return;
 
     repriceThenSend.current = false;
     send();
-  }, [state.status, state.payload, send]);
+  }, [state.status, state.assertPrices, send]);
 
   const dismissFailure = React.useCallback(() => dispatch({ type: 'dismiss-failure' }), []);
 
@@ -135,7 +138,7 @@ export function useCheckout({ cartId, lines, total }: Options) {
 
   return {
     state,
-    canConfirm: canConfirm(state, total),
+    canConfirm: canConfirm(state, total) && outletId !== null,
     submit: send,
     retry,
     acceptNewPrices,
@@ -144,13 +147,4 @@ export function useCheckout({ cartId, lines, total }: Options) {
     setReceived,
     reset,
   };
-}
-
-/**
- * Unique per attempt, deliberately not derived from the payload: two customers
- * buying the same single item are two sales, and a payload-derived key would
- * collapse them into one.
- */
-function mintKey(): string {
-  return `chk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }

@@ -1,20 +1,20 @@
 /**
- * The loaded detail: one query, one receipt, two destinations.
+ * The body behind `/transactions/:id`, in both its containers.
  *
- * Sits between the container (drawer or page) and the body, so the data and the
- * receipt actions are written once. The receipt is built with
- * `receiptFromTransaction`, the same `ReceiptData` shape the checkout path
- * produces, and rendered by the same `receiptHtml` — a reprint of a sale is the
- * document that sale printed, not a second design of it.
+ * The receipt comes from `GET /receipts/:transaction_id` (§5.2) rather than
+ * being assembled from the transaction plus whatever the screen happens to
+ * know. That endpoint is the only one carrying `merchant_name`, `outlet_name`
+ * and `outlet_address`, and it renders from the sale's own snapshot — so a
+ * reprint of a year-old sale shows the prices and the product names as they
+ * were, not as they are (§5.2 note).
  *
- * A Cashier reaching another outlet's transaction is answered by the backend with
- * a 403, and this panel says so plainly. The check is repeated on the client
- * against the payload it did receive, so a more permissive backend cannot turn
- * into a leak here.
+ * It is also the only way a cashier can name their own outlet: `GET /outlets`
+ * is Owner and Admin only.
  */
 
 import * as React from 'react';
 
+import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/components/pages/auth/auth-provider';
 import {
@@ -22,13 +22,11 @@ import {
   TransactionDetailError,
   TransactionDetailSkeleton,
 } from '@/components/pages/transactions/transaction-detail';
-import { useMerchant } from '@/hooks/use-merchant';
-import { useTransaction } from '@/hooks/use-transactions';
+import { useReceipt, useTransaction } from '@/hooks/use-transactions';
 import { isApiErrorOfKind } from '@/api/errors';
-import { can } from '@/lib/permissions';
 import { downloadReceiptPdf, PDF_DESTINATION_HINT } from '@/lib/download-receipt';
 import { printReceipt } from '@/lib/print-receipt';
-import { receiptFromTransaction } from '@/lib/receipt-data';
+import { receiptFromDto } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
 import { isTransactionVisible } from '@/lib/transaction-scope';
 
@@ -36,30 +34,25 @@ export function TransactionDetailPanel({ transactionId }: { transactionId: strin
   const { role, outletId } = useAuth();
   const { toast } = useToast();
   const detail = useTransaction(transactionId);
+  const receiptQuery = useReceipt(transactionId);
   const [busy, setBusy] = React.useState(false);
 
-  // Only the Owner may read the merchant record; the outlet name on the
-  // transaction carries the header otherwise.
-  const merchant = useMerchant({ enabled: role !== null && can(role, 'merchant') });
-
-  const transaction = detail.data?.transaction;
-
-  const receipt = React.useMemo(() => {
-    if (!detail.data || !transaction) return null;
-    return receiptFromTransaction({
-      transaction,
-      items: detail.data.items,
-      merchantName: merchant.data?.name ?? transaction.outlet?.name ?? '',
-      outletName: transaction.outlet?.name ?? '',
-      cashierName: transaction.cashier?.name ?? '',
-    });
-  }, [detail.data, transaction, merchant.data]);
+  const transaction = detail.data ?? null;
 
   const emit = async (destination: 'print' | 'pdf') => {
-    if (!receipt) return;
+    const dto = receiptQuery.data;
+    if (!dto) {
+      toast({
+        variant: 'error',
+        title: 'Struk belum siap',
+        description: 'Data struk belum selesai dimuat. Coba lagi sebentar.',
+      });
+      return;
+    }
+
     setBusy(true);
     try {
-      const html = receiptHtml(receipt);
+      const html = receiptHtml(receiptFromDto(dto));
       await (destination === 'print' ? printReceipt(html) : downloadReceiptPdf(html));
     } catch {
       toast({
@@ -74,23 +67,32 @@ export function TransactionDetailPanel({ transactionId }: { transactionId: strin
 
   if (detail.isPending) return <TransactionDetailSkeleton />;
 
-  if (detail.isError || !detail.data || !transaction) {
+  if (detail.isError || !transaction) {
     return <TransactionDetailError forbidden={isApiErrorOfKind(detail.error, 'forbidden')} />;
   }
 
-  // Belt and braces: the server already refused, but if it ever answers with a
-  // transaction outside the session's scope, this screen still will not show it.
+  // The server scopes this too; the client agreeing with it keeps a deep link
+  // out of another outlet's sale from rendering before the 404 arrives.
   if (!isTransactionVisible(transaction, role, outletId)) {
     return <TransactionDetailError forbidden />;
   }
 
   return (
-    <TransactionDetailBody
-      detail={detail.data}
-      busy={busy}
-      onPrint={() => void emit('print')}
-      onDownload={() => void emit('pdf')}
-      actionHint={PDF_DESTINATION_HINT}
-    />
+    <>
+      <TransactionDetailBody
+        transaction={transaction}
+        outletName={receiptQuery.data?.outletName ?? ''}
+        busy={busy || receiptQuery.isPending}
+        onPrint={() => void emit('print')}
+        onDownload={() => void emit('pdf')}
+        actionHint={PDF_DESTINATION_HINT}
+      />
+
+      {receiptQuery.isError && (
+        <Text variant="caption" tone="warning">
+          Struk tidak dapat dimuat, jadi pencetakan sementara tidak tersedia.
+        </Text>
+      )}
+    </>
   );
 }

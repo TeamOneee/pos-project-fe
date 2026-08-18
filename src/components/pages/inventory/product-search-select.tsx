@@ -45,7 +45,7 @@ export function ProductSearchSelect({
   autoFocus?: boolean;
 }) {
   const [query, setQuery] = React.useState('');
-  const products = useProducts({ status: 'ACTIVE', limit: CATALOGUE_LIMIT });
+  const products = useProducts({ is_active: true, size: CATALOGUE_LIMIT });
 
   const matches = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -58,7 +58,7 @@ export function ProductSearchSelect({
         (product) =>
           !needle ||
           product.name.toLowerCase().includes(needle) ||
-          product.sku.toLowerCase().includes(needle)
+          (product.categoryName ?? '').toLowerCase().includes(needle)
       )
       .slice(0, 8);
   }, [products.data, query, excludeIds]);
@@ -133,7 +133,7 @@ export function ProductSearchSelect({
                 {product.name}
               </Text>
               <Text variant="caption" tone="subtle">
-                {product.sku}
+                {product.categoryName ?? ''}
               </Text>
             </button>
           ))
@@ -144,7 +144,7 @@ export function ProductSearchSelect({
 }
 
 function toPicked(product: Product): PickedProduct {
-  return { productId: product.productId, name: product.name, sku: product.sku };
+  return { productId: product.productId, name: product.name, sku: product.categoryName ?? '' };
 }
 
 function Row({ children, muted }: { children: React.ReactNode; muted?: boolean }) {

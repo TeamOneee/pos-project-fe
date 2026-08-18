@@ -1,36 +1,58 @@
-/** Outlets. Owner manages; every role may read them for filters. */
+/**
+ * Outlets.
+ *
+ * Reading is OWNER and ADMIN (§2.2) — a CASHIER gets a 403, so no cashier
+ * screen may depend on this list. There is no `GET /outlets/:id`: one outlet is
+ * found in the list rather than fetched.
+ */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useGuardedMutation, type Requirement } from '@/hooks/use-guarded-mutation';
 import {
   outletsApi,
   type CreateOutletInput,
+  type Outlet,
   type OutletFilters,
   type UpdateOutletInput,
 } from '@/services/outlets';
+import { useAuth } from '@/components/pages/auth/auth-provider';
+import { can } from '@/lib/permissions';
 import { queryKeys } from '@/lib/query-client';
 
+const MANAGE_OUTLETS: Requirement = { resource: 'outlets', access: 'manage' };
+
+/**
+ * The outlet list, fetched only for roles that may read it.
+ *
+ * The `enabled` guard is not cosmetic: without it a cashier session would fire
+ * a request that is certain to 403 on every screen carrying an outlet filter.
+ */
 export function useOutlets(filters: OutletFilters = {}) {
+  const { role } = useAuth();
+  const allowed = role !== null && can(role, 'outlets', 'read');
+
   return useQuery({
     queryKey: queryKeys.outlets(filters),
     queryFn: () => outletsApi.list(filters),
+    enabled: allowed,
+    staleTime: 5 * 60_000,
   });
 }
 
-export function useOutlet(outletId: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.outlet(outletId ?? ''),
-    queryFn: () => outletsApi.get(outletId ?? ''),
-    enabled: Boolean(outletId),
-  });
+/** One outlet, resolved from the list. Undefined until the list has loaded. */
+export function useOutlet(outletId: string | undefined): Outlet | undefined {
+  const outlets = useOutlets();
+  if (!outletId) return undefined;
+  return outlets.data?.items.find((outlet) => outlet.outletId === outletId);
 }
 
-/** Invalidate every outlet list, plus the dashboards that count outlets. */
 function useOutletInvalidation() {
   const queryClient = useQueryClient();
 
   return () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.outlets() });
+    // Outlet counts and per-outlet figures feed the dashboards.
     void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
   };
 }
@@ -38,7 +60,7 @@ function useOutletInvalidation() {
 export function useCreateOutlet() {
   const invalidate = useOutletInvalidation();
 
-  return useMutation({
+  return useGuardedMutation(MANAGE_OUTLETS, {
     mutationFn: (input: CreateOutletInput) => outletsApi.create(input),
     onSuccess: invalidate,
   });
@@ -47,18 +69,27 @@ export function useCreateOutlet() {
 export function useUpdateOutlet() {
   const invalidate = useOutletInvalidation();
 
-  return useMutation({
+  return useGuardedMutation(MANAGE_OUTLETS, {
     mutationFn: ({ outletId, input }: { outletId: string; input: UpdateOutletInput }) =>
       outletsApi.update(outletId, input),
     onSuccess: invalidate,
   });
 }
 
+/**
+ * Deactivating an outlet makes it read-only for business operations: no
+ * checkout against it, no stock adjustment, and its cashiers cannot operate
+ * (§2.2 warning, FR-TEN-004).
+ */
 export function useDeactivateOutlet() {
+  const queryClient = useQueryClient();
   const invalidate = useOutletInvalidation();
 
-  return useMutation({
+  return useGuardedMutation(MANAGE_OUTLETS, {
     mutationFn: (outletId: string) => outletsApi.deactivate(outletId),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory() });
+    },
   });
 }

@@ -15,7 +15,7 @@ import { Text } from '@/components/ui/text';
 import {
   CategoryBadge,
   InactiveCategoryBadge,
-  StatusBadge,
+  ActiveBadge,
 } from '@/components/pages/catalog/catalog-badges';
 import { ProductThumb } from '@/components/pages/catalog/product-identity';
 import type { CatalogRow } from '@/components/pages/catalog/product-table';
@@ -37,7 +37,7 @@ export function ProductGrid({
       {rows.map(({ product, hiddenByCategory }) => (
         <Card
           key={product.productId}
-          className={cn('h-full', product.status !== 'ACTIVE' && 'opacity-60')}
+          className={cn('h-full', !product.isActive && 'opacity-60')}
         >
           <CardContent className="flex flex-col gap-md pt-lg">
             <div className="flex flex-row items-start justify-between gap-sm">
@@ -55,8 +55,10 @@ export function ProductGrid({
                   >
                     {product.name}
                   </Text>
-                  <Text variant="mono" tone="muted" className="block truncate">
-                    {product.sku || '—'}
+                  {/* §3.4 has no SKU; the low-stock threshold is the second
+                      identifying number a catalogue card can honestly show. */}
+                  <Text variant="caption" tone="subtle" className="block truncate">
+                    {`Batas stok ${product.lowStockThreshold}`}
                   </Text>
                 </span>
               </button>
@@ -69,8 +71,8 @@ export function ProductGrid({
             </Text>
 
             <div className="flex flex-row flex-wrap items-center gap-sm">
-              <CategoryBadge name={product.category?.name ?? null} />
-              <StatusBadge status={product.status} />
+              <CategoryBadge name={product.categoryName} />
+              <ActiveBadge active={product.isActive} />
               {hiddenByCategory && <InactiveCategoryBadge />}
             </div>
           </CardContent>

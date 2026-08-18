@@ -29,11 +29,9 @@ import { CatalogHeader } from '@/components/pages/pos/catalog-header';
 import { emptyKind, filterProducts } from '@/lib/filter-products';
 import { stockMap, usePosCatalog, type PosProduct } from '@/lib/pos-catalog';
 import { ProductGrid } from '@/components/pages/pos/product-grid';
-import { DEFAULT_LOW_STOCK_THRESHOLD } from '@/lib/stock';
-import { useCartSync } from '@/hooks/use-cart-sync';
 import { usePosIdentity } from '@/hooks/use-pos-identity';
 import { printReceipt } from '@/lib/print-receipt';
-import { buildReceipt, type ReceiptData } from '@/lib/receipt-data';
+import { receiptFromCheckout, type ReceiptData } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
 import { isShareAvailable, shareReceipt } from '@/lib/share-receipt';
 import { selectItemCount, selectSubtotal, useCartStore } from '@/stores/cart';
@@ -73,9 +71,12 @@ export default function PosScreen() {
   const syncAvailability = useCartStore((state) => state.syncAvailability);
 
   const stockByProduct = React.useMemo(() => stockMap(catalog.products), [catalog.products]);
-  const { clear, cartId } = useCartSync({ enabled: true, stockByProduct });
 
-  const checkout = useCheckout({ cartId, lines, total: subtotal });
+  // §5.2: the cart is client-side only. There is no server cart to sync with,
+  // so clearing it is a local action and nothing is reconciled on load.
+  const clear = useCartStore((state) => state.clear);
+
+  const checkout = useCheckout({ outletId, lines, total: subtotal });
 
   // Inventory refetches after a sale elsewhere; the ceilings follow.
   React.useEffect(() => {
@@ -106,16 +107,12 @@ export default function PosScreen() {
   React.useEffect(() => {
     if (status !== 'success' || !result) return;
 
-    const { lines: soldLines, identity: who } = snapshot.current;
+    const { identity: who } = snapshot.current;
     setReceipt(
-      buildReceipt({
-        transaction: result.transaction,
-        items: result.items,
-        cartLines: soldLines,
+      receiptFromCheckout({
+        transaction: result,
         merchantName: who.merchantName,
         outletName: who.outletName,
-        cashierName: who.cashierName,
-        method: checkout.state.method,
         received: checkout.state.received,
       })
     );
@@ -147,11 +144,18 @@ export default function PosScreen() {
     const failure = checkout.state.failure;
     if (failure?.kind !== 'price_changed') return;
 
+    // §5.2 reports drift by position in the request we sent, so the index is
+    // resolved back through the very array that was submitted.
     applyPrices(
-      Object.fromEntries(failure.items.map((item) => [item.productId, item.currentPrice]))
+      Object.fromEntries(
+        failure.items.flatMap((item) => {
+          const line = item.itemIndex === null ? undefined : lines[item.itemIndex];
+          return line ? [[line.productId, item.currentPrice] as const] : [];
+        })
+      )
     );
     checkout.acceptNewPrices();
-  }, [checkout, applyPrices]);
+  }, [checkout, applyPrices, lines]);
 
   const handlePrint = React.useCallback(() => {
     if (receipt) void printReceipt(receiptHtml(receipt));
@@ -199,7 +203,6 @@ export default function PosScreen() {
       addLine({
         productId: product.productId,
         name: product.name,
-        sku: product.sku,
         unitPrice: product.price,
         availableStock: product.stock,
       });
@@ -253,7 +256,6 @@ export default function PosScreen() {
           products={filtered}
           columns={COLUMNS[breakpoint]}
           quantities={quantities}
-          threshold={DEFAULT_LOW_STOCK_THRESHOLD}
           onSelect={handleSelect}
           emptyTitle={empty === 'no-results' ? 'Produk tidak ditemukan' : 'Belum ada produk'}
           emptyDescription={
@@ -294,7 +296,7 @@ export default function PosScreen() {
         onClose={() => setPaymentOpen(false)}
         checkout={checkout}
         total={subtotal}
-        quantities={quantities}
+        lines={lines}
         onAdjustCart={adjustCart}
         onAcceptNewPrices={acceptNewPrices}
       />

@@ -1,35 +1,34 @@
 /**
  * What the POS grid is allowed to sell.
  *
- * Three endpoints have to agree before a tile can render: the product must be
- * active, its category must be active, and its stock is whatever the cashier's
- * own outlet holds. Composing that here rather than in the grid keeps the
- * filtering testable and stops a component from ever having to ask "should this
- * product be here?".
+ * This used to compose three Owner/Admin endpoints — products, categories and
+ * inventory — and apply the sellability rule on the client. Contract §4.2 makes
+ * that both unnecessary and impossible:
  *
- * The deactivated-category rule matters: a product can be ACTIVE while the
- * category it belongs to is not, and the backend will happily return it. It
- * must not appear in the grid or the chip row. That rule is shared with the
- * catalog screen, which warns the Admin about the same products — see
- * lib/catalog-visibility.
+ *   • Unnecessary, because `GET /products/catalog` already returns only active
+ *     products in active categories that have stock at the outlet, priced at
+ *     that outlet's effective price (FR-CAT-006, FR-CAT-011–012, OD-002).
+ *   • Impossible, because a CASHIER may call none of the three: `GET /products`
+ *     and `GET /inventory` are OWNER/ADMIN only (§3.2, §4.2).
+ *
+ * So the till reads one endpoint and trusts it. The only thing still joined
+ * locally is the category *name* for the chip row, since the catalogue rows
+ * carry `category_id` but not the label — and `GET /categories` is readable by
+ * every role.
  */
 
 import * as React from 'react';
 
+import { useCatalog } from '@/hooks/use-catalog';
 import { useCategories } from '@/hooks/use-categories';
-import { useInventory } from '@/hooks/use-inventory';
-import { useProducts } from '@/hooks/use-products';
+import type { CatalogProduct } from '@/services/catalog';
 import type { Category } from '@/services/categories';
-import type { InventoryItem } from '@/services/inventory';
-import type { Product } from '@/services/products';
-import { activeCategoryIndex, isVisibleToCashier } from '@/lib/catalog-visibility';
 import type { Rupiah } from '@/lib/money';
 
 export type PosProduct = {
   productId: string;
   name: string;
-  sku: string;
-  /** Integer rupiah. */
+  /** Integer rupiah — this outlet's effective price. */
   price: Rupiah;
   categoryId: string;
   categoryName: string;
@@ -45,51 +44,37 @@ export type PosCatalog = {
 };
 
 /**
- * The POS asks for every product in one page rather than paginating: the grid
- * is virtualised, the search is client-side, and a cashier scrolling into a
+ * The POS asks for one large page rather than paginating: the grid is
+ * virtualised, the search is client-side, and a cashier scrolling into a
  * network round trip mid-sale is worse than one larger initial load.
+ *
+ * §0 caps `size` at 100, so this is the ceiling — a merchant with more sellable
+ * products than this at one outlet will need the grid to page.
  */
-export const CATALOG_PAGE_SIZE = 500;
+export const CATALOG_PAGE_SIZE = 100;
 
-export function buildCatalog(
-  products: Product[],
-  categories: Category[],
-  inventory: InventoryItem[]
-): PosCatalog {
-  const activeCategories = activeCategoryIndex(categories);
+export function buildCatalog(rows: CatalogProduct[], categories: Category[]): PosCatalog {
+  const nameById = new Map(categories.map((category) => [category.categoryId, category.name]));
 
-  const stockByProduct = new Map(inventory.map((row) => [row.productId, row.quantity]));
-
-  const visible = products.flatMap<PosProduct>((product) => {
-    // Inactive product, no category, or a deactivated one: not sellable here.
-    // The catalog screen labels the same products from the same rule.
-    if (!isVisibleToCashier(product, activeCategories)) return [];
-
-    // Guaranteed present by the rule above; narrowing for the type checker.
-    const category = activeCategories.get(product.categoryId ?? '');
-    if (!category) return [];
-
-    return [
-      {
-        productId: product.productId,
-        name: product.name,
-        sku: product.sku,
-        price: product.price,
-        categoryId: category.categoryId,
-        categoryName: category.name,
-        stock: stockByProduct.get(product.productId) ?? 0,
-      },
-    ];
-  });
+  const products = rows.map<PosProduct>((row) => ({
+    productId: row.productId,
+    name: row.name,
+    price: row.price,
+    categoryId: row.categoryId,
+    // A row whose category is missing from the list is still sellable — the
+    // server said so — it just shows without a label rather than disappearing.
+    categoryName: nameById.get(row.categoryId) ?? '',
+    stock: row.stockQuantity,
+  }));
 
   // Only categories that can actually show something. A chip leading to an
   // empty grid is a dead end.
-  const stocked = new Set(visible.map((product) => product.categoryId));
-  const chips = [...activeCategories.values()]
+  const stocked = new Set(products.map((product) => product.categoryId));
+  const chips = categories
     .filter((category) => stocked.has(category.categoryId))
     .map((category) => ({ categoryId: category.categoryId, name: category.name }));
 
-  return { products: visible, categories: chips };
+  return { products, categories: chips };
 }
 
 /** Stock per product, for refreshing the cart's ceilings. */
@@ -98,23 +83,21 @@ export function stockMap(products: PosProduct[]): Record<string, number> {
 }
 
 export function usePosCatalog(outletId: string | null) {
-  const products = useProducts({ status: 'ACTIVE', limit: CATALOG_PAGE_SIZE });
-  const categories = useCategories();
-  const inventory = useInventory({ outlet_id: outletId ?? undefined, limit: CATALOG_PAGE_SIZE });
+  const catalogQuery = useCatalog({ outletId, size: CATALOG_PAGE_SIZE });
+  const categories = useCategories({ is_active: true, size: CATALOG_PAGE_SIZE });
 
   const catalog = React.useMemo(
-    () =>
-      buildCatalog(products.data?.items ?? [], categories.data ?? [], inventory.data?.items ?? []),
-    [products.data, categories.data, inventory.data]
+    () => buildCatalog(catalogQuery.data?.items ?? [], categories.data?.items ?? []),
+    [catalogQuery.data, categories.data]
   );
 
   return {
     catalog,
-    isPending: products.isPending || categories.isPending || inventory.isPending,
-    isError: products.isError || categories.isError || inventory.isError,
+    isPending: catalogQuery.isPending || categories.isPending,
+    isError: catalogQuery.isError || categories.isError,
     refetch: () => {
-      void products.refetch();
-      void inventory.refetch();
+      void catalogQuery.refetch();
+      void categories.refetch();
     },
   };
 }

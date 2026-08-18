@@ -7,12 +7,16 @@
  * navigation, which is what makes the browser's back button do the obvious thing.
  *
  * Access is Owner and Cashier. Admin is 403'd by the route guard, not by anything
- * here — transactions are closed to them in the role matrix.
+ * here — §5.2 states plainly that ADMIN has no access to transactions.
  *
  * A Cashier's scope is not a filter they can change: no outlet select is rendered
  * and, more to the point, `useTransactions` rewrites the outlet on every request
- * (lib/transaction-scope). They see every sale at their outlet, not just their
- * own — that is what an end-of-shift check needs.
+ * (lib/transaction-scope). The server additionally forces `operator_user_id` for
+ * a cashier (OD-003), so a cashier sees only their own sales.
+ *
+ * Two filters the previous contract had are gone, because §5.2 has no parameter
+ * for either: **cashier**, and any form of partial search. The number field is
+ * now a lookup against `GET /transactions/search`, which is an exact match.
  */
 
 import * as React from 'react';
@@ -35,29 +39,26 @@ import {
   type TransactionQuery,
 } from '@/components/pages/transactions/transaction-filters';
 import { SummaryStrip } from '@/components/pages/transactions/summary-strip';
-import {
-  TransactionTable,
-  type TransactionRow,
-} from '@/components/pages/transactions/transaction-table';
+import { TransactionTable } from '@/components/pages/transactions/transaction-table';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useOutlet, useOutlets } from '@/hooks/use-outlets';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useUsers } from '@/hooks/use-users';
-import type { Transaction, TransactionFilters } from '@/services/transactions';
+import { useTransactionSearch, useTransactions } from '@/hooks/use-transactions';
+import type { TransactionFilters, TransactionSummary } from '@/services/transactions';
 import { dataScope } from '@/lib/permissions';
-import { matchesTransactionNumber, pageOf, summariseTransactions } from '@/lib/transaction-scope';
+import { searchTerm, summariseTransactions } from '@/lib/transaction-scope';
 
-const PAGE_LIMIT = 10;
+/** §0 pages from zero; the footer counts from one, so the two differ by one. */
+const PAGE_SIZE = 10;
 
 /**
- * How many matching rows the summary and the number search work over.
+ * How many matching rows the summary tiles are computed over.
  *
- * The contract offers neither an aggregate endpoint nor a `search=` parameter for
- * transactions, so both are computed from one wider request. The strip says when
- * the set was larger than this.
+ * §6.2's aggregates are Owner-only and answer for a period, not for a filtered
+ * list, so the strip sums one wide request instead. §0 caps `size` at 100, and
+ * the strip says when the real set was larger than what it summed.
  */
-const WINDOW_LIMIT = 500;
+const WINDOW_SIZE = 100;
 
 export default function TransactionsPage() {
   const { role, outletId } = useAuth();
@@ -71,71 +72,74 @@ export default function TransactionsPage() {
   const [query, setQuery] = React.useState<TransactionQuery>(EMPTY_TRANSACTION_QUERY);
   const [page, setPage] = React.useState(1);
 
-  const search = useDebouncedValue(query.search.trim(), 300);
+  const search = useDebouncedValue(searchTerm(query.search), 300);
+  const searching = search !== '';
 
-  // Server-side filters. The outlet is only ever asked for by an Owner; for a
-  // Cashier the query layer overwrites it regardless of what is passed.
+  /**
+   * Server-side filters. §5.2 takes ISO-8601 datetimes, so the two date inputs
+   * are widened to cover their whole day; the outlet is only ever asked for by
+   * an Owner, and the query layer overwrites it for a Cashier regardless.
+   */
   const serverFilters: TransactionFilters = {
-    ...(query.startDate ? { start_date: query.startDate } : {}),
-    ...(query.endDate ? { end_date: query.endDate } : {}),
-    ...(query.cashierId ? { cashier_id: query.cashierId } : {}),
+    ...(query.startDate ? { date_from: `${query.startDate}T00:00:00` } : {}),
+    ...(query.endDate ? { date_to: `${query.endDate}T23:59:59` } : {}),
     ...(!ownOutletOnly && query.outletId ? { outlet_id: query.outletId } : {}),
   };
 
-  const listQuery = useTransactions({ ...serverFilters, page, limit: PAGE_LIMIT });
-  // One wider request behind the summary tiles and the number search.
-  const windowQuery = useTransactions({ ...serverFilters, page: 1, limit: WINDOW_LIMIT });
+  // `page` is zero-based on the wire and one-based in the footer.
+  const listQuery = useTransactions({ ...serverFilters, page: page - 1, size: PAGE_SIZE });
+  const windowQuery = useTransactions({ ...serverFilters, page: 0, size: WINDOW_SIZE });
+  const lookup = useTransactionSearch(searching ? search : undefined);
 
   const outlets = useOutlets({ status: 'ACTIVE' });
-  // GET /users is Owner-only, and a Cashier has no cashier filter to populate.
-  const staff = useUsers({ role: 'CASHIER' }, { enabled: !ownOutletOnly });
   const ownOutlet = useOutlet(ownOutletOnly ? (outletId ?? undefined) : undefined);
 
-  const filterKey = `${search}|${query.startDate}|${query.endDate}|${query.outletId ?? ''}|${query.cashierId ?? ''}`;
+  const filterKey = `${search}|${query.startDate}|${query.endDate}|${query.outletId ?? ''}`;
   React.useEffect(() => {
     setPage(1);
   }, [filterKey]);
 
-  // Memoised so the two derivations below do not recompute on every render just
-  // because `?? []` minted a new array.
   const windowRows = React.useMemo(() => windowQuery.data?.items ?? [], [windowQuery.data]);
-  const searching = search !== '';
 
-  /** Searching narrows the window client-side; otherwise the server pages. */
-  const matches = React.useMemo(
-    () => (searching ? windowRows.filter((row) => matchesTransactionNumber(row, search)) : []),
-    [searching, windowRows, search]
+  /** Outlet id → name; the list rows carry only the id (§5.4). */
+  const outletNames = React.useMemo(
+    () =>
+      Object.fromEntries(
+        (outlets.data?.items ?? []).map((outlet) => [outlet.outletId, outlet.name])
+      ),
+    [outlets.data]
   );
 
-  const visible: Transaction[] = searching
-    ? pageOf(matches, page, PAGE_LIMIT)
+  /**
+   * An exact lookup returns one sale or a 404, so it replaces the list entirely
+   * rather than filtering it. A 404 here is "no such number", not an error.
+   */
+  const found = lookup.data ? toSummary(lookup.data) : null;
+  const visible: TransactionSummary[] = searching
+    ? found
+      ? [found]
+      : []
     : (listQuery.data?.items ?? []);
 
-  const total = searching ? matches.length : (listQuery.data?.total ?? 0);
-  const totalPages = searching
-    ? Math.max(1, Math.ceil(matches.length / PAGE_LIMIT))
-    : (listQuery.data?.totalPages ?? 1);
+  const total = searching ? visible.length : (listQuery.data?.total ?? 0);
+  const totalPages = searching ? 1 : (listQuery.data?.totalPages ?? 1);
 
   const summary = React.useMemo(
     () =>
       summariseTransactions(
-        searching ? matches : windowRows,
-        searching ? matches.length : (windowQuery.data?.total ?? 0),
-        WINDOW_LIMIT
+        searching ? visible : windowRows,
+        searching ? visible.length : (windowQuery.data?.total ?? 0),
+        WINDOW_SIZE
       ),
-    [searching, matches, windowRows, windowQuery.data]
+    [searching, visible, windowRows, windowQuery.data]
   );
 
-  const rows: TransactionRow[] = visible.map((transaction) => ({
-    transaction,
-    itemCount: transaction.itemCount,
-  }));
-
-  const pending = searching ? windowQuery.isPending : listQuery.isPending;
-  const failed = searching ? windowQuery.isError : listQuery.isError;
+  const pending = searching ? lookup.isPending : listQuery.isPending;
+  // A 404 from the lookup is an empty result, not a failure.
+  const failed = searching ? false : listQuery.isError;
   const filtered = isTransactionFiltered(query);
 
-  const openTransaction = (transaction: Transaction) =>
+  const openTransaction = (transaction: TransactionSummary) =>
     navigate(`/transactions/${transaction.transactionId}`);
   const closeTransaction = () => navigate('/transactions');
 
@@ -157,27 +161,23 @@ export default function TransactionsPage() {
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       {ownOutletOnly ? (
-        <ScopeSubtitle outletName={ownOutlet.data?.name ?? ''} />
+        <ScopeSubtitle outletName={ownOutlet?.name ?? ''} />
       ) : (
         <Text variant="body" tone="muted">
           Riwayat transaksi seluruh outlet.
         </Text>
       )}
 
-      <SummaryStrip summary={summary} windowSize={WINDOW_LIMIT} loading={windowQuery.isPending} />
+      <SummaryStrip summary={summary} windowSize={WINDOW_SIZE} loading={windowQuery.isPending} />
 
       <Card>
         <CardContent className="flex flex-col gap-lg pt-lg">
           <TransactionFilterBar
             query={query}
             onQueryChange={setQuery}
-            outlets={(outlets.data ?? []).map((outlet) => ({
+            outlets={(outlets.data?.items ?? []).map((outlet) => ({
               id: outlet.outletId,
               name: outlet.name,
-            }))}
-            cashiers={(staff.data ?? []).map((member) => ({
-              id: member.userId,
-              name: member.name,
             }))}
             showScopeFilters={!ownOutletOnly}
           />
@@ -190,7 +190,7 @@ export default function TransactionsPage() {
                 Gagal memuat riwayat transaksi.
               </Text>
             </div>
-          ) : rows.length === 0 ? (
+          ) : visible.length === 0 ? (
             <EmptyState
               filtered={filtered}
               onClearFilters={() => setQuery(EMPTY_TRANSACTION_QUERY)}
@@ -198,13 +198,18 @@ export default function TransactionsPage() {
             />
           ) : (
             <>
-              <TransactionTable rows={rows} onOpen={openTransaction} hideOutlet={ownOutletOnly} />
+              <TransactionTable
+                rows={visible}
+                onOpen={openTransaction}
+                outletNames={outletNames}
+                hideOutlet={ownOutletOnly}
+              />
 
               <PaginationFooter
                 page={page}
-                limit={PAGE_LIMIT}
+                limit={PAGE_SIZE}
                 total={total}
-                shown={rows.length}
+                shown={visible.length}
                 totalPages={totalPages}
                 onPageChange={setPage}
               />
@@ -226,6 +231,27 @@ export default function TransactionsPage() {
       </Dialog>
     </div>
   );
+}
+
+/** The search endpoint answers with a full detail; the table wants a row. */
+function toSummary(detail: {
+  transactionId: string;
+  transactionNumber: string;
+  outletId: string;
+  operator: { name: string };
+  total: number;
+  status: 'COMPLETED';
+  createdAt: string;
+}): TransactionSummary {
+  return {
+    transactionId: detail.transactionId,
+    transactionNumber: detail.transactionNumber,
+    outletId: detail.outletId,
+    operatorName: detail.operator.name,
+    total: detail.total,
+    status: detail.status,
+    createdAt: detail.createdAt,
+  };
 }
 
 function EmptyState({
@@ -266,7 +292,7 @@ function ListSkeleton() {
   return (
     <div className="flex flex-col gap-md">
       {[0, 1, 2, 3, 4].map((index) => (
-        <Skeleton key={index} className="h-14 w-full" />
+        <Skeleton key={index} className="h-12 w-full" />
       ))}
     </div>
   );

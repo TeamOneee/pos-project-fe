@@ -15,8 +15,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { LowStockTable, OutOfStockTable } from '@/components/pages/inventory/alert-tables';
-import type { OutOfStockAlert } from '@/services/dashboard';
-import type { LowStockAlert } from '@/services/inventory';
+import type { LowStockItem } from '@/services/dashboard';
 import { formatCount } from '@/lib/number';
 
 export const HEALTHY_COPY = 'Semua stok dalam kondisi aman.';
@@ -27,9 +26,9 @@ export function LowStockCard({
   onOpenStockPerOutlet,
   anchorRef,
 }: {
-  alerts: LowStockAlert[];
-  onAdjust?: ((alert: LowStockAlert) => void) | undefined;
-  onOpenStockPerOutlet: (product: { productId: string; name: string; sku: string }) => void;
+  alerts: LowStockItem[];
+  onAdjust?: ((alert: LowStockItem) => void) | undefined;
+  onOpenStockPerOutlet: (product: { productId: string; name: string }) => void;
   anchorRef?: React.Ref<HTMLDivElement>;
 }) {
   return (
@@ -67,9 +66,9 @@ export function OutOfStockCard({
   onOpenStockPerOutlet,
   anchorRef,
 }: {
-  alerts: OutOfStockAlert[];
-  onAdjust?: ((alert: OutOfStockAlert) => void) | undefined;
-  onOpenStockPerOutlet: (product: { productId: string; name: string; sku: string }) => void;
+  alerts: LowStockItem[];
+  onAdjust?: ((alert: LowStockItem) => void) | undefined;
+  onOpenStockPerOutlet: (product: { productId: string; name: string }) => void;
   anchorRef?: React.Ref<HTMLDivElement>;
 }) {
   return (

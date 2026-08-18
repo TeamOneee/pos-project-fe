@@ -14,7 +14,7 @@
  * screen useful for an end-of-shift check.
  */
 
-import type { Transaction, TransactionFilters } from '@/services/transactions';
+import type { TransactionFilters, TransactionSummary } from '@/services/transactions';
 import { dataScope, type Role } from '@/lib/permissions';
 import { sumRupiah, type Rupiah } from '@/lib/money';
 
@@ -48,7 +48,7 @@ export function scopeTransactionFilters(
 
 /** True when a session may open this transaction's detail. */
 export function isTransactionVisible(
-  transaction: Pick<Transaction, 'outletId'>,
+  transaction: Pick<TransactionSummary, 'outletId'>,
   role: Role | null,
   sessionOutletId: string | null
 ): boolean {
@@ -61,7 +61,7 @@ export function isTransactionVisible(
 /* Summary                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export type TransactionSummary = {
+export type TransactionTotals = {
   /** Exact: it comes from the server's `total`, not from the rows on screen. */
   count: number;
   revenue: Rupiah;
@@ -74,17 +74,19 @@ export type TransactionSummary = {
 /**
  * The three tiles above the table.
  *
- * There is no aggregate endpoint for a filtered set of transactions, so revenue
- * is summed client-side over as many matching rows as one request returns. The
- * count still comes from the server's `total`, which is exact — and `capped`
- * tells the strip to say so when the sum is over a subset rather than quietly
- * reporting a number that is too small.
+ * There is no aggregate endpoint for a filtered set of transactions —
+ * `/dashboard/summary` is Owner-only and answers for a period, not for a
+ * filtered list — so revenue is summed client-side over as many matching rows
+ * as one request returns. The count still comes from the server's
+ * `total_elements`, which is exact, and `capped` tells the strip to say so when
+ * the sum is over a subset rather than quietly reporting a number that is too
+ * small.
  */
 export function summariseTransactions(
-  rows: Transaction[],
+  rows: TransactionSummary[],
   total: number,
   windowSize: number
-): TransactionSummary {
+): TransactionTotals {
   const revenue = sumRupiah(rows.map((row) => row.total));
 
   return {
@@ -100,16 +102,21 @@ export function summariseTransactions(
 /* -------------------------------------------------------------------------- */
 
 /**
- * `GET /transactions` has no search parameter — the contract filters by outlet,
- * cashier and date only. So looking up a transaction number is done over the
- * rows already fetched for the summary, and the footer says how many matched.
- * A backend `search=` would make this a server concern; until then this is the
- * honest version rather than a search box that only sees the current page.
+ * Whether a typed query is a transaction-number lookup at all.
+ *
+ * §5.2 gives one search endpoint, `GET /transactions/search`, and it is an
+ * **exact** match on `transaction_number` — there is no partial or fuzzy search
+ * anywhere in the contract. So the screen sends the trimmed input straight to
+ * that endpoint and shows the one sale or nothing, rather than filtering the
+ * page it happens to be holding and calling that a search.
  */
-export function matchesTransactionNumber(transaction: Transaction, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return transaction.transactionNumber.toLowerCase().includes(needle);
+export function isSearchable(query: string): boolean {
+  return query.trim().length > 0;
+}
+
+/** The exact number to look up, normalised. */
+export function searchTerm(query: string): string {
+  return query.trim();
 }
 
 /** Client-side page of an already-filtered list. */

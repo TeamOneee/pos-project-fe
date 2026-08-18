@@ -15,24 +15,32 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import type { Transaction } from '@/services/transactions';
+import type { TransactionSummary } from '@/services/transactions';
 import type { TransactionStatus } from '@/api/schema';
 import { formatDate, formatTime } from '@/lib/date';
 import { formatIDR } from '@/lib/money';
-import { formatCount } from '@/lib/number';
 import { cn } from '@/lib/utils';
 
-/** `itemCount` is null when the backend does not count lines on a list row. */
-export type TransactionRow = { transaction: Transaction; itemCount: number | null };
-
+/**
+ * §5.4 `TransactionSummaryDto` is the whole list row, and it is deliberately
+ * thin: number, outlet id, operator name, total, status, timestamp.
+ *
+ * Two columns are therefore gone. **Item** had no source — the list endpoint
+ * does not count lines, and inventing a count would be worse than omitting one.
+ * **Outlet** survives only as a name looked up from the outlet list the screen
+ * already holds, because the row carries an id rather than a name.
+ */
 export function TransactionTable({
   rows,
   onOpen,
+  /** Outlet id → name. A row whose outlet is unknown shows a dash. */
+  outletNames = {},
   /** True for the Cashier's own-outlet view, where every row is the same outlet. */
   hideOutlet = false,
 }: {
-  rows: TransactionRow[];
-  onOpen: (transaction: Transaction) => void;
+  rows: TransactionSummary[];
+  onOpen: (transaction: TransactionSummary) => void;
+  outletNames?: Record<string, string>;
   hideOutlet?: boolean;
 }) {
   const stacked = useBreakpoint() === 'mobile';
@@ -40,7 +48,7 @@ export function TransactionTable({
   if (stacked) {
     return (
       <div className="flex flex-col gap-md">
-        {rows.map(({ transaction, itemCount }) => (
+        {rows.map((transaction) => (
           <button
             key={transaction.transactionId}
             type="button"
@@ -63,14 +71,11 @@ export function TransactionTable({
               </Text>
               {!hideOutlet && (
                 <Text variant="caption" tone="muted">
-                  · {transaction.outlet?.name ?? '—'}
+                  · {outletNames[transaction.outletId] ?? '—'}
                 </Text>
               )}
               <Text variant="caption" tone="muted">
-                · {transaction.cashier?.name ?? '—'}
-              </Text>
-              <Text variant="caption" tone="muted">
-                · {itemCount === null ? '—' : `${formatCount(itemCount)} item`}
+                · {transaction.operatorName}
               </Text>
               <StatusBadge status={transaction.status} />
             </div>
@@ -87,13 +92,12 @@ export function TransactionTable({
         <Head className="flex-[2]">Tanggal &amp; Waktu</Head>
         {!hideOutlet && <Head className="flex-[2]">Outlet</Head>}
         <Head className="flex-1">Kasir</Head>
-        <Head className="flex-1 justify-end">Item</Head>
         <Head className="flex-1 justify-end">Total</Head>
         <Head className="flex-1">Status</Head>
         <Head className="w-[90px] shrink-0">Aksi</Head>
       </div>
 
-      {rows.map(({ transaction, itemCount }) => (
+      {rows.map((transaction) => (
         <div
           key={transaction.transactionId}
           className="flex flex-row items-center gap-md border-b border-border py-md"
@@ -124,20 +128,14 @@ export function TransactionTable({
           {!hideOutlet && (
             <div className="min-w-0 flex-[2]">
               <Text variant="body" tone="muted" className="block truncate">
-                {transaction.outlet?.name ?? '—'}
+                {outletNames[transaction.outletId] ?? '—'}
               </Text>
             </div>
           )}
 
           <div className="min-w-0 flex-1">
             <Text variant="body" tone="muted" className="block truncate">
-              {transaction.cashier?.name ?? '—'}
-            </Text>
-          </div>
-
-          <div className="flex flex-1 justify-end">
-            <Text variant="mono" tone="muted">
-              {itemCount === null ? '—' : formatCount(itemCount)}
+              {transaction.operatorName}
             </Text>
           </div>
 
@@ -160,24 +158,24 @@ export function TransactionTable({
   );
 }
 
+/**
+ * §5.1: `COMPLETED` is the only status a transaction can hold. A failed
+ * checkout writes no row at all, so there is nothing else to label — the badge
+ * stays because the design shows one, not because the value can vary.
+ */
 const STATUS_LABEL: Record<TransactionStatus, string> = {
   COMPLETED: 'SELESAI',
-  PENDING: 'TERTUNDA',
-  CANCELLED: 'DIBATALKAN',
 };
 
 export function StatusBadge({ status }: { status: TransactionStatus }) {
-  const variant = status === 'COMPLETED' ? 'success' : status === 'PENDING' ? 'warning' : 'neutral';
-
   return (
-    <Badge variant={variant}>
+    <Badge variant="success">
       <Text>{STATUS_LABEL[status]}</Text>
     </Badge>
   );
 }
 
-function stampOf(transaction: Transaction): string {
-  if (!transaction.createdAt) return '—';
+function stampOf(transaction: TransactionSummary): string {
   return `${formatDate(transaction.createdAt)} · ${formatTime(transaction.createdAt)}`;
 }
 

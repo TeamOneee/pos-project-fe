@@ -51,12 +51,9 @@ import {
 import { useCan } from '@/hooks/use-can';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useLowStock } from '@/hooks/use-inventory';
-import { useOutlets } from '@/hooks/use-outlets';
 import { useDeactivateProduct, useProducts } from '@/hooks/use-products';
 import type { Product } from '@/services/products';
 import { activeCategoryIndex, isHiddenByCategory } from '@/lib/catalog-visibility';
-import { thresholdFromAlerts } from '@/lib/stock';
 
 /** The brief's pagination footer counts in tens. */
 const PAGE_LIMIT = 10;
@@ -84,11 +81,9 @@ export default function ProductsPage() {
     ...(query.categoryId ? { category_id: query.categoryId } : {}),
     ...(query.status ? { status: query.status } : {}),
     page,
-    limit: PAGE_LIMIT,
+    size: PAGE_LIMIT,
   });
   const categories = useCategories();
-  const outlets = useOutlets({ status: 'ACTIVE' });
-  const lowStock = useLowStock();
   const deactivate = useDeactivateProduct();
 
   // A filter change invalidates the page number: page 4 of a narrower list is
@@ -99,7 +94,7 @@ export default function ProductsPage() {
   }, [filterKey]);
 
   const activeCategories = React.useMemo(
-    () => activeCategoryIndex(categories.data ?? []),
+    () => activeCategoryIndex(categories.data?.items ?? []),
     [categories.data]
   );
 
@@ -110,18 +105,14 @@ export default function ProductsPage() {
         // Only meaningful for a product that is itself active — an inactive
         // product is already absent from the POS for its own reasons.
         hiddenByCategory:
-          product.status === 'ACTIVE' && isHiddenByCategory(product, activeCategories),
+          product.isActive && isHiddenByCategory(product, activeCategories),
       })),
     [products.data, activeCategories]
   );
 
-  const outletOptions = React.useMemo(
-    () => (outlets.data ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
-    [outlets.data]
-  );
 
   const openStock = (product: Product) =>
-    setDrawerProduct({ productId: product.productId, name: product.name, sku: product.sku });
+    setDrawerProduct({ productId: product.productId, name: product.name });
 
   const openEditor = (product: Product | null) => {
     setEditing(product);
@@ -137,7 +128,7 @@ export default function ProductsPage() {
     ? (product: Product): RowMenuItem[] => [
         { label: 'Edit', onSelect: () => openEditor(product) },
         { label: 'Lihat Stok per Outlet', onSelect: () => openStock(product) },
-        ...(product.status === 'ACTIVE'
+        ...(product.isActive
           ? [
               {
                 label: 'Nonaktifkan',
@@ -197,7 +188,7 @@ export default function ProductsPage() {
           <ProductFilterBar
             query={query}
             onQueryChange={setQuery}
-            categories={categories.data ?? []}
+            categories={categories.data?.items ?? []}
             view={view}
             onViewChange={setView}
           />
@@ -226,7 +217,7 @@ export default function ProductsPage() {
 
               <PaginationFooter
                 page={products.data?.page ?? page}
-                limit={products.data?.limit ?? PAGE_LIMIT}
+                limit={products.data?.size ?? PAGE_LIMIT}
                 total={total}
                 shown={rows.length}
                 totalPages={products.data?.totalPages ?? 1}
@@ -246,7 +237,7 @@ export default function ProductsPage() {
             if (!open) setEditing(null);
           }}
           product={editing}
-          categories={categories.data ?? []}
+          categories={categories.data?.items ?? []}
         />
 
         <DeactivateDialog
@@ -262,9 +253,7 @@ export default function ProductsPage() {
           onConfirm={confirmDeactivate}
         >
           <Text variant="body">
-            {`${deactivating?.name ?? 'Produk ini'}${
-              deactivating?.sku ? ` (${deactivating.sku})` : ''
-            } akan hilang dari katalog kasir dan tidak bisa dijual lagi.`}
+            {`${deactivating?.name ?? 'Produk ini'} akan hilang dari katalog kasir dan tidak bisa dijual lagi.`}
           </Text>
         </DeactivateDialog>
       </IfCan>
@@ -278,8 +267,6 @@ export default function ProductsPage() {
         onOpenChange={(open) => {
           if (!open) setDrawerProduct(null);
         }}
-        outlets={outletOptions}
-        threshold={thresholdFromAlerts(lowStock.data)}
         onAdjust={
           canAdjustStock
             ? (target) => {

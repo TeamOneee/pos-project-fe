@@ -22,45 +22,30 @@ import {
   type AdjustTarget,
 } from '@/components/pages/inventory/adjust-stock-dialog';
 import { LowStockTable, sortByUrgency } from '@/components/pages/inventory/alert-tables';
-import { BulkUpdateDialog } from '@/components/pages/inventory/bulk-update-dialog';
 import {
   StockPerOutletDrawer,
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
 import { OutletSelect } from '@/components/pages/owner/controls';
-import { useLowStock } from '@/hooks/use-inventory';
+import { useLowStock } from '@/hooks/use-dashboard';
 import { useOutlets } from '@/hooks/use-outlets';
-import { thresholdFromAlerts } from '@/lib/stock';
 import { formatCount } from '@/lib/number';
 
 export default function LowStockPage() {
   const [outletId, setOutletId] = React.useState<string | null>(null);
   const [adjustTarget, setAdjustTarget] = React.useState<AdjustTarget | null>(null);
   const [drawerProduct, setDrawerProduct] = React.useState<DrawerProduct | null>(null);
-  const [bulkOpen, setBulkOpen] = React.useState(false);
 
   const outlets = useOutlets({ status: 'ACTIVE' });
-  const lowStock = useLowStock(outletId ?? undefined);
+  const lowStock = useLowStock({ outlet_id: outletId ?? undefined });
 
   const outletOptions = React.useMemo(
-    () => (outlets.data ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
+    () => (outlets.data?.items ?? []).map((outlet) => ({ outletId: outlet.outletId, name: outlet.name })),
     [outlets.data]
   );
 
-  const alerts = React.useMemo(() => sortByUrgency(lowStock.data ?? []), [lowStock.data]);
-  const threshold = thresholdFromAlerts(lowStock.data);
+  const alerts = React.useMemo(() => sortByUrgency(lowStock.data?.items ?? []), [lowStock.data]);
 
-  // The bulk modal writes to one outlet at a time, so it can only carry the
-  // list forward once the filter has narrowed to one.
-  const bulkSeed = React.useMemo(
-    () =>
-      alerts.map((alert) => ({
-        productId: alert.productId,
-        name: alert.productName,
-        sku: alert.sku,
-      })),
-    [alerts]
-  );
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
@@ -69,15 +54,9 @@ export default function LowStockPage() {
           {lowStock.isPending ? 'Memuat…' : `${formatCount(alerts.length)} produk perlu perhatian.`}
         </Text>
 
+        {/* Bulk update is gone with its endpoint (§4.2); stock is adjusted per row. */}
         <div className="flex flex-col gap-md tablet:flex-row tablet:items-center">
           <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
-          <Button
-            variant="secondary"
-            disabled={alerts.length === 0}
-            onClick={() => setBulkOpen(true)}
-          >
-            <Text>Update Massal</Text>
-          </Button>
         </div>
       </div>
 
@@ -122,13 +101,12 @@ export default function LowStockPage() {
               alerts={alerts}
               onAdjust={(alert) =>
                 setAdjustTarget({
-                  inventoryId: alert.inventoryId,
+    
                   productId: alert.productId,
                   productName: alert.productName,
-                  sku: alert.sku,
                   outletId: alert.outletId,
                   outletName: alert.outletName,
-                  currentStock: alert.currentStock,
+                  currentStock: alert.quantity,
                 })
               }
               onOpenStockPerOutlet={setDrawerProduct}
@@ -145,13 +123,6 @@ export default function LowStockPage() {
         }}
       />
 
-      <BulkUpdateDialog
-        open={bulkOpen}
-        onOpenChange={setBulkOpen}
-        outlets={outletOptions}
-        outletId={outletId}
-        seed={bulkSeed}
-      />
 
       <StockPerOutletDrawer
         product={drawerProduct}
@@ -159,8 +130,6 @@ export default function LowStockPage() {
         onOpenChange={(open) => {
           if (!open) setDrawerProduct(null);
         }}
-        outlets={outletOptions}
-        threshold={threshold}
         onAdjust={(target) => {
           setDrawerProduct(null);
           setAdjustTarget(target);

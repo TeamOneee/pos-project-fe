@@ -99,7 +99,7 @@ export function ProductFilterBar({
           {categories.map((category) => (
             <SelectItem key={category.categoryId} value={category.categoryId}>
               {/* An inactive category still filters — its products are still here. */}
-              {category.status === 'ACTIVE' ? category.name : `${category.name} (nonaktif)`}
+              {category.isActive ? category.name : `${category.name} (nonaktif)`}
             </SelectItem>
           ))}
         </SelectContent>

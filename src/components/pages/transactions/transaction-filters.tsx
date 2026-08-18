@@ -26,14 +26,17 @@ import { Text } from '@/components/ui/text';
 export const ALL = 'ALL';
 
 export type TransactionQuery = {
-  /** Transaction number, matched case-insensitively. */
+  /**
+   * A transaction number. §5.2's only search endpoint is an **exact** match on
+   * `transaction_number` — there is no partial or fuzzy search in the contract —
+   * so this is a lookup rather than a filter.
+   */
   search: string;
   /** YYYY-MM-DD, or empty for "no bound". */
   startDate: string;
   endDate: string;
   /** Null means every outlet. Ignored entirely for a Cashier. */
   outletId: string | null;
-  cashierId: string | null;
 };
 
 export const EMPTY_TRANSACTION_QUERY: TransactionQuery = {
@@ -41,7 +44,6 @@ export const EMPTY_TRANSACTION_QUERY: TransactionQuery = {
   startDate: '',
   endDate: '',
   outletId: null,
-  cashierId: null,
 };
 
 export function isTransactionFiltered(query: TransactionQuery): boolean {
@@ -49,8 +51,7 @@ export function isTransactionFiltered(query: TransactionQuery): boolean {
     query.search.trim() !== '' ||
     query.startDate !== '' ||
     query.endDate !== '' ||
-    query.outletId !== null ||
-    query.cashierId !== null
+    query.outletId !== null
   );
 }
 
@@ -60,14 +61,12 @@ export function TransactionFilterBar({
   query,
   onQueryChange,
   outlets,
-  cashiers,
   /** False for a Cashier: the outlet and cashier selects are omitted. */
   showScopeFilters,
 }: {
   query: TransactionQuery;
   onQueryChange: (query: TransactionQuery) => void;
   outlets: Option[];
-  cashiers: Option[];
   showScopeFilters: boolean;
 }) {
   return (
@@ -123,14 +122,6 @@ export function TransactionFilterBar({
             options={outlets}
             value={query.outletId}
             onChange={(outletId) => onQueryChange({ ...query, outletId })}
-          />
-          <SelectField
-            id="transaction-cashier"
-            label="Kasir"
-            placeholder="Semua Kasir"
-            options={cashiers}
-            value={query.cashierId}
-            onChange={(cashierId) => onQueryChange({ ...query, cashierId })}
           />
         </>
       )}

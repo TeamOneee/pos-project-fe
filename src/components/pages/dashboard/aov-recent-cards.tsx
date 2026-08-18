@@ -1,5 +1,15 @@
 /**
  * Row 5 — the AOV trend, and the last few sales.
+ *
+ * The trend is `GET /dashboard/aov-trend` (§6.2), which reports the series and
+ * no headline: the current figure below is the last point, and the delta is the
+ * period-over-period one the KPI row already computes, passed in so the two
+ * cards cannot disagree.
+ *
+ * The recent sales are not a dashboard endpoint at all — the reporting module
+ * serves aggregates only — so they come from `GET /transactions` (§5.2). A row
+ * there is a `TransactionSummaryDto`, which carries the operator's name but not
+ * the outlet's, so the subtitle names the operator alone.
  */
 
 import { Link } from 'react-router-dom';
@@ -11,23 +21,31 @@ import { AovLineChart } from '@/components/pages/charts/aov-line-chart';
 import { ChartFigure } from '@/components/pages/charts/chart-figure';
 import { ChartFrame } from '@/components/pages/charts/chart-frame';
 import { DeltaChip } from '@/components/pages/owner/delta-chip';
-import type { OwnerDashboard } from '@/services/dashboard';
+import { bucketLabel } from '@/components/pages/dashboard/sales-trend-card';
+import type { AovTrend } from '@/services/dashboard';
+import type { TransactionSummary } from '@/services/transactions';
 import { formatRelativeDateTime } from '@/lib/date';
 import { formatIDR } from '@/lib/money';
 
 export function AovTrendCard({
   trend,
+  delta,
   height,
   className,
 }: {
-  trend: OwnerDashboard['aovTrend'];
+  trend: AovTrend;
+  /** Period-over-period change, or null when there is no baseline. */
+  delta: number | null;
   height: number;
   className?: string;
 }) {
-  const points = trend.labels.map((label, index) => ({
-    label,
-    aov: trend.values[index] ?? 0,
+  const points = trend.points.map((point) => ({
+    label: bucketLabel(point.bucketStart, trend.bucket),
+    aov: point.averageTransactionValue,
   }));
+
+  // The headline is the most recent bucket; §6.2 sends no summary figure.
+  const currentAov = points.at(-1)?.aov ?? 0;
 
   return (
     <Card className={className}>
@@ -38,14 +56,20 @@ export function AovTrendCard({
       <CardContent className="flex flex-col gap-md">
         <div className="flex flex-row items-center gap-md">
           <Text variant="display" className="min-w-0 flex-1 truncate tabular-nums">
-            {formatIDR(trend.currentAov)}
+            {formatIDR(currentAov)}
           </Text>
-          <DeltaChip value={trend.growthPercentage} label="AOV" />
+          {delta === null ? (
+            <Text variant="caption" tone="subtle">
+              Baru
+            </Text>
+          ) : (
+            <DeltaChip value={delta} label="AOV" />
+          )}
         </div>
 
         <ChartFigure
           summary={`Tren nilai rata-rata transaksi, ${points.length} periode. Terakhir ${formatIDR(
-            trend.currentAov
+            currentAov
           )}.`}
           rowLabels={points.map((point) => point.label)}
           series={[{ label: 'AOV', values: points.map((point) => formatIDR(point.aov)) }]}
@@ -63,7 +87,7 @@ export function RecentTransactionsCard({
   transactions,
   className,
 }: {
-  transactions: OwnerDashboard['recentTransactions'];
+  transactions: TransactionSummary[];
   className?: string;
 }) {
   return (
@@ -73,27 +97,33 @@ export function RecentTransactionsCard({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-md">
-        {transactions.map((transaction) => (
-          <div key={transaction.transactionId} className="flex flex-row items-center gap-md">
-            <div className="flex min-w-0 flex-1 flex-col gap-xs">
-              <Text variant="body-strong" tone="accent" className="truncate tabular-nums">
-                {transaction.transactionNumber}
-              </Text>
-              <Text variant="caption" tone="subtle" className="truncate">
-                {transaction.outletName} · {transaction.cashierName}
-              </Text>
-            </div>
+        {transactions.length === 0 ? (
+          <Text variant="body" tone="muted">
+            Belum ada transaksi pada periode ini.
+          </Text>
+        ) : (
+          transactions.map((transaction) => (
+            <div key={transaction.transactionId} className="flex flex-row items-center gap-md">
+              <div className="flex min-w-0 flex-1 flex-col gap-xs">
+                <Text variant="body-strong" tone="accent" className="truncate tabular-nums">
+                  {transaction.transactionNumber}
+                </Text>
+                <Text variant="caption" tone="subtle" className="truncate">
+                  {transaction.operatorName}
+                </Text>
+              </div>
 
-            <div className="flex shrink-0 flex-col items-end gap-xs">
-              <Text variant="body-strong" className="tabular-nums">
-                {formatIDR(transaction.total)}
-              </Text>
-              <Text variant="caption" tone="subtle">
-                {formatRelativeDateTime(transaction.createdAt)}
-              </Text>
+              <div className="flex shrink-0 flex-col items-end gap-xs">
+                <Text variant="body-strong" className="tabular-nums">
+                  {formatIDR(transaction.total)}
+                </Text>
+                <Text variant="caption" tone="subtle">
+                  {formatRelativeDateTime(transaction.createdAt)}
+                </Text>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
 
         <Separator />
 
