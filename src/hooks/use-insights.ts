@@ -20,7 +20,11 @@ import type { AnalysisJobStatus } from '@/api/schema';
 const READ_INSIGHTS: Requirement = { resource: 'aiInsights', access: 'read' };
 
 /** §7.1: the job states that mean the worker has not finished yet. */
-const IN_PROGRESS: AnalysisJobStatus[] = ['PENDING', 'PROCESSING', 'RETRY_SCHEDULED'];
+export const IN_PROGRESS_JOB_STATUSES: AnalysisJobStatus[] = [
+  'PENDING',
+  'PROCESSING',
+  'RETRY_SCHEDULED',
+];
 
 /** How often to re-ask while a job is running. */
 const POLL_MS = 5_000;
@@ -38,7 +42,7 @@ export function useInsights(options: { enabled?: boolean } = {}) {
       failureCount < 2,
     refetchInterval: (query) => {
       const status = query.state.data?.analysisJob.status;
-      return status && IN_PROGRESS.includes(status) ? POLL_MS : false;
+      return status && IN_PROGRESS_JOB_STATUSES.includes(status) ? POLL_MS : false;
     },
   });
 }
