@@ -59,27 +59,81 @@ export function useCreateProduct() {
   });
 }
 
-/**
- * Editing a price is what makes an open basket fail checkout with
- * `PRICE_CHANGED` — the cart is client-side now, so there is nothing on the
- * server to invalidate, but the catalogue the tiles are priced from is.
- */
 export function useUpdateProduct() {
   const invalidate = useProductInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: ({ productId, input }: { productId: string; input: UpdateProductInput }) =>
       productsApi.update(productId, input),
-    onSuccess: invalidate,
+    onMutate: async ({ productId, input }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.products() });
+      const previousProducts = queryClient.getQueryData(queryKeys.products());
+
+      queryClient.setQueriesData({ queryKey: queryKeys.products() }, (old: any) => {
+        if (!old || !old.items) return old;
+        return {
+          ...old,
+          items: old.items.map((prod: any) =>
+            prod.productId === productId
+              ? {
+                  ...prod,
+                  ...(input.name !== undefined ? { name: input.name } : {}),
+                  ...(input.price !== undefined ? { price: parseInt(input.price, 10) } : {}),
+                  ...(input.category_id !== undefined ? { categoryId: input.category_id } : {}),
+                  ...(input.low_stock_threshold !== undefined
+                    ? { lowStockThreshold: input.low_stock_threshold }
+                    : {}),
+                  ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
+                }
+              : prod
+          ),
+        };
+      });
+
+      return { previousProducts };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousProducts) {
+        queryClient.setQueriesData({ queryKey: queryKeys.products() }, context.previousProducts);
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }
 
 /** Soft-deactivation. Past sales keep their own name and price snapshot. */
 export function useDeactivateProduct() {
   const invalidate = useProductInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: (productId: string) => productsApi.deactivate(productId),
-    onSuccess: invalidate,
+    onMutate: async (productId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.products() });
+      const previousProducts = queryClient.getQueryData(queryKeys.products());
+
+      queryClient.setQueriesData({ queryKey: queryKeys.products() }, (old: any) => {
+        if (!old || !old.items) return old;
+        return {
+          ...old,
+          items: old.items.map((prod: any) =>
+            prod.productId === productId ? { ...prod, isActive: false } : prod
+          ),
+        };
+      });
+
+      return { previousProducts };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousProducts) {
+        queryClient.setQueriesData({ queryKey: queryKeys.products() }, context.previousProducts);
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }

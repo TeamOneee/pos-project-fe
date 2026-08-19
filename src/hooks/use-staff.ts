@@ -47,11 +47,42 @@ export function useCreateStaff() {
 
 export function useUpdateStaff() {
   const invalidate = useStaffInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_STAFF, {
     mutationFn: ({ userId, input }: { userId: string; input: UpdateStaffInput }) =>
       staffApi.update(userId, input),
-    onSuccess: invalidate,
+    onMutate: async ({ userId, input }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.staff() });
+      const previousStaff = queryClient.getQueryData(queryKeys.staff());
+
+      queryClient.setQueriesData({ queryKey: queryKeys.staff() }, (old: any) => {
+        if (!old || !old.items) return old;
+        return {
+          ...old,
+          items: old.items.map((staff: any) =>
+            staff.userId === userId
+              ? {
+                  ...staff,
+                  ...(input.role !== undefined ? { role: input.role } : {}),
+                  ...(input.outlet_id !== undefined ? { outletId: input.outlet_id } : {}),
+                  ...(input.status !== undefined ? { status: input.status } : {}),
+                }
+              : staff
+          ),
+        };
+      });
+
+      return { previousStaff };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueriesData({ queryKey: queryKeys.staff() }, context.previousStaff);
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }
 
@@ -62,9 +93,33 @@ export function useUpdateStaff() {
  */
 export function useDeactivateStaff() {
   const invalidate = useStaffInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_STAFF, {
     mutationFn: (userId: string) => staffApi.deactivate(userId),
-    onSuccess: invalidate,
+    onMutate: async (userId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.staff() });
+      const previousStaff = queryClient.getQueryData(queryKeys.staff());
+
+      queryClient.setQueriesData({ queryKey: queryKeys.staff() }, (old: any) => {
+        if (!old || !old.items) return old;
+        return {
+          ...old,
+          items: old.items.map((staff: any) =>
+            staff.userId === userId ? { ...staff, status: 'INACTIVE' } : staff
+          ),
+        };
+      });
+
+      return { previousStaff };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueriesData({ queryKey: queryKeys.staff() }, context.previousStaff);
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }

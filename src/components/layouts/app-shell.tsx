@@ -16,6 +16,7 @@
  * header toggle brings it back.
  */
 
+import * as React from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { useAuth } from '@/components/pages/auth/auth-provider';
@@ -55,19 +56,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // merchant name — it is no longer an Owner-only fact.
   const merchant = useMerchant();
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const mainRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0);
+    mainRef.current?.scrollTo(0, 0);
+  }, [location.pathname]);
+
   if (!role) return null;
 
   if (isChromeless(location.pathname)) {
     // The Owner's till keeps the mobile tab bar so they can step back out of
     // it; a Cashier's stays fully chromeless — it is their workstation.
-    if (role === 'OWNER' && breakpoint === 'mobile') {
+    if (role === 'OWNER') {
+      const desktop = breakpoint === 'desktop';
       return (
         <div className="flex h-full flex-col bg-canvas">
-          {/* The region scrolls only if the till ever outgrows it; normally the
-              till manages its own scrolling. Either way the tab bar below stays
-              pinned to the bottom of the screen. */}
-          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-          <FooterTabs role={role} pathname={location.pathname} />
+          <div className="flex min-h-0 flex-1">
+            {desktop && !sidebarCollapsed ? (
+              <Sidebar role={role} pathname={location.pathname} merchantName={merchantName} />
+            ) : breakpoint === 'tablet' ? (
+              <IconRail role={role} pathname={location.pathname} />
+            ) : null}
+
+            <main ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+          </div>
+          {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
         </div>
       );
     }
@@ -98,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <IconRail role={role} pathname={location.pathname} />
         ) : null}
 
-        <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
       {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
     </div>
