@@ -11,9 +11,7 @@
  * baseline, which reads as "Baru" rather than as a fabricated +100%.
  */
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Text } from '@/components/ui/text';
-import { DeltaChip } from '@/components/pages/owner/delta-chip';
+import { KpiTile } from '@/components/pages/dashboard/kpi-tile';
 import type { PeriodDeltas } from '@/hooks/use-owner-dashboard';
 import type { DashboardSummary } from '@/services/dashboard';
 import { formatIDR } from '@/lib/money';
@@ -34,30 +32,5 @@ export function KpiRow({ summary, deltas }: { summary: DashboardSummary; deltas:
         delta={deltas.averageTransactionValue}
       />
     </div>
-  );
-}
-
-function KpiTile({ label, value, delta }: { label: string; value: string; delta: number | null }) {
-  return (
-    // Stacked on mobile, across from tablet up.
-    <Card className="min-w-[140px] flex-1 basis-full tablet:basis-0">
-      <CardContent className="flex flex-col gap-sm pt-lg">
-        <Text variant="label" tone="muted">
-          {label}
-        </Text>
-
-        <Text variant="h1" className="block truncate tabular-nums">
-          {value}
-        </Text>
-
-        {delta === null ? (
-          <Text variant="caption" tone="subtle">
-            Baru
-          </Text>
-        ) : (
-          <DeltaChip value={delta} label={label} />
-        )}
-      </CardContent>
-    </Card>
   );
 }

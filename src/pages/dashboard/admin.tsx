@@ -16,8 +16,6 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useTopBarActions } from '@/components/layouts/shell-context';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { LowStockCard, OutOfStockCard } from '@/components/pages/admin-dashboard/alert-cards';
 import {
@@ -25,6 +23,10 @@ import {
   type OutletStats,
 } from '@/components/pages/admin-dashboard/outlet-stock-table';
 import { StockKpiRow } from '@/components/pages/admin-dashboard/stock-kpi-row';
+import {
+  DashboardLoadFailure,
+  StockDashboardSkeleton,
+} from '@/components/pages/dashboard/dashboard-states';
 import {
   AdjustStockDialog,
   type AdjustTarget,
@@ -124,7 +126,7 @@ export default function AdminDashboardPage() {
       {isPending ? (
         <StockDashboardSkeleton />
       ) : isError || !operations.data ? (
-        <LoadFailure />
+        <DashboardLoadFailure message="Gagal memuat dashboard stok." />
       ) : (
         <>
           <StockKpiRow
@@ -189,43 +191,4 @@ function toAdjustTarget(alert: LowStockItem): AdjustTarget {
     outletName: alert.outletName,
     currentStock: alert.quantity,
   };
-}
-
-function StockDashboardSkeleton() {
-  return (
-    <div className="flex flex-col gap-lg">
-      <div className="flex flex-row flex-wrap gap-lg">
-        {[0, 1, 2, 3].map((index) => (
-          <Card key={index} className="min-w-[140px] flex-1 basis-full tablet:basis-0">
-            <CardContent className="flex flex-col gap-sm pt-lg">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-3 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {[0, 1, 2].map((card) => (
-        <Card key={card}>
-          <CardContent className="flex flex-col gap-md pt-lg">
-            <Skeleton className="h-6 w-48" />
-            {[0, 1, 2].map((row) => (
-              <Skeleton key={row} className="h-10 w-full" />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-function LoadFailure() {
-  return (
-    <div className="flex flex-1 items-center justify-center p-xl">
-      <Text variant="body" tone="danger">
-        Gagal memuat dashboard stok.
-      </Text>
-    </div>
-  );
 }

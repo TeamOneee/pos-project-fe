@@ -135,3 +135,52 @@ function ListSkeleton({ className }: { className?: string }) {
     </Card>
   );
 }
+
+/**
+ * The Admin stock dashboard's loading state. Same building blocks as the
+ * Owner's skeleton (KPI tiles plus list cards) so the two dashboards share one
+ * visual language — only the absence of chart rows differs.
+ */
+export function StockDashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-lg">
+      <div className="flex flex-row flex-wrap gap-lg">
+        {[0, 1, 2, 3].map((index) => (
+          <Card key={index} className="min-w-[140px] flex-1 basis-full tablet:basis-0">
+            <CardContent className="flex flex-col gap-sm pt-lg">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-3 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {[0, 1, 2].map((card) => (
+        <Card key={card}>
+          <CardContent className="flex flex-col gap-md pt-lg">
+            <Skeleton className="h-6 w-48" />
+            {[0, 1, 2].map((row) => (
+              <Skeleton key={row} className="h-10 w-full" />
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/** The shared failed-load state for both dashboards. */
+export function DashboardLoadFailure({
+  message = 'Gagal memuat dashboard.',
+}: {
+  message?: string;
+}) {
+  return (
+    <div className="flex flex-1 items-center justify-center p-xl">
+      <Text variant="body" tone="danger">
+        {message}
+      </Text>
+    </div>
+  );
+}

@@ -13,13 +13,16 @@
 import * as React from 'react';
 
 import { useTopBarActions } from '@/components/layouts/shell-context';
-import { Text } from '@/components/ui/text';
 import { CHART_HEIGHT } from '@/components/pages/charts/chart-frame';
 import {
   AovTrendCard,
   RecentTransactionsCard,
 } from '@/components/pages/dashboard/aov-recent-cards';
-import { DashboardEmpty, DashboardSkeleton } from '@/components/pages/dashboard/dashboard-states';
+import {
+  DashboardEmpty,
+  DashboardLoadFailure,
+  DashboardSkeleton,
+} from '@/components/pages/dashboard/dashboard-states';
 import { KpiRow } from '@/components/pages/dashboard/kpi-row';
 import { MerchantSummaryCard } from '@/components/pages/dashboard/merchant-summary-card';
 import { OutletPerformanceCard } from '@/components/pages/dashboard/outlet-performance-card';
@@ -82,7 +85,7 @@ export default function OwnerDashboardPage() {
       {dashboard.isPending ? (
         <DashboardSkeleton chartHeight={chartHeight} />
       ) : dashboard.isError || !dashboard.summary ? (
-        <LoadFailure />
+        <DashboardLoadFailure />
       ) : (
         <DashboardBody dashboard={dashboard} chartHeight={chartHeight} compact={mobile} />
       )}
@@ -174,16 +177,6 @@ function DashboardBody({
           />
         </>
       )}
-    </div>
-  );
-}
-
-function LoadFailure() {
-  return (
-    <div className="flex flex-1 items-center justify-center p-xl">
-      <Text variant="body" tone="danger">
-        Gagal memuat dashboard.
-      </Text>
     </div>
   );
 }

@@ -158,7 +158,7 @@ export function OutOfStockTable({
         {alerts.map((alert) => (
           <div
             key={`${alert.outletId}-${alert.productId}`}
-            className="flex flex-col gap-sm rounded-md border border-border bg-danger-subtle p-md"
+            className="flex flex-col gap-sm rounded-md border border-border p-md"
           >
             <ProductButton
               product={toProduct(alert)}
@@ -195,7 +195,7 @@ export function OutOfStockTable({
       {alerts.map((alert) => (
         <div
           key={`${alert.outletId}-${alert.productId}`}
-          className="flex flex-row items-center gap-md border-b border-border bg-danger-subtle py-md"
+          className="flex flex-row items-center gap-md border-b border-border py-md"
         >
           <div className="min-w-0 flex-[3]">
             <ProductButton
