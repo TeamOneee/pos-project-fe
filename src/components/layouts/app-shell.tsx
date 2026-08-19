@@ -84,7 +84,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
               {children}
             </main>
-
           </div>
           {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
         </div>
