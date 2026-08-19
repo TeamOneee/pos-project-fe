@@ -20,9 +20,9 @@ import LowStockPage from '@/pages/catalog/low-stock';
 import PosPage from '@/pages/pos/index';
 import TransactionsPage from '@/pages/transactions/index';
 import TransactionDetailPage from '@/pages/transactions/[id]';
-import UsersPage from '@/pages/admin/users';
-import OutletsPage from '@/pages/admin/outlets';
-import MerchantPage from '@/pages/admin/merchant';
+import UsersPage from '@/pages/owner/users';
+import OutletsPage from '@/pages/owner/outlets';
+import MerchantPage from '@/pages/owner/merchant';
 
 import { useAuth } from '@/components/pages/auth/auth-provider';
 import { landingRoute } from '@/lib/permissions';
