@@ -224,7 +224,7 @@ describe('the POS is the exception', () => {
     // itself cannot shrink (shrink-0).
     const bar = dashboardTab.closest('nav');
     expect(bar?.className).toContain('shrink-0');
-    expect(bar?.previousElementSibling?.className).toContain('overflow-y-auto');
+    expect(bar?.previousElementSibling?.querySelector('main')?.className).toContain('overflow-y-auto');
     expect(bar?.parentElement?.className).toContain('flex-col');
   });
 
