@@ -93,7 +93,7 @@ export function useUpdateProduct() {
 
       return { previousProducts };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousProducts) {
         queryClient.setQueriesData({ queryKey: queryKeys.products() }, context.previousProducts);
       }
@@ -127,7 +127,7 @@ export function useDeactivateProduct() {
 
       return { previousProducts };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousProducts) {
         queryClient.setQueriesData({ queryKey: queryKeys.products() }, context.previousProducts);
       }

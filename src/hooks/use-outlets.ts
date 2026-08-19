@@ -96,7 +96,7 @@ export function useUpdateOutlet() {
 
       return { previousOutlets };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousOutlets) {
         queryClient.setQueriesData({ queryKey: queryKeys.outlets() }, context.previousOutlets);
       }
@@ -134,7 +134,7 @@ export function useDeactivateOutlet() {
 
       return { previousOutlets };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousOutlets) {
         queryClient.setQueriesData({ queryKey: queryKeys.outlets() }, context.previousOutlets);
       }
