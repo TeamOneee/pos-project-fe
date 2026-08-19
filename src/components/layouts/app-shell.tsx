@@ -81,7 +81,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <IconRail role={role} pathname={location.pathname} />
             ) : null}
 
-            <main ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+            <main ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto">
+              {children}
+            </main>
           </div>
           {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
         </div>
@@ -113,7 +115,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <IconRail role={role} pathname={location.pathname} />
         ) : null}
 
-        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
       {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
     </div>
