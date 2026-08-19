@@ -18,13 +18,17 @@ const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 function ThemeToggle({ className }: { className?: string }) {
   const { preference, setPreference } = useTheme();
 
+  // The "Sistem" option is hidden while system-following is disabled (light is
+  // the starting theme). The option stays in OPTIONS so re-enabling is one line.
+  const options = OPTIONS.filter((option) => option.value !== 'system');
+
   return (
     <div
       role="radiogroup"
       aria-label="Tema tampilan"
       className={cn('flex flex-row items-center gap-xs rounded-md bg-subtle p-xs', className)}
     >
-      {OPTIONS.map((option) => {
+      {options.map((option) => {
         const active = preference === option.value;
 
         return (
