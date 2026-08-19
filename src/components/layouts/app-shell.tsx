@@ -90,7 +90,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const title = titleOverride ?? navTitleFor(role, location.pathname);
-  const merchantName = merchant.data?.name ?? null;
   const desktop = breakpoint === 'desktop';
 
   return (
