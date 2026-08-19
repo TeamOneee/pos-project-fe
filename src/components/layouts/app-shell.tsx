@@ -6,7 +6,14 @@
  * because the navigation genuinely changes shape — a 248px labelled sidebar and
  * a five-item tab bar do not share a layout.
  *
- * The cashier POS is chromeless at every breakpoint.
+ * The cashier POS is chromeless at every breakpoint. The one exception: an
+ * Owner stepping into the till on mobile keeps the bottom tab bar, so there is
+ * a visible way back to the Owner's other screens — the till is a detour for
+ * them, not their workstation.
+ *
+ * The desktop sidebar collapses to give a screen (the dashboard, say) the full
+ * width. The state lives in the shell context so it survives navigation; the
+ * header toggle brings it back.
  */
 
 import { useLocation } from 'react-router-dom';
@@ -16,7 +23,12 @@ import { FooterTabs } from '@/components/layouts/footer-tabs';
 import { Header } from '@/components/layouts/header';
 import { IconRail } from '@/components/layouts/icon-rail';
 import { activeHref, navFor } from '@/components/layouts/nav-config';
-import { useTopBarActionsValue, useTopBarTitleOverride } from '@/components/layouts/shell-context';
+import {
+  useSetSidebarCollapsed,
+  useSidebarCollapsed,
+  useTopBarActionsValue,
+  useTopBarTitleOverride,
+} from '@/components/layouts/shell-context';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -35,6 +47,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const titleOverride = useTopBarTitleOverride();
   const topBarActions = useTopBarActionsValue();
+  const sidebarCollapsed = useSidebarCollapsed();
+  const setSidebarCollapsed = useSetSidebarCollapsed();
 
   // §2.2 opens `GET /merchant` to every role, so every sidebar can carry the
   // merchant name — it is no longer an Owner-only fact.
@@ -43,17 +57,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!role) return null;
 
   if (isChromeless(location.pathname)) {
+    // The Owner's till keeps the mobile tab bar so they can step back out of
+    // it; a Cashier's stays fully chromeless — it is their workstation.
+    if (role === 'OWNER' && breakpoint === 'mobile') {
+      return (
+        <div className="flex h-full flex-col bg-canvas">
+          {/* The region scrolls only if the till ever outgrows it; normally the
+              till manages its own scrolling. Either way the tab bar below stays
+              pinned to the bottom of the screen. */}
+          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          <FooterTabs role={role} pathname={location.pathname} />
+        </div>
+      );
+    }
     return <div className="h-full bg-canvas">{children}</div>;
   }
 
   const title = titleOverride ?? navTitleFor(role, location.pathname);
   const merchantName = merchant.data?.name ?? null;
+  const desktop = breakpoint === 'desktop';
 
   return (
     <div className="flex h-full flex-col bg-canvas">
-      <Header title={title} actions={topBarActions} />
+      <Header
+        title={title}
+        actions={topBarActions}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={desktop ? () => setSidebarCollapsed(!sidebarCollapsed) : undefined}
+      />
       <div className="flex min-h-0 flex-1">
-        {breakpoint === 'desktop' ? (
+        {desktop && !sidebarCollapsed ? (
           <Sidebar role={role} pathname={location.pathname} merchantName={merchantName} />
         ) : breakpoint === 'tablet' ? (
           <IconRail role={role} pathname={location.pathname} />

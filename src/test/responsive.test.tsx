@@ -173,7 +173,13 @@ describe('the POS is the exception', () => {
     await signInAs('budi@indomart.com');
     await openAt('/pos', MOBILE);
 
-    // The cart is behind a bar at the bottom, not a panel in the flow.
+    // The bar appears only once there is something to show.
+    expect(screen.queryByRole('button', { name: 'Lihat keranjang' })).toBeNull();
+
+    await act(async () => {
+      (await screen.findByRole('button', { name: /Coca Cola 1\.5L/ })).click();
+    });
+
     const bar = await screen.findByRole('button', { name: 'Lihat keranjang' });
     expect(bar).toBeInTheDocument();
 
@@ -202,5 +208,102 @@ describe('the POS is the exception', () => {
     await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
     // No bottom bar and no sheet: the cart panel is simply on screen.
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('keeps the tab bar for an Owner on the till, as the way back out', async () => {
+    await signInAs('owner@indomart.com');
+    await openAt('/pos', MOBILE);
+
+    // The till gate is up…
+    expect(await screen.findByText('Pilih outlet untuk kasir')).toBeInTheDocument();
+    // …but the Owner's tab bar is still there, so leaving the till is one tap.
+    const dashboardTab = screen.getByRole('link', { name: 'Dashboard' });
+
+    // And it is pinned to the bottom of the screen, not pushed below the fold:
+    // the region above it cannot grow past its flexed height and the bar
+    // itself cannot shrink (shrink-0).
+    const bar = dashboardTab.closest('nav');
+    expect(bar?.className).toContain('shrink-0');
+    expect(bar?.previousElementSibling?.className).toContain('overflow-y-auto');
+    expect(bar?.parentElement?.className).toContain('flex-col');
+  });
+
+  it('keeps the cashier till chromeless — the tab bar is not the way back for them', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/pos', MOBILE);
+
+    await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
+    // The till's own "Kasir" label is text, not a link; a link by that name
+    // exists only in a footer tab bar, and there is none for a cashier.
+    expect(screen.queryByRole('link', { name: 'Kasir' })).toBeNull();
+  });
+
+  it('reveals the cart bar on a product tap, pinned above the tab bar', async () => {
+    await signInAs('owner@indomart.com');
+    await openAt('/pos', MOBILE);
+
+    // The Owner must pick an outlet before there is a till to tap into. The
+    // button's name carries the address too, so the probe is a substring.
+    await act(async () => {
+      (await screen.findByRole('button', { name: /Outlet A - Mall Central/ })).click();
+    });
+
+    // Empty cart, no bar yet.
+    expect(screen.queryByRole('button', { name: 'Lihat keranjang' })).toBeNull();
+
+    // Tap a product → the bar appears.
+    await act(async () => {
+      (await screen.findByRole('button', { name: /Coca Cola 1\.5L/ })).click();
+    });
+    const bar = screen.getByRole('button', { name: 'Lihat keranjang' });
+
+    // It lives inside the till region that sits directly above the tab bar.
+    const tabBar = screen.getByRole('navigation');
+    expect(tabBar.previousElementSibling?.contains(bar)).toBe(true);
+
+    // And it opens the cart, showing what is in it.
+    await act(async () => {
+      bar.click();
+    });
+    const heading = screen.getByText('Keranjang');
+    const sheet = heading.closest('[aria-hidden]');
+    expect(sheet?.getAttribute('aria-hidden')).toBe('false');
+    expect(within(sheet as HTMLElement).getByText('Coca Cola 1.5L')).toBeInTheDocument();
+  });
+});
+
+describe('the desktop sidebar collapses and comes back', () => {
+  it('hides the sidebar on demand and restores it from the header', async () => {
+    await signInAs('owner@indomart.com');
+    await openAt('/dashboard', DESKTOP);
+
+    // "Analitik" is a sidebar-only label — nothing else on the dashboard is a
+    // link by that name, so it is an honest probe for the sidebar being alive.
+    expect(await screen.findByRole('link', { name: 'Analitik' })).toBeInTheDocument();
+
+    // Collapse it, to give the dashboard the full width.
+    await act(async () => {
+      screen.getByRole('button', { name: 'Sembunyikan menu samping' }).click();
+    });
+
+    expect(screen.queryByRole('link', { name: 'Analitik' })).toBeNull();
+    // The same button now offers the way back.
+    expect(screen.getByRole('button', { name: 'Tampilkan menu samping' })).toBeInTheDocument();
+
+    // And it restores the nav.
+    await act(async () => {
+      screen.getByRole('button', { name: 'Tampilkan menu samping' }).click();
+    });
+    expect(screen.getByRole('link', { name: 'Analitik' })).toBeInTheDocument();
+  });
+
+  it('has no sidebar toggle below desktop', async () => {
+    await signInAs('owner@indomart.com');
+    await openAt('/dashboard', TABLET);
+
+    // The header title renders the dashboard's name; no sidebar at this width.
+    expect((await screen.findAllByText('Dashboard')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Sembunyikan menu samping' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Tampilkan menu samping' })).toBeNull();
   });
 });

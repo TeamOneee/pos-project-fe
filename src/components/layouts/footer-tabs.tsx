@@ -34,7 +34,7 @@ export function FooterTabs({ role, pathname }: { role: Role; pathname: string })
 
   return (
     <>
-      <nav className="flex flex-row border-t border-border bg-surface">
+      <nav className="flex shrink-0 flex-row border-t border-border bg-surface">
         {visible.map((item) => (
           <TabLink key={item.href} item={item} active={active === item.href} />
         ))}

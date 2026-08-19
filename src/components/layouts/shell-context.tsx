@@ -5,6 +5,9 @@
  * nothing. A screen whose heading is not its nav label overrides it with
  * `useTopBarTitle`. A screen that wants controls on the desktop top bar
  * renders them through `useTopBarActions`.
+ *
+ * The sidebar's collapsed state also lives here — above the router, so it
+ * survives navigation between pages but not a reload.
  */
 
 import * as React from 'react';
@@ -14,6 +17,9 @@ type ShellContextValue = {
   setTitleOverride: (title: string | null) => void;
   topBarActions: React.ReactNode;
   setTopBarActions: (actions: React.ReactNode) => void;
+  /** The desktop sidebar is collapsed (hidden); the header toggle restores it. */
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 };
 
 const ShellContext = React.createContext<ShellContextValue | null>(null);
@@ -21,10 +27,18 @@ const ShellContext = React.createContext<ShellContextValue | null>(null);
 export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [titleOverride, setTitleOverride] = React.useState<string | null>(null);
   const [topBarActions, setTopBarActions] = React.useState<React.ReactNode>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   const value = React.useMemo(
-    () => ({ titleOverride, setTitleOverride, topBarActions, setTopBarActions }),
-    [titleOverride, topBarActions]
+    () => ({
+      titleOverride,
+      setTitleOverride,
+      topBarActions,
+      setTopBarActions,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+    }),
+    [titleOverride, topBarActions, sidebarCollapsed]
   );
 
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;
@@ -62,4 +76,14 @@ export function useTopBarActions(actions: React.ReactNode | null): void {
     setTopBarActions(actions);
     return () => setTopBarActions(null);
   }, [actions, setTopBarActions]);
+}
+
+/** Whether the desktop sidebar is currently collapsed. */
+export function useSidebarCollapsed(): boolean {
+  return useShell().sidebarCollapsed;
+}
+
+/** Collapse or expand the desktop sidebar. */
+export function useSetSidebarCollapsed(): (collapsed: boolean) => void {
+  return useShell().setSidebarCollapsed;
 }
