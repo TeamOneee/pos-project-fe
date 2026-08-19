@@ -80,8 +80,10 @@ const SelectItem = React.forwardRef<
         <Icon as={Check} size={16} className="text-accent" />
       </SelectPrimitive.ItemIndicator>
     </span>
-    <SelectPrimitive.ItemText className="type-body text-fg" />
-    {children}
+    {/* The label must live inside ItemText — that is what SelectValue copies
+        into the trigger. A sibling node renders in the list but never in the
+        trigger, leaving the selected value looking blank. */}
+    <SelectPrimitive.ItemText className="type-body text-fg">{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = 'SelectItem';
