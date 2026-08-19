@@ -55,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // §2.2 opens `GET /merchant` to every role, so every sidebar can carry the
   // merchant name — it is no longer an Owner-only fact.
   const merchant = useMerchant();
+  const merchantName = merchant.data?.name ?? null;
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const mainRef = React.useRef<HTMLElement>(null);
