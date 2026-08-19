@@ -29,6 +29,9 @@ export function useProducts(filters: ProductFilters = {}) {
   return useQuery({
     queryKey: queryKeys.products(filters),
     queryFn: () => productsApi.list(filters),
+    // Longer than the default: catalogue edits invalidate the list on write,
+    // so a read only refetches when it actually changed — not on every visit.
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
 }

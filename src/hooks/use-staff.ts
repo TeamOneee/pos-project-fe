@@ -22,6 +22,8 @@ export function useStaff(filters: StaffFilters = {}) {
   return useQuery({
     queryKey: queryKeys.staff(filters),
     queryFn: () => staffApi.list(filters),
+    // A roster changes rarely, and every staff write invalidates the list.
+    staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });
 }

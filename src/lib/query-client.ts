@@ -3,6 +3,21 @@ import { QueryClient } from '@tanstack/react-query';
 /**
  * TanStack Query owns all server state (CLAUDE.md § Stack). Zustand is for cart
  * state only, and never mirrors anything the API already knows.
+ *
+ * Cache strategy, per query, in the hook that owns it:
+ *   • Reference data (merchant, categories, outlets, staff) — minutes, because
+ *     it changes rarely and every write invalidates it.
+ *   • Catalog and inventory lists — seconds to a minute, invalidated on write.
+ *   • POS catalogue — short, because stock moves with every sale.
+ *   • Dashboard reads — 30 minutes (see use-dashboard.ts); freshness after a
+ *     change comes from mutation invalidation, not from time.
+ *   • Completed-sale reads (transaction detail, receipt, exact search) —
+ *     Infinity: a settled sale never changes.
+ *
+ * The global default below is the floor for everything not explicitly tuned,
+ * and the invalidation web on the write hooks is what makes the longer
+ * staleTimes safe: products/categories/outlets/staff/inventory/checkout all
+ * invalidate every query derived from what they changed.
  */
 export function createQueryClient(): QueryClient {
   return new QueryClient({

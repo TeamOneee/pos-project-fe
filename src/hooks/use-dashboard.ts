@@ -9,6 +9,14 @@
  * Everything Owner-facing needs a period, and §6.2 caps the range at 366 days.
  * The two current-state endpoints — operations and low-stock — take no period
  * at all and are readable by the Admin as well.
+ *
+ * Caching: the whole dashboard surface is kept for 30 minutes before a query
+ * hits the API again, because a dashboard is read for a status check, not for
+ * live numbers — and §6.1 rule 3 already caches the aggregates server-side for
+ * the same 30 minutes. Freshness after a change is not a matter of time but of
+ * invalidation: every stock, product, outlet and checkout write invalidates
+ * `['dashboard']` (see use-inventory.ts, use-products.ts, use-checkout.ts), so
+ * the screen does hit the API the moment the underlying data actually moved.
  */
 
 import { useQueries, useQuery } from '@tanstack/react-query';
@@ -22,18 +30,15 @@ import {
 } from '@/services/dashboard';
 import { queryKeys } from '@/lib/query-client';
 
-/**
- * Aggregates are cached server-side for 30 minutes and may come back STALE
- * (§6.1 rule 3), so there is no value in a short client stale time on top.
- */
-const AGGREGATE_STALE_MS = 60_000;
+/** How long a dashboard read stays fresh before the API is asked again. */
+const DASHBOARD_STALE_MS = 30 * 60_000;
 
 export function useDashboardSummary(query: PeriodQuery, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.dashboardSummary(query),
     queryFn: () => dashboardApi.summary(query),
     enabled: options.enabled ?? true,
-    staleTime: AGGREGATE_STALE_MS,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
@@ -42,6 +47,7 @@ export function useDashboardOperations(query: OutletQuery = {}) {
   return useQuery({
     queryKey: queryKeys.dashboardOperations(query.outlet_id),
     queryFn: () => dashboardApi.operations(query),
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
@@ -59,6 +65,7 @@ export function useOperationsByOutlet(outletIds: readonly string[]) {
     queries: outletIds.map((outletId) => ({
       queryKey: queryKeys.dashboardOperations(outletId),
       queryFn: () => dashboardApi.operations({ outlet_id: outletId }),
+      staleTime: DASHBOARD_STALE_MS,
     })),
   });
 }
@@ -68,7 +75,7 @@ export function useSalesTrend(query: TrendQuery, options: { enabled?: boolean } 
     queryKey: queryKeys.salesTrend(query),
     queryFn: () => dashboardApi.salesTrend(query),
     enabled: options.enabled ?? true,
-    staleTime: AGGREGATE_STALE_MS,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
@@ -77,7 +84,7 @@ export function useAovTrend(query: TrendQuery, options: { enabled?: boolean } = 
     queryKey: queryKeys.aovTrend(query),
     queryFn: () => dashboardApi.aovTrend(query),
     enabled: options.enabled ?? true,
-    staleTime: AGGREGATE_STALE_MS,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
@@ -86,7 +93,7 @@ export function useTimePattern(query: PeriodQuery, options: { enabled?: boolean 
     queryKey: queryKeys.timePattern(query),
     queryFn: () => dashboardApi.timePattern(query),
     enabled: options.enabled ?? true,
-    staleTime: AGGREGATE_STALE_MS,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
@@ -95,7 +102,7 @@ export function useTopProducts(query: TopProductsQuery, options: { enabled?: boo
     queryKey: queryKeys.topProducts(query),
     queryFn: () => dashboardApi.topProducts(query),
     enabled: options.enabled ?? true,
-    staleTime: AGGREGATE_STALE_MS,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
@@ -108,14 +115,15 @@ export function useOutletComparison(
     queryKey: queryKeys.outletComparison(query),
     queryFn: () => dashboardApi.outletComparison(query),
     enabled: options.enabled ?? true,
-    staleTime: AGGREGATE_STALE_MS,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
 
-/** Low-stock alerts. Admin and Owner; live state, so always FRESH. */
+/** Low-stock alerts. Admin and Owner; part of the dashboard surface, so 30 min too. */
 export function useLowStock(query: OutletQuery = {}) {
   return useQuery({
     queryKey: queryKeys.lowStock(query.outlet_id),
     queryFn: () => dashboardApi.lowStock(query),
+    staleTime: DASHBOARD_STALE_MS,
   });
 }
