@@ -1,14 +1,13 @@
 /**
- * S-11's two variants, and the enforcement behind them.
+ * S-11, and the enforcement behind the screen.
  *
- * The Owner's catalog is read-only in three layers, and each one is checked here:
+ * The Owner and the Admin both manage the catalog (BR-011B), so the mutation
+ * surfaces are on the screen for both roles. What is tested here:
  *
- *   1. Nothing that mutates is in the DOM — not hidden, not disabled, absent.
- *   2. The mutation hooks reject for an Owner session before a request is made,
- *      so calling one directly (a stale component, a console, a future screen
- *      that forgets to gate a button) still cannot write.
- *   3. The mock backend answers 403 anyway, which is what layer 2 is agreeing
- *      with rather than replacing.
+ *   1. Both roles see the create button and the row menus.
+ *   2. The mutation hooks are guarded by the matrix — but the matrix admits
+ *      both roles, so a direct call from either session reaches the API.
+ *   3. The mock backend would answer 403 for any role the matrix excludes.
  */
 
 import '@/api';
@@ -21,7 +20,6 @@ import App from '@/App';
 import { AuthProvider, useAuth } from '@/components/pages/auth/auth-provider';
 import { getDb, resetDb } from '@/api/mock/db';
 import { setToken } from '@/api/token';
-import { isApiError } from '@/api/errors';
 import { useCreateProduct, useDeactivateProduct } from '@/hooks/use-products';
 import { authApi } from '@/services';
 import { createQueryClient } from '@/lib/query-client';
@@ -31,9 +29,6 @@ class MockResizeObserver {
   unobserve() {}
   disconnect() {}
 }
-
-/** Affordances that must never reach an Owner's catalog screen. */
-const ADMIN_ONLY_LABELS = [/\+ tambah produk/i, /^edit$/i, /^nonaktifkan$/i, /menu untuk/i];
 
 async function signInAs(email: string) {
   resetDb();
@@ -101,22 +96,18 @@ describe('S-11 · products list', () => {
     expect(badges.length).toBeGreaterThan(0);
   });
 
-  it('renders the Owner variant with no mutation affordance in the DOM', async () => {
+  it('gives the Owner the same mutation affordances as the Admin', async () => {
     await signInAs('owner@indomart.com');
     await openProducts();
 
-    expect(
-      await screen.findByText('Tampilan hanya-baca. Katalog dikelola oleh Admin.')
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /\+ tambah produk/i })).toBeInTheDocument();
 
     // The list has to have rendered, or this would pass on an empty screen.
     await screen.findByText('Menampilkan 1–10 dari 14');
 
-    for (const label of ADMIN_ONLY_LABELS) {
-      expect(screen.queryByRole('button', { name: label })).toBeNull();
-      expect(screen.queryByText(label)).toBeNull();
-    }
-    expect(screen.queryByText('Aksi')).toBeNull();
+    const menus = await screen.findAllByRole('button', { name: /menu untuk/i });
+    expect(menus.length).toBeGreaterThan(0);
+    expect(screen.queryByText('Tampilan hanya-baca')).toBeNull();
   });
 });
 
@@ -184,7 +175,7 @@ async function renderProbe(role: 'OWNER' | 'ADMIN', onSettled: (result: ProbeRes
 }
 
 describe('catalog mutations under the role matrix', () => {
-  it('refuses an Owner session without sending a request', async () => {
+  it('lets an Owner session through to the API (BR-011B)', async () => {
     await signInAs('owner@indomart.com');
 
     let settled: ProbeResult = null;
@@ -197,21 +188,17 @@ describe('catalog mutations under the role matrix', () => {
     await act(async () => {
       screen.getByRole('button', { name: 'create' }).click();
     });
-    await waitFor(() => expect(settled).not.toBeNull());
+    await waitFor(() => expect(getDb().products.length).toBe(before + 1));
 
-    const error = (settled as unknown as { error: unknown }).error;
-    expect(isApiError(error)).toBe(true);
-    expect(isApiError(error) && error.kind).toBe('forbidden');
-    // Nothing was created, and nothing was even attempted: the mock never saw it.
-    expect(getDb().products).toHaveLength(before);
+    expect(settled).toBeNull();
 
     settled = null;
     await act(async () => {
       screen.getByRole('button', { name: 'deactivate' }).click();
     });
-    await waitFor(() => expect(settled).not.toBeNull());
-
-    expect(getDb().products.find((entry) => entry.id === 'prd_cc1500')?.is_active).toBe(true);
+    await waitFor(() =>
+      expect(getDb().products.find((entry) => entry.id === 'prd_cc1500')?.is_active).toBe(false)
+    );
   });
 
   it('lets an Admin session through to the API', async () => {

@@ -20,12 +20,10 @@ import { RowMenu, type RowMenuItem } from '@/components/ui/row-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { IfCan } from '@/components/pages/auth/if-can';
 import { StatusBadge } from '@/components/pages/catalog/catalog-badges';
 import { CategoryDialog } from '@/components/pages/catalog/category-dialog';
 import { DeactivateDialog, HISTORY_PRESERVED } from '@/components/pages/catalog/deactivate-dialog';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import { useCan } from '@/hooks/use-can';
 import { useCategories, useDeactivateCategory } from '@/hooks/use-categories';
 import { useProducts } from '@/hooks/use-products';
 import type { Category } from '@/services/categories';
@@ -40,7 +38,6 @@ import { cn } from '@/lib/utils';
 const COUNT_LIMIT = 500;
 
 export default function CategoriesPage() {
-  const editable = useCan('catalog', 'manage');
   const stacked = useBreakpoint() === 'mobile';
   const { toast } = useToast();
 
@@ -69,20 +66,18 @@ export default function CategoriesPage() {
     setEditorOpen(true);
   };
 
-  const rowMenu = editable
-    ? (category: Category): RowMenuItem[] => [
-        { label: 'Edit', onSelect: () => openEditor(category) },
-        ...(category.isActive
-          ? [
-              {
-                label: 'Nonaktifkan',
-                tone: 'danger' as const,
-                onSelect: () => setDeactivating(category),
-              },
-            ]
-          : []),
-      ]
-    : undefined;
+  const rowMenu = (category: Category): RowMenuItem[] => [
+    { label: 'Edit', onSelect: () => openEditor(category) },
+    ...(category.isActive
+      ? [
+          {
+            label: 'Nonaktifkan',
+            tone: 'danger' as const,
+            onSelect: () => setDeactivating(category),
+          },
+        ]
+      : []),
+  ];
 
   const confirmDeactivate = () => {
     if (!deactivating) return;
@@ -108,25 +103,13 @@ export default function CategoriesPage() {
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
-        <IfCan
-          resource="catalog"
-          access="manage"
-          fallback={
-            <Text variant="body" tone="muted">
-              Tampilan hanya-baca. Katalog dikelola oleh Admin.
-            </Text>
-          }
-        >
-          <Text variant="body" tone="muted">
-            Kelompokkan produk agar mudah dicari di kasir.
-          </Text>
-        </IfCan>
+        <Text variant="body" tone="muted">
+          Kelompokkan produk agar mudah dicari di kasir.
+        </Text>
 
-        <IfCan resource="catalog" access="manage">
-          <Button className="shrink-0" onClick={() => openEditor(null)}>
-            <Text>+ Tambah Kategori</Text>
-          </Button>
-        </IfCan>
+        <Button className="shrink-0" onClick={() => openEditor(null)}>
+          <Text>+ Tambah Kategori</Text>
+        </Button>
       </div>
 
       <Card>
@@ -149,11 +132,9 @@ export default function CategoriesPage() {
               <Text variant="body" tone="muted">
                 Kategori pertama Anda membuat produk lebih mudah ditemukan di kasir.
               </Text>
-              <IfCan resource="catalog" access="manage">
-                <Button onClick={() => openEditor(null)}>
-                  <Text>+ Tambah Kategori</Text>
-                </Button>
-              </IfCan>
+              <Button onClick={() => openEditor(null)}>
+                <Text>+ Tambah Kategori</Text>
+              </Button>
             </div>
           ) : stacked ? (
             // Below tablet: the name and the count stay, status and menu demote
@@ -183,9 +164,7 @@ export default function CategoriesPage() {
                       </Text>
                       <StatusBadge status={category.isActive ? 'ACTIVE' : 'INACTIVE'} />
                     </div>
-                    {rowMenu ? (
-                      <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
-                    ) : null}
+                    <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
                   </div>
                 </div>
               ))}
@@ -196,7 +175,7 @@ export default function CategoriesPage() {
                 <Head className="flex-[2]">Nama Kategori</Head>
                 <Head className="flex-1 justify-end">Jumlah Produk</Head>
                 <Head className="flex-1">Status</Head>
-                {rowMenu ? <Head className="w-touch shrink-0">Aksi</Head> : null}
+                <Head className="w-touch shrink-0">Aksi</Head>
               </div>
 
               {rows.map((category) => (
@@ -223,11 +202,9 @@ export default function CategoriesPage() {
                     <StatusBadge status={category.isActive ? 'ACTIVE' : 'INACTIVE'} />
                   </div>
 
-                  {rowMenu ? (
-                    <div className="w-touch shrink-0">
-                      <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
-                    </div>
-                  ) : null}
+                  <div className="w-touch shrink-0">
+                    <RowMenu label={`Menu untuk ${category.name}`} items={rowMenu(category)} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -235,35 +212,33 @@ export default function CategoriesPage() {
         </CardContent>
       </Card>
 
-      <IfCan resource="catalog" access="manage">
-        <CategoryDialog
-          open={editorOpen}
-          onOpenChange={(open) => {
-            setEditorOpen(open);
-            if (!open) setEditing(null);
-          }}
-          category={editing}
-        />
+      <CategoryDialog
+        open={editorOpen}
+        onOpenChange={(open) => {
+          setEditorOpen(open);
+          if (!open) setEditing(null);
+        }}
+        category={editing}
+      />
 
-        <DeactivateDialog
-          open={deactivating !== null}
-          onOpenChange={(open) => {
-            if (!open) setDeactivating(null);
-          }}
-          title={`Nonaktifkan kategori ${deactivating?.name ?? 'ini'}?`}
-          preserved={`${HISTORY_PRESERVED} Produknya juga tetap ada dan bisa dipulihkan dengan mengaktifkan kategori ini kembali.`}
-          pending={deactivate.isPending}
-          error={deactivate.error}
-          onConfirm={confirmDeactivate}
-        >
-          <Text variant="body">
-            {`Kategori ${deactivating?.name ?? 'ini'} tidak akan bisa dipilih untuk produk baru.`}
-          </Text>
-          <Text variant="body" tone="muted">
-            {`${formatCount(deactivatingCount)} produk yang sudah memakai kategori ini tetap ada dan tidak berubah, tetapi hilang dari katalog kasir sampai kategorinya diaktifkan kembali.`}
-          </Text>
-        </DeactivateDialog>
-      </IfCan>
+      <DeactivateDialog
+        open={deactivating !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeactivating(null);
+        }}
+        title={`Nonaktifkan kategori ${deactivating?.name ?? 'ini'}?`}
+        preserved={`${HISTORY_PRESERVED} Produknya juga tetap ada dan bisa dipulihkan dengan mengaktifkan kategori ini kembali.`}
+        pending={deactivate.isPending}
+        error={deactivate.error}
+        onConfirm={confirmDeactivate}
+      >
+        <Text variant="body">
+          {`Kategori ${deactivating?.name ?? 'ini'} tidak akan bisa dipilih untuk produk baru.`}
+        </Text>
+        <Text variant="body" tone="muted">
+          {`${formatCount(deactivatingCount)} produk yang sudah memakai kategori ini tetap ada dan tidak berubah, tetapi hilang dari katalog kasir sampai kategorinya diaktifkan kembali.`}
+        </Text>
+      </DeactivateDialog>
     </div>
   );
 }

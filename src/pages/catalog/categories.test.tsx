@@ -71,17 +71,15 @@ describe('S-13 · categories', () => {
     expect(within(dialog).getByText(/tetap ada dan tidak berubah/i)).toBeInTheDocument();
   });
 
-  it('renders the Owner variant with no mutation affordance in the DOM', async () => {
+  it('gives the Owner the same mutation affordances as the Admin', async () => {
     await signInAs('owner@indomart.com');
     await openCategories();
 
-    expect(
-      await screen.findByText('Tampilan hanya-baca. Katalog dikelola oleh Admin.')
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /\+ tambah kategori/i })).toBeInTheDocument();
     await screen.findByText('Minuman');
 
-    expect(screen.queryByRole('button', { name: /\+ tambah kategori/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /menu untuk/i })).toBeNull();
-    expect(screen.queryByText('Aksi')).toBeNull();
+    const menus = await screen.findAllByRole('button', { name: /menu untuk/i });
+    expect(menus.length).toBeGreaterThan(0);
+    expect(screen.queryByText('Tampilan hanya-baca')).toBeNull();
   });
 });

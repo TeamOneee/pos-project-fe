@@ -6,10 +6,8 @@
  * is the precondition for there being a table at all. It sits at the top of the
  * content area, and until one is chosen the table area says so.
  *
- * The Owner sees the same screen without any way to change anything: no header
- * buttons, no action column, no adjust link in the drawer. Those affordances
- * are not rendered rather than disabled — a read-only screen with greyed-out
- * buttons still ships the buttons.
+ * Both roles here manage stock (BR-011B), so the screen is a single variant:
+ * every session may adjust stock from a row or from the stock drawer.
  */
 
 import * as React from 'react';
@@ -18,7 +16,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useAuth } from '@/components/pages/auth/auth-provider';
 import {
   AdjustStockDialog,
   type AdjustTarget,
@@ -41,15 +38,11 @@ import {
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
 import { useInventory } from '@/hooks/use-inventory';
 import { useOutlets } from '@/hooks/use-outlets';
-import { canManage } from '@/lib/permissions';
 
 /** One outlet rarely carries more rows than this; paging would add a control for nothing. */
 const PAGE_LIMIT = 200;
 
 export default function InventoryPage() {
-  const { role } = useAuth();
-  const editable = role !== null && canManage(role, 'inventory');
-
   // The Admin dashboard's "Kelola Stok →" link arrives with the outlet already
   // decided, which is the whole point of that link.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -111,15 +104,9 @@ export default function InventoryPage() {
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
-        {editable ? (
-          <Text variant="body" tone="muted">
-            Kelola stok per outlet: sesuaikan, update massal, atau transfer antar outlet.
-          </Text>
-        ) : (
-          <Text variant="body" tone="muted">
-            Tampilan hanya-baca. Penyesuaian stok dilakukan oleh Admin.
-          </Text>
-        )}
+        <Text variant="body" tone="muted">
+          Kelola stok per outlet: sesuaikan, update massal, atau transfer antar outlet.
+        </Text>
 
         {/*
           There are no header actions any more. §4.2 gives inventory exactly one
@@ -164,7 +151,7 @@ export default function InventoryPage() {
               ) : (
                 <InventoryTable
                   rows={rows}
-                  onAdjust={editable ? openAdjust : undefined}
+                  onAdjust={openAdjust}
                   onOpenStockPerOutlet={(row) =>
                     setDrawerProduct({ productId: row.productId, name: row.name })
                   }
@@ -190,18 +177,13 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Every mutation surface below is Admin-only and simply absent otherwise. */}
-      {editable && (
-        <>
-          <AdjustStockDialog
-            target={adjustTarget}
-            open={adjustTarget !== null}
-            onOpenChange={(open) => {
-              if (!open) setAdjustTarget(null);
-            }}
-          />
-        </>
-      )}
+      <AdjustStockDialog
+        target={adjustTarget}
+        open={adjustTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setAdjustTarget(null);
+        }}
+      />
 
       <StockPerOutletDrawer
         product={drawerProduct}
@@ -209,14 +191,10 @@ export default function InventoryPage() {
         onOpenChange={(open) => {
           if (!open) setDrawerProduct(null);
         }}
-        onAdjust={
-          editable
-            ? (target) => {
-                setDrawerProduct(null);
-                setAdjustTarget(target);
-              }
-            : undefined
-        }
+        onAdjust={(target) => {
+          setDrawerProduct(null);
+          setAdjustTarget(target);
+        }}
       />
     </div>
   );

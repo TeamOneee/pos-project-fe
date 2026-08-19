@@ -14,9 +14,9 @@
  *     is impossible if the screen quietly filters them out. The POS applies the
  *     same rule in the other direction (it hides them); both read it from
  *     lib/catalog-visibility so they cannot drift apart.
- *   • Every mutation affordance sits inside `IfCan`, and the mutation hooks are
- *     guarded by the same matrix, so the Owner's variant has no create button, no
- *     row menu and no reachable write — not a disabled one.
+ *   • Both roles here manage the catalog (BR-011B), so every mutation surface is
+ *     unconditional. The hooks behind them are still guarded by the matrix, so a
+ *     stray direct call is rejected before any request is made.
  */
 
 import * as React from 'react';
@@ -27,7 +27,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import type { RowMenuItem } from '@/components/ui/row-menu';
-import { IfCan } from '@/components/pages/auth/if-can';
 import { DeactivateDialog, HISTORY_PRESERVED } from '@/components/pages/catalog/deactivate-dialog';
 import { ProductDialog } from '@/components/pages/catalog/product-dialog';
 import {
@@ -48,7 +47,6 @@ import {
   StockPerOutletDrawer,
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
-import { useCan } from '@/hooks/use-can';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useDeactivateProduct, useProducts } from '@/hooks/use-products';
@@ -59,8 +57,6 @@ import { activeCategoryIndex, isHiddenByCategory } from '@/lib/catalog-visibilit
 const PAGE_LIMIT = 10;
 
 export default function ProductsPage() {
-  const editable = useCan('catalog', 'manage');
-  const canAdjustStock = useCan('inventory', 'manage');
   const { toast } = useToast();
 
   const [query, setQuery] = React.useState<ProductQuery>(EMPTY_QUERY);
@@ -120,25 +116,22 @@ export default function ProductsPage() {
   };
 
   /**
-   * The row menu, built only for a session that may manage the catalog. Handed
-   * to the table as a builder so a read-only session gets no menu at all rather
-   * than an empty one — see ProductTable.
+   * The row menu, built for every session that reaches this screen — both roles
+   * manage the catalog (BR-011B).
    */
-  const rowMenu = editable
-    ? (product: Product): RowMenuItem[] => [
-        { label: 'Edit', onSelect: () => openEditor(product) },
-        { label: 'Lihat Stok per Outlet', onSelect: () => openStock(product) },
-        ...(product.isActive
-          ? [
-              {
-                label: 'Nonaktifkan',
-                tone: 'danger' as const,
-                onSelect: () => setDeactivating(product),
-              },
-            ]
-          : []),
-      ]
-    : undefined;
+  const rowMenu = (product: Product): RowMenuItem[] => [
+    { label: 'Edit', onSelect: () => openEditor(product) },
+    { label: 'Lihat Stok per Outlet', onSelect: () => openStock(product) },
+    ...(product.isActive
+      ? [
+          {
+            label: 'Nonaktifkan',
+            tone: 'danger' as const,
+            onSelect: () => setDeactivating(product),
+          },
+        ]
+      : []),
+  ];
 
   const confirmDeactivate = () => {
     if (!deactivating) return;
@@ -162,25 +155,13 @@ export default function ProductsPage() {
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
-        <IfCan
-          resource="catalog"
-          access="manage"
-          fallback={
-            <Text variant="body" tone="muted">
-              Tampilan hanya-baca. Katalog dikelola oleh Admin.
-            </Text>
-          }
-        >
-          <Text variant="body" tone="muted">
-            Katalog produk merchant Anda.
-          </Text>
-        </IfCan>
+        <Text variant="body" tone="muted">
+          Katalog produk merchant Anda.
+        </Text>
 
-        <IfCan resource="catalog" access="manage">
-          <Button className="shrink-0" onClick={() => openEditor(null)}>
-            <Text>+ Tambah Produk</Text>
-          </Button>
-        </IfCan>
+        <Button className="shrink-0" onClick={() => openEditor(null)}>
+          <Text>+ Tambah Produk</Text>
+        </Button>
       </div>
 
       <Card>
@@ -228,64 +209,55 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      {/* Editing and deactivating exist only for a session that may manage. */}
-      <IfCan resource="catalog" access="manage">
-        <ProductDialog
-          open={editorOpen}
-          onOpenChange={(open) => {
-            setEditorOpen(open);
-            if (!open) setEditing(null);
-          }}
-          product={editing}
-          categories={categories.data?.items ?? []}
-        />
+      {/* Editing and deactivating — every session here may manage the catalog. */}
+      <ProductDialog
+        open={editorOpen}
+        onOpenChange={(open) => {
+          setEditorOpen(open);
+          if (!open) setEditing(null);
+        }}
+        product={editing}
+        categories={categories.data?.items ?? []}
+      />
 
-        <DeactivateDialog
-          open={deactivating !== null}
-          onOpenChange={(open) => {
-            if (!open) setDeactivating(null);
-          }}
-          // The record is named in the title, not just in the body.
-          title={`Nonaktifkan ${deactivating?.name ?? 'produk ini'}?`}
-          preserved={`${HISTORY_PRESERVED} Stok per outlet juga tidak berubah, dan produk bisa diaktifkan kembali dari layar ini.`}
-          pending={deactivate.isPending}
-          error={deactivate.error}
-          onConfirm={confirmDeactivate}
-        >
-          <Text variant="body">
-            {`${deactivating?.name ?? 'Produk ini'} akan hilang dari katalog kasir dan tidak bisa dijual lagi.`}
-          </Text>
-        </DeactivateDialog>
-      </IfCan>
+      <DeactivateDialog
+        open={deactivating !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeactivating(null);
+        }}
+        title={`Nonaktifkan ${deactivating?.name ?? 'produk ini'}?`}
+        preserved={`${HISTORY_PRESERVED} Stok per outlet juga tidak berubah, dan produk bisa diaktifkan kembali dari layar ini.`}
+        pending={deactivate.isPending}
+        error={deactivate.error}
+        onConfirm={confirmDeactivate}
+      >
+        <Text variant="body">
+          {`${deactivating?.name ?? 'Produk ini'} akan hilang dari katalog kasir dan tidak bisa dijual lagi.`}
+        </Text>
+      </DeactivateDialog>
 
-      {/* Reading stock is not managing it: both roles get the drawer. The
-          Sesuaikan links inside it belong to `inventory`, a separate row of the
-          matrix, so the drawer asks about that one rather than about `catalog`. */}
+      {/* Reading stock is not managing it: the drawer's Sesuaikan link belongs to
+          `inventory`, a separate row of the matrix — which this screen's roles
+          also manage. */}
       <StockPerOutletDrawer
         product={drawerProduct}
         open={drawerProduct !== null}
         onOpenChange={(open) => {
           if (!open) setDrawerProduct(null);
         }}
-        onAdjust={
-          canAdjustStock
-            ? (target) => {
-                setDrawerProduct(null);
-                setAdjustTarget(target);
-              }
-            : undefined
-        }
+        onAdjust={(target) => {
+          setDrawerProduct(null);
+          setAdjustTarget(target);
+        }}
       />
 
-      {canAdjustStock && (
-        <AdjustStockDialog
-          target={adjustTarget}
-          open={adjustTarget !== null}
-          onOpenChange={(open) => {
-            if (!open) setAdjustTarget(null);
-          }}
-        />
-      )}
+      <AdjustStockDialog
+        target={adjustTarget}
+        open={adjustTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setAdjustTarget(null);
+        }}
+      />
     </div>
   );
 }
@@ -318,11 +290,9 @@ function EmptyState({
       <Text variant="body" tone="muted">
         Tambahkan produk pertama Anda untuk mulai berjualan.
       </Text>
-      <IfCan resource="catalog" access="manage">
-        <Button onClick={onCreate}>
-          <Text>+ Tambah Produk</Text>
-        </Button>
-      </IfCan>
+      <Button onClick={onCreate}>
+        <Text>+ Tambah Produk</Text>
+      </Button>
     </div>
   );
 }

@@ -219,7 +219,7 @@ describe('role gating at the route', () => {
     ['sari@indomart.com', '/ai-insights'],
     ['budi@indomart.com', '/dashboard'],
     ['budi@indomart.com', '/products'],
-    ['owner@indomart.com', '/pos'],
+    ['sari@indomart.com', '/pos'],
   ];
 
   it.each(forbidden)('%s is refused %s', async (email, path) => {
@@ -242,14 +242,25 @@ describe('role gating at the route', () => {
     }
   });
 
-  it('keeps the Owner read-only on the catalog even by direct navigation', async () => {
+  it('hands the Owner a working till once they pick an outlet', async () => {
+    await signInAs('owner@indomart.com');
+    await open('/pos');
+
+    // No outlet has been chosen yet, so the till asks for one first.
+    expect(await screen.findByText('Pilih outlet untuk kasir')).toBeInTheDocument();
+
+    await click(await screen.findByRole('button', { name: /Outlet A - Mall Central/ }));
+
+    // The till itself loads, scoped to the chosen outlet.
+    expect(await screen.findByText('Coca Cola 1.5L')).toBeInTheDocument();
+  });
+
+  it('lets the Owner manage the catalog by direct navigation too', async () => {
     await signInAs('owner@indomart.com');
     await open('/products');
 
-    expect(
-      await screen.findByText('Tampilan hanya-baca. Katalog dikelola oleh Admin.')
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /\+ Tambah Produk/i })).toBeNull();
+    expect(await screen.findByRole('button', { name: /\+ Tambah Produk/i })).toBeInTheDocument();
+    expect(screen.queryByText('Tampilan hanya-baca')).toBeNull();
   });
 });
 

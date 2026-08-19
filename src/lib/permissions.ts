@@ -7,14 +7,22 @@
  * `role === 'OWNER'` conditional to gate a route.
  *
  * Where CLAUDE.md and docs/design-brief.md disagree, CLAUDE.md wins, as it
- * says it does. Two places that matters:
+ * says it does. One place that matters:
  *
  *   • The brief's Admin sidebar lists RIWAYAT → Transaksi, and S-21 says
  *     "Access: all roles". The matrix gives Admin **no access** to
  *     transactions, so Admin has no Transaksi nav item and a 403 on the route.
- *   • The brief (§9.7) has the Owner managing the catalog, following the API
- *     contract. The matrix makes the Owner read-only there, which is the
- *     reading the brief itself offers as the alternative.
+ *
+ * The Owner inherits every Admin capability (BR-011B): the API opens catalog
+ * and inventory mutations to `ADMIN` and `OWNER` alike, so both manage those
+ * resources here — there is no read-only Owner variant anywhere.
+ *
+ * One deliberate departure from the brief: the Owner **can** open the POS.
+ * §4.2 lets an Owner pick any active outlet in the merchant and run the till
+ * there ("Owner boleh memilih satu Outlet aktif dalam Merchant saat membuka
+ * POS"), so `pos` is `manage` for the Owner, not `none`. The brief's sidebar
+ * never listed the till for the Owner; the product decision is that a small
+ * merchant owner is also a cashier when the till needs them.
  */
 
 export const ROLES = ['OWNER', 'ADMIN', 'CASHIER'] as const;
@@ -54,15 +62,16 @@ export const PERMISSIONS: Record<Role, Record<Resource, Access>> = {
     merchant: 'manage',
     outlets: 'manage',
     staff: 'manage',
-    // Read-only: the Owner's route to a catalog is to create an Admin.
-    catalog: 'read',
-    inventory: 'read',
+    // BR-011B: the Owner inherits the Admin's catalog and inventory rights.
+    catalog: 'manage',
+    inventory: 'manage',
     businessDashboard: 'read',
     stockDashboard: 'none',
     analytics: 'read',
     aiInsights: 'read',
     transactions: 'read',
-    pos: 'none',
+    // §4.2: an Owner works a till at any active outlet of their choosing.
+    pos: 'manage',
   },
   ADMIN: {
     merchant: 'none',

@@ -9,9 +9,11 @@
  *
  * The three lines from the rules that are easiest to get wrong, and are asserted
  * here directly:
- *   • The Owner never manages the catalog — read-only on products and inventory.
+ *   • The Owner manages the catalog and stock too — it inherits the Admin's
+ *     mutation rights (BR-011B), so there is no read-only Owner variant.
  *   • The Admin has *no access* to transactions, analytics or AI insight.
- *   • Neither Owner nor Admin can reach the POS.
+ *   • The Owner may run the till (pos = manage, §4.2); the Admin still cannot
+ *     reach the POS at all.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -43,7 +45,7 @@ const ROUTE_ACCESS: Record<string, Role[]> = {
   '/inventory/low-stock': ['OWNER', 'ADMIN'],
   '/transactions': ['OWNER', 'CASHIER'],
   '/transactions/trx_001': ['OWNER', 'CASHIER'],
-  '/pos': ['CASHIER'],
+  '/pos': ['OWNER', 'CASHIER'],
 };
 
 /** The capability table from CLAUDE.md, transcribed. */
@@ -58,14 +60,14 @@ const CAPABILITIES: Record<Resource, Record<Role, 'none' | 'read' | 'manage'>> =
    */
   outlets: { OWNER: 'manage', ADMIN: 'read', CASHIER: 'none' },
   staff: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'none' },
-  catalog: { OWNER: 'read', ADMIN: 'manage', CASHIER: 'none' },
-  inventory: { OWNER: 'read', ADMIN: 'manage', CASHIER: 'none' },
+  catalog: { OWNER: 'manage', ADMIN: 'manage', CASHIER: 'none' },
+  inventory: { OWNER: 'manage', ADMIN: 'manage', CASHIER: 'none' },
   businessDashboard: { OWNER: 'read', ADMIN: 'none', CASHIER: 'none' },
   stockDashboard: { OWNER: 'none', ADMIN: 'read', CASHIER: 'none' },
   analytics: { OWNER: 'read', ADMIN: 'none', CASHIER: 'none' },
   aiInsights: { OWNER: 'read', ADMIN: 'none', CASHIER: 'none' },
   transactions: { OWNER: 'read', ADMIN: 'none', CASHIER: 'read' },
-  pos: { OWNER: 'none', ADMIN: 'none', CASHIER: 'manage' },
+  pos: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'manage' },
 };
 
 describe('every role against every route', () => {
@@ -111,10 +113,11 @@ describe('every role against every capability', () => {
 });
 
 describe('the rules that are easiest to break', () => {
-  it('keeps the Owner read-only on the catalog and on stock', () => {
+  it('lets the Owner manage the catalog and stock, like the Admin (BR-011B)', () => {
     for (const resource of ['catalog', 'inventory'] as const) {
       expect(can('OWNER', resource, 'read')).toBe(true);
-      expect(canManage('OWNER', resource)).toBe(false);
+      expect(canManage('OWNER', resource)).toBe(true);
+      expect(canManage('ADMIN', resource)).toBe(true);
     }
   });
 
@@ -128,9 +131,11 @@ describe('the rules that are easiest to break', () => {
     expect(canAccessRoute('ADMIN', '/ai-insights')).toBe(false);
   });
 
-  it('keeps checkout to the Cashier', () => {
+  it('opens the till to the Owner and the Cashier, and to no one else', () => {
+    expect(canManage('OWNER', 'pos')).toBe(true);
     expect(canManage('CASHIER', 'pos')).toBe(true);
-    expect(canAccessRoute('OWNER', '/pos')).toBe(false);
+    expect(canAccessRoute('OWNER', '/pos')).toBe(true);
+    expect(canAccessRoute('CASHIER', '/pos')).toBe(true);
     expect(canAccessRoute('ADMIN', '/pos')).toBe(false);
   });
 

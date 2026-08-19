@@ -1,11 +1,10 @@
 /**
- * S-15's two variants, checked at the DOM.
+ * S-15, checked at the DOM.
  *
- * The read-only requirement is not "the Owner does not see buttons" — it is
- * that the buttons are not in the tree. A CSS-hidden control is still tabbable,
- * still clickable from the accessibility tree, and still a lie about what the
- * screen does. These tests query the whole document rather than what is
- * visible, so a `hidden` class would not save them.
+ * Both roles here manage stock (BR-011B), so the screen is one variant and the
+ * tests query the whole document rather than what is visible — a CSS-hidden
+ * control is still tabbable, still clickable from the accessibility tree, and
+ * still a lie about what the screen does.
  */
 
 import '@/api';
@@ -23,9 +22,6 @@ class MockResizeObserver {
   unobserve() {}
   disconnect() {}
 }
-
-/** Mutation affordances that must never reach an Owner's inventory screen. */
-const ADMIN_ONLY_LABELS = [/update massal/i, /transfer stok/i, /^sesuaikan$/i];
 
 async function signInAs(email: string) {
   resetDb();
@@ -75,13 +71,11 @@ describe('S-15 · inventory', () => {
     expect(screen.queryByRole('button', { name: /transfer stok/i })).toBeNull();
   });
 
-  it('renders the Owner variant with no mutation affordance in the DOM', async () => {
+  it('gives the Owner the same mutation affordances as the Admin', async () => {
     await signInAs('owner@indomart.com');
     await openInventory();
 
-    expect(
-      await screen.findByText('Tampilan hanya-baca. Penyesuaian stok dilakukan oleh Admin.')
-    ).toBeInTheDocument();
+    await screen.findByRole('radiogroup', { name: 'Outlet' });
 
     // Pick an outlet so the table renders — the action column is the point.
     const outletPill = await screen.findByRole('radio', { name: /Outlet A/i });
@@ -90,16 +84,13 @@ describe('S-15 · inventory', () => {
     });
 
     await waitFor(() => {
-      expect(
-        screen.getAllByRole('button', { name: /Lihat stok .* per outlet/i }).length
-      ).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button', { name: /Sesuaikan/i }).length).toBeGreaterThan(0);
     });
 
-    // Absent, not hidden: nothing in the whole document matches.
-    for (const label of ADMIN_ONLY_LABELS) {
-      expect(screen.queryByRole('button', { name: label })).toBeNull();
-      expect(screen.queryByText(label)).toBeNull();
-    }
-    expect(screen.queryByText('Aksi')).toBeNull();
+    // Bulk update and transfer are gone with their endpoints (§4.2): stock is
+    // adjusted one product at a time, from the row.
+    expect(screen.queryByRole('button', { name: /update massal/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /transfer stok/i })).toBeNull();
+    expect(screen.queryByText('Tampilan hanya-baca')).toBeNull();
   });
 });
