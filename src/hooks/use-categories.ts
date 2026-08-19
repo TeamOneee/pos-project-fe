@@ -80,7 +80,7 @@ export function useUpdateCategory() {
 
       return { previousCategories };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousCategories) {
         queryClient.setQueriesData({ queryKey: queryKeys.categories() }, context.previousCategories);
       }
@@ -120,7 +120,7 @@ export function useDeactivateCategory() {
 
       return { previousCategories };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousCategories) {
         queryClient.setQueriesData({ queryKey: queryKeys.categories() }, context.previousCategories);
       }

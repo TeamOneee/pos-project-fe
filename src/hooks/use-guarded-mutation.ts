@@ -35,7 +35,7 @@ export function useGuardedMutation<TVariables, TData, TContext = unknown>(
   options: {
     mutationFn: (variables: TVariables) => Promise<TData>;
     onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
-    onMutate?: (variables: TVariables) => Promise<TContext | undefined> | TContext | undefined;
+    onMutate?: (variables: TVariables) => Promise<TContext> | TContext;
     onError?: (error: unknown, variables: TVariables, context: TContext | undefined) => void;
     onSettled?: (data: TData | undefined, error: unknown, variables: TVariables, context: TContext | undefined) => void;
   }

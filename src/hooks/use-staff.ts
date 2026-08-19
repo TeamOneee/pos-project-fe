@@ -75,7 +75,7 @@ export function useUpdateStaff() {
 
       return { previousStaff };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousStaff) {
         queryClient.setQueriesData({ queryKey: queryKeys.staff() }, context.previousStaff);
       }
@@ -113,7 +113,7 @@ export function useDeactivateStaff() {
 
       return { previousStaff };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previousStaff) {
         queryClient.setQueriesData({ queryKey: queryKeys.staff() }, context.previousStaff);
       }
