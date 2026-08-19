@@ -10,6 +10,9 @@ dist-ssr/
 .env.local
 .env*.local
 
+# Vercel
+.vercel/
+
 # Editors
 .vscode/*
 !.vscode/settings.json
