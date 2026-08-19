@@ -70,26 +70,30 @@ export function useUpdateProduct() {
       await queryClient.cancelQueries({ queryKey: queryKeys.products() });
       const previousProducts = queryClient.getQueryData(queryKeys.products());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.products() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((prod: any) =>
-            prod.productId === productId
-              ? {
-                  ...prod,
-                  ...(input.name !== undefined ? { name: input.name } : {}),
-                  ...(input.price !== undefined ? { price: parseInt(input.price, 10) } : {}),
-                  ...(input.category_id !== undefined ? { categoryId: input.category_id } : {}),
-                  ...(input.low_stock_threshold !== undefined
-                    ? { lowStockThreshold: input.low_stock_threshold }
-                    : {}),
-                  ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
-                }
-              : prod
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.products() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (prod: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                prod.productId === productId
+                  ? {
+                      ...prod,
+                      ...(input.name !== undefined ? { name: input.name } : {}),
+                      ...(input.price !== undefined ? { price: parseInt(input.price, 10) } : {}),
+                      ...(input.category_id !== undefined ? { categoryId: input.category_id } : {}),
+                      ...(input.low_stock_threshold !== undefined
+                        ? { lowStockThreshold: input.low_stock_threshold }
+                        : {}),
+                      ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
+                    }
+                  : prod
+            ),
+          };
+        }
+      );
 
       return { previousProducts };
     },
@@ -115,15 +119,19 @@ export function useDeactivateProduct() {
       await queryClient.cancelQueries({ queryKey: queryKeys.products() });
       const previousProducts = queryClient.getQueryData(queryKeys.products());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.products() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((prod: any) =>
-            prod.productId === productId ? { ...prod, isActive: false } : prod
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.products() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (prod: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                prod.productId === productId ? { ...prod, isActive: false } : prod
+            ),
+          };
+        }
+      );
 
       return { previousProducts };
     },

@@ -62,27 +62,34 @@ export function useUpdateCategory() {
       await queryClient.cancelQueries({ queryKey: queryKeys.categories() });
       const previousCategories = queryClient.getQueryData(queryKeys.categories());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.categories() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((cat: any) =>
-            cat.categoryId === categoryId
-              ? {
-                  ...cat,
-                  ...(input.name !== undefined ? { name: input.name } : {}),
-                  ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
-                }
-              : cat
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.categories() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (cat: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                cat.categoryId === categoryId
+                  ? {
+                      ...cat,
+                      ...(input.name !== undefined ? { name: input.name } : {}),
+                      ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
+                    }
+                  : cat
+            ),
+          };
+        }
+      );
 
       return { previousCategories };
     },
     onError: (_err, _variables, context) => {
       if (context?.previousCategories) {
-        queryClient.setQueriesData({ queryKey: queryKeys.categories() }, context.previousCategories);
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.categories() },
+          context.previousCategories
+        );
       }
     },
     onSettled: () => {
@@ -108,21 +115,28 @@ export function useDeactivateCategory() {
       await queryClient.cancelQueries({ queryKey: queryKeys.categories() });
       const previousCategories = queryClient.getQueryData(queryKeys.categories());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.categories() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((cat: any) =>
-            cat.categoryId === categoryId ? { ...cat, isActive: false } : cat
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.categories() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (cat: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                cat.categoryId === categoryId ? { ...cat, isActive: false } : cat
+            ),
+          };
+        }
+      );
 
       return { previousCategories };
     },
     onError: (_err, _variables, context) => {
       if (context?.previousCategories) {
-        queryClient.setQueriesData({ queryKey: queryKeys.categories() }, context.previousCategories);
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.categories() },
+          context.previousCategories
+        );
       }
     },
     onSettled: () => {

@@ -77,22 +77,26 @@ export function useUpdateOutlet() {
       await queryClient.cancelQueries({ queryKey: queryKeys.outlets() });
       const previousOutlets = queryClient.getQueryData(queryKeys.outlets());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.outlets() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((outlet: any) =>
-            outlet.outletId === outletId
-              ? {
-                  ...outlet,
-                  ...(input.name !== undefined ? { name: input.name } : {}),
-                  ...(input.address !== undefined ? { address: input.address } : {}),
-                  ...(input.status !== undefined ? { status: input.status } : {}),
-                }
-              : outlet
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.outlets() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (outlet: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                outlet.outletId === outletId
+                  ? {
+                      ...outlet,
+                      ...(input.name !== undefined ? { name: input.name } : {}),
+                      ...(input.address !== undefined ? { address: input.address } : {}),
+                      ...(input.status !== undefined ? { status: input.status } : {}),
+                    }
+                  : outlet
+            ),
+          };
+        }
+      );
 
       return { previousOutlets };
     },
@@ -122,15 +126,19 @@ export function useDeactivateOutlet() {
       await queryClient.cancelQueries({ queryKey: queryKeys.outlets() });
       const previousOutlets = queryClient.getQueryData(queryKeys.outlets());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.outlets() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((outlet: any) =>
-            outlet.outletId === outletId ? { ...outlet, status: 'INACTIVE' } : outlet
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.outlets() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (outlet: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                outlet.outletId === outletId ? { ...outlet, status: 'INACTIVE' } : outlet
+            ),
+          };
+        }
+      );
 
       return { previousOutlets };
     },

@@ -56,22 +56,26 @@ export function useUpdateStaff() {
       await queryClient.cancelQueries({ queryKey: queryKeys.staff() });
       const previousStaff = queryClient.getQueryData(queryKeys.staff());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.staff() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((staff: any) =>
-            staff.userId === userId
-              ? {
-                  ...staff,
-                  ...(input.role !== undefined ? { role: input.role } : {}),
-                  ...(input.outlet_id !== undefined ? { outletId: input.outlet_id } : {}),
-                  ...(input.status !== undefined ? { status: input.status } : {}),
-                }
-              : staff
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.staff() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (staff: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                staff.userId === userId
+                  ? {
+                      ...staff,
+                      ...(input.role !== undefined ? { role: input.role } : {}),
+                      ...(input.outlet_id !== undefined ? { outletId: input.outlet_id } : {}),
+                      ...(input.status !== undefined ? { status: input.status } : {}),
+                    }
+                  : staff
+            ),
+          };
+        }
+      );
 
       return { previousStaff };
     },
@@ -101,15 +105,19 @@ export function useDeactivateStaff() {
       await queryClient.cancelQueries({ queryKey: queryKeys.staff() });
       const previousStaff = queryClient.getQueryData(queryKeys.staff());
 
-      queryClient.setQueriesData({ queryKey: queryKeys.staff() }, (old: any) => {
-        if (!old || !old.items) return old;
-        return {
-          ...old,
-          items: old.items.map((staff: any) =>
-            staff.userId === userId ? { ...staff, status: 'INACTIVE' } : staff
-          ),
-        };
-      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.staff() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (staff: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                staff.userId === userId ? { ...staff, status: 'INACTIVE' } : staff
+            ),
+          };
+        }
+      );
 
       return { previousStaff };
     },

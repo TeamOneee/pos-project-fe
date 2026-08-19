@@ -37,7 +37,12 @@ export function useGuardedMutation<TVariables, TData, TContext = unknown>(
     onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
     onMutate?: (variables: TVariables) => Promise<TContext> | TContext;
     onError?: (error: unknown, variables: TVariables, context: TContext | undefined) => void;
-    onSettled?: (data: TData | undefined, error: unknown, variables: TVariables, context: TContext | undefined) => void;
+    onSettled?: (
+      data: TData | undefined,
+      error: unknown,
+      variables: TVariables,
+      context: TContext | undefined
+    ) => void;
   }
 ): UseMutationResult<TData, unknown, TVariables, TContext> {
   const { role } = useAuth();
