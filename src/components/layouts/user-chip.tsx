@@ -31,9 +31,16 @@ type UserChipProps = {
    * menu goes up; the POS header is at the top, so its menu goes down.
    */
   placement?: 'above' | 'below';
+  /**
+   * Which edge of the trigger the compact menu anchors to. A chip at the left
+   * edge (icon rail) opens toward the screen with `start`; a chip at the right
+   * edge (POS header, mobile header) must open left with `end`, or the menu
+   * would spill past the viewport edge.
+   */
+  align?: 'start' | 'end';
 };
 
-export function UserChip({ compact = false, placement = 'above' }: UserChipProps) {
+export function UserChip({ compact = false, placement = 'above', align = 'start' }: UserChipProps) {
   const { session, role, signOut } = useAuth();
   const [open, setOpen] = React.useState(false);
 
@@ -50,7 +57,7 @@ export function UserChip({ compact = false, placement = 'above' }: UserChipProps
           className={cn(
             'absolute z-50 min-w-[200px] overflow-hidden rounded-md border border-border bg-surface-raised shadow-lg',
             placement === 'above' ? 'bottom-full mb-sm' : 'top-full mt-sm',
-            compact ? 'left-0' : 'left-0 right-0'
+            compact ? (align === 'end' ? 'right-0' : 'left-0') : 'left-0 right-0'
           )}
         >
           <MenuItem icon={UserIcon} label="Profil" onPress={() => setOpen(false)} />

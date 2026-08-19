@@ -404,7 +404,7 @@ function PosTopBar({
         >
           <Text variant="body-strong">Riwayat</Text>
         </Link>
-        <UserChip compact placement="below" />
+        <UserChip compact placement="below" align="end" />
       </div>
     </div>
   );

@@ -23,6 +23,7 @@ import { FooterTabs } from '@/components/layouts/footer-tabs';
 import { Header } from '@/components/layouts/header';
 import { IconRail } from '@/components/layouts/icon-rail';
 import { activeHref, navFor } from '@/components/layouts/nav-config';
+import { UserChip } from '@/components/layouts/user-chip';
 import {
   useSetSidebarCollapsed,
   useSidebarCollapsed,
@@ -81,7 +82,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-full flex-col bg-canvas">
       <Header
         title={title}
-        actions={topBarActions}
+        actions={
+          <>
+            {topBarActions}
+            {breakpoint === 'mobile' && <UserChip compact placement="below" align="end" />}
+          </>
+        }
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={desktop ? () => setSidebarCollapsed(!sidebarCollapsed) : undefined}
       />
