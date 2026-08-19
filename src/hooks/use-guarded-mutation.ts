@@ -30,21 +30,27 @@ export function forbiddenByRole(requirement: Requirement): ApiError {
   });
 }
 
-export function useGuardedMutation<TVariables, TData>(
+export function useGuardedMutation<TVariables, TData, TContext = unknown>(
   requirement: Requirement,
   options: {
     mutationFn: (variables: TVariables) => Promise<TData>;
-    onSuccess?: (data: TData, variables: TVariables) => void;
+    onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
+    onMutate?: (variables: TVariables) => Promise<TContext | undefined> | TContext | undefined;
+    onError?: (error: unknown, variables: TVariables, context: TContext | undefined) => void;
+    onSettled?: (data: TData | undefined, error: unknown, variables: TVariables, context: TContext | undefined) => void;
   }
-): UseMutationResult<TData, unknown, TVariables> {
+): UseMutationResult<TData, unknown, TVariables, TContext> {
   const { role } = useAuth();
   const allowed = role !== null && can(role, requirement.resource, requirement.access);
 
-  return useMutation<TData, unknown, TVariables>({
+  return useMutation<TData, unknown, TVariables, TContext>({
     mutationFn: (variables) => {
       if (!allowed) return Promise.reject(forbiddenByRole(requirement));
       return options.mutationFn(variables);
     },
     ...(options.onSuccess ? { onSuccess: options.onSuccess } : {}),
+    ...(options.onMutate ? { onMutate: options.onMutate } : {}),
+    ...(options.onError ? { onError: options.onError } : {}),
+    ...(options.onSettled ? { onSettled: options.onSettled } : {}),
   });
 }

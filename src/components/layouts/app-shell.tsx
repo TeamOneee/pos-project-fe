@@ -55,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // §2.2 opens `GET /merchant` to every role, so every sidebar can carry the
   // merchant name — it is no longer an Owner-only fact.
   const merchant = useMerchant();
+  const merchantName = merchant.data?.name ?? null;
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const mainRef = React.useRef<HTMLElement>(null);
@@ -80,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <IconRail role={role} pathname={location.pathname} />
             ) : null}
 
-            <main ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+            <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">{children}</main>
           </div>
           {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
         </div>
@@ -90,7 +91,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const title = titleOverride ?? navTitleFor(role, location.pathname);
-  const merchantName = merchant.data?.name ?? null;
   const desktop = breakpoint === 'desktop';
 
   return (
