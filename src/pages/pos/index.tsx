@@ -26,10 +26,12 @@ import { useCheckout } from '@/hooks/use-checkout';
 import { CartPanel } from '@/components/pages/pos/cart-panel';
 import { CartSheet, MobileCartBar } from '@/components/pages/pos/cart-sheet';
 import { CatalogHeader } from '@/components/pages/pos/catalog-header';
+import { OutletPicker } from '@/components/pages/pos/outlet-picker';
 import { emptyKind, filterProducts } from '@/lib/filter-products';
 import { stockMap, usePosCatalog, type PosProduct } from '@/lib/pos-catalog';
 import { ProductGrid } from '@/components/pages/pos/product-grid';
 import { usePosIdentity } from '@/hooks/use-pos-identity';
+import { useOutlets } from '@/hooks/use-outlets';
 import { printReceipt } from '@/lib/print-receipt';
 import { receiptFromCheckout, type ReceiptData } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
@@ -43,10 +45,18 @@ import { useBreakpoint } from '@/hooks/use-breakpoint';
 const COLUMNS = { mobile: 2, tablet: 4, desktop: 5 } as const;
 
 export default function PosScreen() {
-  const { outletId } = useAuth();
+  const { role, outletId: sessionOutletId } = useAuth();
   const breakpoint = useBreakpoint();
   const { toast } = useToast();
-  const identity = usePosIdentity();
+
+  // A Cashier's outlet is fixed by the JWT; an Owner picks an active one when
+  // opening the till (§4.2). Until that choice exists there is no till to show.
+  const [ownerOutletId, setOwnerOutletId] = React.useState<string | null>(null);
+  const outletId = role === 'CASHIER' ? sessionOutletId : ownerOutletId;
+  const needsOutletPick = role === 'OWNER' && !ownerOutletId;
+
+  const identity = usePosIdentity(outletId);
+  const activeOutlets = useOutlets({ status: 'ACTIVE' });
 
   const [query, setQuery] = React.useState('');
   const [categoryId, setCategoryId] = React.useState<string | null>(null);
@@ -268,18 +278,40 @@ export default function PosScreen() {
     </div>
   );
 
+  // An Owner has no till until they choose which active outlet to work (§4.2).
+  if (needsOutletPick) {
+    return (
+      <OutletPicker
+        outlets={activeOutlets.data?.items ?? []}
+        isPending={activeOutlets.isPending}
+        isError={activeOutlets.isError}
+        onSelect={setOwnerOutletId}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full flex-col bg-canvas">
-      <PosTopBar outletName={identity.outletName} hasOutletName={identity.hasOutletName} />
+      <PosTopBar
+        outletName={identity.outletName}
+        hasOutletName={identity.hasOutletName}
+        onSwitchOutlet={role === 'OWNER' ? () => setOwnerOutletId(null) : undefined}
+        showBack={role === 'OWNER' && breakpoint !== 'mobile'}
+      />
 
       {breakpoint === 'mobile' ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {picker}
-          <MobileCartBar
-            itemCount={itemCount}
-            subtotal={subtotal}
-            onOpen={() => setSheetOpen(true)}
-          />
+          {/* The catalogue is the only thing that scrolls. The cart bar is a
+              sibling below it, so it stays pinned above the tab bar while the
+              grid scrolls — and it is absent until something is in the cart. */}
+          <div className="min-h-0 flex-1 overflow-y-auto">{picker}</div>
+          {itemCount > 0 && (
+            <MobileCartBar
+              itemCount={itemCount}
+              subtotal={subtotal}
+              onOpen={() => setSheetOpen(true)}
+            />
+          )}
           <CartSheet open={sheetOpen} onOpenChange={setSheetOpen} {...cartProps} />
         </div>
       ) : (
@@ -315,7 +347,22 @@ export default function PosScreen() {
 
 /* -------------------------------------------------------------------------- */
 
-function PosTopBar({ outletName, hasOutletName }: { outletName: string; hasOutletName: boolean }) {
+function PosTopBar({
+  outletName,
+  hasOutletName,
+  onSwitchOutlet,
+  showBack,
+}: {
+  outletName: string;
+  hasOutletName: boolean;
+  /** Present for an Owner, who chose this outlet and may choose another. */
+  onSwitchOutlet?: () => void;
+  /**
+   * Owner only, and never on mobile — there the tab bar is the way out of the
+   * till. On desktop the till is chromeless, so this is the back button.
+   */
+  showBack?: boolean;
+}) {
   const time = useClock();
 
   return (
@@ -332,6 +379,22 @@ function PosTopBar({ outletName, hasOutletName }: { outletName: string; hasOutle
       </div>
 
       <div className="flex shrink-0 flex-row items-center gap-md">
+        {showBack && (
+          <Link
+            to="/dashboard"
+            className="flex min-h-touch items-center justify-center rounded-md px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
+          >
+            <Text variant="body-strong">Kembali</Text>
+          </Link>
+        )}
+        {onSwitchOutlet && (
+          <button
+            onClick={onSwitchOutlet}
+            className="flex min-h-touch items-center justify-center rounded-md px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
+          >
+            <Text variant="body-strong">Ganti Outlet</Text>
+          </button>
+        )}
         <Text variant="mono" tone="muted">
           {time}
         </Text>

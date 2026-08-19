@@ -1,5 +1,10 @@
 /**
- * Who and where this till is — for the POS top bar.
+ * The till's identity, for the POS top bar.
+ *
+ * The effective outlet is a parameter, not a read from the session: a Cashier's
+ * comes from the JWT, an Owner's is whichever active outlet they picked when
+ * opening the till (§4.2). Passing it in keeps this hook honest about which one
+ * it is showing.
  *
  * Only one of these three facts is actually available to a cashier under this
  * contract, and it is worth being precise about which:
@@ -30,8 +35,9 @@ export type PosIdentity = {
   hasOutletName: boolean;
 };
 
-export function usePosIdentity(): PosIdentity {
-  const { session, outletId } = useAuth();
+/** The outlet this till is running at; null when one has not been picked yet. */
+export function usePosIdentity(outletId: string | null): PosIdentity {
+  const { session } = useAuth();
 
   const merchant = useMerchant();
   const outlet = useOutlet(outletId ?? undefined);

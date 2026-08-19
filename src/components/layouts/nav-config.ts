@@ -65,9 +65,13 @@ const NAV: Record<Role, NavSection[]> = {
       items: [
         { href: '/products', label: 'Produk', icon: Package },
         { href: '/categories', label: 'Kategori', icon: Tag },
-        // Read-only for the Owner, per the matrix.
+        // The Owner manages stock like the Admin does (BR-011B).
         { href: '/inventory', label: 'Stok', icon: Boxes, exact: true },
       ],
+    },
+    {
+      title: 'Operasional',
+      items: [{ href: '/pos', label: 'Kasir', icon: ShoppingCart }],
     },
     {
       title: 'Riwayat',
