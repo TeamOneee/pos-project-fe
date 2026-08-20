@@ -31,8 +31,12 @@ export function AuthSplitLayout({ children }: { children: React.ReactNode }) {
         </Text>
       </div>
 
-      <div className="flex flex-1 items-center justify-center overflow-y-auto p-lg tablet:p-3xl">
-        <div className="flex w-full max-w-[400px] flex-col gap-xl">{children}</div>
+      <div className="flex flex-1 overflow-y-auto p-lg tablet:p-3xl">
+        {/* `m-auto` rather than justify-center on the parent: a centered flex
+            child taller than the viewport clips its top and cannot be scrolled
+            to. Auto margins centre when the form fits and collapse to the top,
+            scrollable, when it does not. */}
+        <div className="m-auto flex w-full max-w-[400px] flex-col gap-xl">{children}</div>
       </div>
     </div>
   );
