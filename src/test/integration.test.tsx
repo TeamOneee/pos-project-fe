@@ -304,8 +304,9 @@ describe('out-of-scope features stay unreachable', () => {
     await click(adjustButtons[0] as HTMLElement);
 
     const dialog = await screen.findByRole('dialog');
-    // The reason field is required by the API, and says only that — rule 4.
-    expect(within(dialog).getByText('Alasan wajib diisi.')).toBeInTheDocument();
+    // The reason field is optional in this form — the API may still reject an
+    // empty one — and says nothing about an audit trail (rule 4).
+    expect(within(dialog).getByText('Opsional.')).toBeInTheDocument();
     for (const label of [/audit/i, /riwayat perubahan/i, /pergerakan stok/i]) {
       expect(within(dialog).queryByText(label)).toBeNull();
     }
