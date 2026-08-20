@@ -1,10 +1,9 @@
 /**
  * S-15a · Sesuaikan Stok.
  *
- * The reason is required because §4.2 rejects an adjustment without one (400).
- * It is not an audit note — this product surfaces no stock-movement history
- * (CLAUDE.md rule 4) — so the helper text says only that the field is required
- * and promises nothing about where it goes.
+ * The reason is optional in this form. §4.2 still rejects an adjustment without
+ * one (400), so leaving it blank saves the delta and surfaces the server's
+ * error rather than pre-empting it with a field error.
  *
  * The cashier-facing shape of this form is "what should the stock be", but the
  * API takes "how much should it change by": `POST /inventory/adjustments` sends
@@ -57,11 +56,7 @@ function adjustSchema(currentStock: number) {
       // §4.2: `delta` may not be zero, so an unchanged quantity is not a
       // submittable adjustment. Caught here rather than as a 400.
       .refine((value) => value !== currentStock, 'Stok baru harus berbeda dari stok saat ini'),
-    reason: z
-      .string({ required_error: 'Alasan wajib diisi untuk penyesuaian stok manual.' })
-      .trim()
-      .min(1, 'Alasan wajib diisi untuk penyesuaian stok manual.')
-      .max(255, 'Alasan maksimal 255 karakter'),
+    reason: z.string().trim().max(255, 'Alasan maksimal 255 karakter').optional(),
   });
 }
 
@@ -192,9 +187,8 @@ function AdjustStockForm({ target, onDone }: { target: AdjustTarget; onDone: () 
             <FormField
               label="Alasan"
               htmlFor="adjust-reason"
-              required
               error={fieldState.error?.message}
-              hint="Alasan wajib diisi."
+              hint="Opsional."
             >
               <textarea
                 {...field}
