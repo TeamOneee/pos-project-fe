@@ -9,8 +9,8 @@ export function ScreenPlaceholder({ title }: { title: string }) {
     <div className="flex h-full items-center justify-center p-xl">
       <Card className="w-full max-w-[420px]">
         <CardHeader className="items-center gap-md">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-subtle">
-            <Icon as={Construction} size={26} className="text-fg-muted" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-subtle">
+            <Icon as={Construction} size={26} className="text-accent" />
           </div>
           <CardTitle>{title}</CardTitle>
           <CardDescription>Halaman ini belum diimplementasikan.</CardDescription>

@@ -68,15 +68,19 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       end={item.exact}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex min-h-touch flex-row items-center gap-md rounded-md px-md py-sm',
-        active ? 'bg-accent-subtle' : 'hover:bg-subtle'
+        'flex min-h-touch flex-row items-center gap-md rounded-md px-md py-sm transition-colors',
+        active ? 'bg-accent' : 'hover:bg-accent/15'
       )}
     >
-      <Icon as={item.icon} size={18} className={active ? 'text-accent' : 'text-fg-muted'} />
+      <Icon
+        as={item.icon}
+        size={18}
+        className={cn('transition-colors', active ? 'text-white' : 'text-fg-muted hover:text-accent-text')}
+      />
       <Text
         variant={active ? 'body-strong' : 'body'}
-        tone={active ? 'accent' : 'muted'}
-        className="truncate"
+        tone={active ? 'on-accent' : 'muted'}
+        className={cn('truncate transition-colors', !active && 'hover:text-accent-text')}
       >
         {item.label}
       </Text>

@@ -44,11 +44,18 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
           aria-label={item.label}
           aria-current={active ? 'page' : undefined}
           className={cn(
-            'flex h-touch w-touch items-center justify-center rounded-md',
-            active ? 'bg-accent-subtle' : 'hover:bg-subtle'
+            'flex h-touch w-touch items-center justify-center rounded-md transition-colors',
+            active ? 'bg-accent' : 'hover:bg-accent/15'
           )}
         >
-          <Icon as={item.icon} size={20} className={active ? 'text-accent' : 'text-fg-muted'} />
+          <Icon
+            as={item.icon}
+            size={20}
+            className={cn(
+              'transition-colors',
+              active ? 'text-white' : 'text-fg-muted hover:text-accent-text'
+            )}
+          />
         </NavLink>
       </TooltipTrigger>
       <TooltipContent side="right">

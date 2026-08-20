@@ -21,8 +21,8 @@ export function DashboardEmpty() {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-md py-3xl">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-subtle">
-          <Icon as={ChartColumn} size={28} className="text-fg-subtle" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-subtle">
+          <Icon as={ChartColumn} size={28} className="text-accent" />
         </div>
 
         <Text variant="h2" className="text-center">
