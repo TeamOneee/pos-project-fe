@@ -75,7 +75,10 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       <Icon
         as={item.icon}
         size={18}
-        className={cn('transition-colors', active ? 'text-white' : 'text-fg-muted hover:text-accent-text')}
+        className={cn(
+          'transition-colors',
+          active ? 'text-white' : 'text-fg-muted hover:text-accent-text'
+        )}
       />
       <Text
         variant={active ? 'body-strong' : 'body'}
