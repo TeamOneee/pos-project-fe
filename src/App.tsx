@@ -17,6 +17,26 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Router } from '@/routes/router';
 import { createQueryClient } from '@/lib/query-client';
 
+import { useLocation } from 'react-router-dom';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  React.useEffect(() => {
+    // Gunakan requestAnimationFrame agar dieksekusi setelah render React selesai
+    requestAnimationFrame(() => {
+      // Scroll window utama (jika ada scroll global)
+      window.scrollTo(0, 0);
+      // Scroll semua container yang memiliki class overflow-y-auto (seperti di AppShell dan AuthLayout)
+      document.querySelectorAll('.overflow-y-auto').forEach((el) => {
+        el.scrollTo(0, 0);
+      });
+    });
+  }, [pathname]);
+
+  return null;
+}
+
 export default function App() {
   const [queryClient] = React.useState(createQueryClient);
 
@@ -30,6 +50,7 @@ export default function App() {
             <AuthProvider>
               <ShellProvider>
                 <BrowserRouter>
+                  <ScrollToTop />
                   <Router />
                   {/* Raised by any 401 on a session that was working. */}
                   <SessionExpiredDialog />

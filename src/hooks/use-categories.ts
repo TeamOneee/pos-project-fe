@@ -53,11 +53,48 @@ export function useCreateCategory() {
 
 export function useUpdateCategory() {
   const invalidate = useCategoryInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: ({ categoryId, input }: { categoryId: string; input: UpdateCategoryInput }) =>
       categoriesApi.update(categoryId, input),
-    onSuccess: invalidate,
+    onMutate: async ({ categoryId, input }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.categories() });
+      const previousCategories = queryClient.getQueryData(queryKeys.categories());
+
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.categories() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (cat: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                cat.categoryId === categoryId
+                  ? {
+                      ...cat,
+                      ...(input.name !== undefined ? { name: input.name } : {}),
+                      ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
+                    }
+                  : cat
+            ),
+          };
+        }
+      );
+
+      return { previousCategories };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousCategories) {
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.categories() },
+          context.previousCategories
+        );
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }
 
@@ -70,9 +107,40 @@ export function useUpdateCategory() {
  */
 export function useDeactivateCategory() {
   const invalidate = useCategoryInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_CATALOG, {
     mutationFn: (categoryId: string) => categoriesApi.deactivate(categoryId),
-    onSuccess: invalidate,
+    onMutate: async (categoryId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.categories() });
+      const previousCategories = queryClient.getQueryData(queryKeys.categories());
+
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.categories() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (cat: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                cat.categoryId === categoryId ? { ...cat, isActive: false } : cat
+            ),
+          };
+        }
+      );
+
+      return { previousCategories };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousCategories) {
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.categories() },
+          context.previousCategories
+        );
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }

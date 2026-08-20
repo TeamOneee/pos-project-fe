@@ -68,11 +68,46 @@ export function useCreateOutlet() {
 
 export function useUpdateOutlet() {
   const invalidate = useOutletInvalidation();
+  const queryClient = useQueryClient();
 
   return useGuardedMutation(MANAGE_OUTLETS, {
     mutationFn: ({ outletId, input }: { outletId: string; input: UpdateOutletInput }) =>
       outletsApi.update(outletId, input),
-    onSuccess: invalidate,
+    onMutate: async ({ outletId, input }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.outlets() });
+      const previousOutlets = queryClient.getQueryData(queryKeys.outlets());
+
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.outlets() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (outlet: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                outlet.outletId === outletId
+                  ? {
+                      ...outlet,
+                      ...(input.name !== undefined ? { name: input.name } : {}),
+                      ...(input.address !== undefined ? { address: input.address } : {}),
+                      ...(input.status !== undefined ? { status: input.status } : {}),
+                    }
+                  : outlet
+            ),
+          };
+        }
+      );
+
+      return { previousOutlets };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousOutlets) {
+        queryClient.setQueriesData({ queryKey: queryKeys.outlets() }, context.previousOutlets);
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
   });
 }
 
@@ -87,7 +122,32 @@ export function useDeactivateOutlet() {
 
   return useGuardedMutation(MANAGE_OUTLETS, {
     mutationFn: (outletId: string) => outletsApi.deactivate(outletId),
-    onSuccess: () => {
+    onMutate: async (outletId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.outlets() });
+      const previousOutlets = queryClient.getQueryData(queryKeys.outlets());
+
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.outlets() },
+        (old: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map(
+              (outlet: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) =>
+                outlet.outletId === outletId ? { ...outlet, status: 'INACTIVE' } : outlet
+            ),
+          };
+        }
+      );
+
+      return { previousOutlets };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousOutlets) {
+        queryClient.setQueriesData({ queryKey: queryKeys.outlets() }, context.previousOutlets);
+      }
+    },
+    onSettled: () => {
       invalidate();
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory() });
     },

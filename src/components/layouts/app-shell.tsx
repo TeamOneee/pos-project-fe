@@ -71,14 +71,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (isChromeless(location.pathname)) {
     // The Owner's till keeps the mobile tab bar so they can step back out of
     // it; a Cashier's stays fully chromeless — it is their workstation.
-    if (role === 'OWNER' && breakpoint === 'mobile') {
+    if (role === 'OWNER') {
+      const desktop = breakpoint === 'desktop';
       return (
         <div className="flex h-full flex-col bg-canvas">
-          {/* The region scrolls only if the till ever outgrows it; normally the
-              till manages its own scrolling. Either way the tab bar below stays
-              pinned to the bottom of the screen. */}
-          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-          <FooterTabs role={role} pathname={location.pathname} />
+          <div className="flex min-h-0 flex-1">
+            {desktop && !sidebarCollapsed ? (
+              <Sidebar role={role} pathname={location.pathname} merchantName={merchantName} />
+            ) : breakpoint === 'tablet' ? (
+              <IconRail role={role} pathname={location.pathname} />
+            ) : null}
+
+            <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
+              {children}
+            </main>
+          </div>
+          {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
         </div>
       );
     }
