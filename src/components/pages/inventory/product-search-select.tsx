@@ -21,8 +21,8 @@ import { useProducts } from '@/hooks/use-products';
 import type { Product } from '@/services/products';
 import { cn } from '@/lib/utils';
 
-/** One page is plenty for a UMKM catalogue, and keeps the filter in memory. */
-const CATALOGUE_LIMIT = 200;
+/** One page is plenty for a UMKM catalogue, and keeps the filter in memory. §0 caps size at 100. */
+const CATALOGUE_LIMIT = 100;
 
 export type PickedProduct = { productId: string; name: string; sku: string };
 

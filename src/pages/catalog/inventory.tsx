@@ -39,8 +39,8 @@ import {
 import { useInventory } from '@/hooks/use-inventory';
 import { useOutlets } from '@/hooks/use-outlets';
 
-/** One outlet rarely carries more rows than this; paging would add a control for nothing. */
-const PAGE_LIMIT = 200;
+/** One outlet rarely carries more rows than this; paging would add a control for nothing. §0 caps size at 100. */
+const PAGE_LIMIT = 100;
 
 export default function InventoryPage() {
   // The Admin dashboard's "Kelola Stok →" link arrives with the outlet already
