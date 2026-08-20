@@ -22,6 +22,7 @@ import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { formatDateTime } from '@/lib/date';
 import { formatCount } from '@/lib/number';
+import { cn } from '@/lib/utils';
 
 export type MerchantOverview = {
   merchantName: string;
@@ -41,13 +42,13 @@ export function MerchantSummaryCard({
   className?: string;
 }) {
   return (
-    <Card className={className}>
+    <Card className={cn('border-white/10 bg-accent', className)}>
       <CardHeader>
-        <CardTitle>Ringkasan Merchant</CardTitle>
+        <CardTitle tone="on-accent">Ringkasan Merchant</CardTitle>
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col gap-md">
-        <Text variant="h2" className="block">
+        <Text variant="h2" tone="on-accent" className="block">
           {overview.merchantName}
         </Text>
 
@@ -60,12 +61,12 @@ export function MerchantSummaryCard({
 
         <div className="flex-1" />
 
-        <Separator />
+        <Separator className="bg-white/20" />
 
-        <div className="flex flex-col gap-sm rounded-md bg-accent-subtle p-md">
+        <div className="flex flex-col gap-sm rounded-md bg-white/15 p-md">
           <div className="flex flex-row items-center gap-sm">
-            <Icon as={Sparkles} size={16} className="shrink-0 text-accent" />
-            <Text variant="caption" tone="muted" className="min-w-0 flex-1">
+            <Icon as={Sparkles} size={16} className="shrink-0 text-white" />
+            <Text variant="caption" tone="on-accent" className="min-w-0 flex-1 opacity-80">
               {overview.lastAiAnalysis
                 ? `Analisis AI terakhir: ${formatDateTime(overview.lastAiAnalysis)}`
                 : 'Belum ada analisis AI'}
@@ -74,9 +75,11 @@ export function MerchantSummaryCard({
 
           <Link
             to="/ai-insights"
-            className="inline-flex min-h-touch items-center justify-center gap-sm self-start rounded-md bg-subtle px-md py-sm outline-none transition-colors hover:bg-border focus-ring"
+            className="inline-flex min-h-touch items-center justify-center gap-sm self-start rounded-md bg-white/20 px-md py-sm text-white outline-none transition-colors hover:bg-white/30 focus-ring"
           >
-            <Text variant="body-strong">Lihat Insight</Text>
+            <Text variant="body-strong" tone="on-accent">
+              Lihat Insight
+            </Text>
           </Link>
         </div>
       </CardContent>
@@ -87,10 +90,10 @@ export function MerchantSummaryCard({
 function DefinitionRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-row items-center justify-between gap-md">
-      <Text variant="body" tone="muted">
+      <Text variant="body" tone="on-accent" className="opacity-70">
         {label}
       </Text>
-      <Text variant="body-strong" className="tabular-nums">
+      <Text variant="body-strong" tone="on-accent" className="tabular-nums">
         {value}
       </Text>
     </div>
