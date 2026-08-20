@@ -482,7 +482,7 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
  */
 export const ANALYSIS_JOB = {
   id: 'job_20260812',
-  status: 'READY' as const,
+  state: 'READY' as const,
   analysis_date: '2026-08-12',
   updated_at: '2026-08-12T08:02:00.000Z',
 };

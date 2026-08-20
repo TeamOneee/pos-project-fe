@@ -140,7 +140,7 @@ export type WireTransaction = {
 
 export type WireAnalysisJob = {
   id: string;
-  status: 'PENDING' | 'PROCESSING' | 'READY' | 'RETRY_SCHEDULED' | 'FAILED';
+  state: 'PENDING' | 'PROCESSING' | 'READY' | 'RETRY_SCHEDULED' | 'FAILED';
   analysis_date: string;
   updated_at: string;
 };

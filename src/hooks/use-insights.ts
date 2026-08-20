@@ -15,6 +15,7 @@ import { useGuardedMutation, type Requirement } from '@/hooks/use-guarded-mutati
 import { insightsApi } from '@/services/insights';
 import { isApiErrorOfKind } from '@/api/errors';
 import { queryKeys } from '@/lib/query-client';
+import { useToast } from '@/components/ui/toast';
 import type { AnalysisJobStatus } from '@/api/schema';
 
 const READ_INSIGHTS: Requirement = { resource: 'aiInsights', access: 'read' };
@@ -55,12 +56,60 @@ export function useInsights(options: { enabled?: boolean } = {}) {
  * screen reads `isNewJob` to word its confirmation honestly.
  */
 export function useTriggerInsights() {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useGuardedMutation(READ_INSIGHTS, {
     mutationFn: () => insightsApi.trigger(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.insights });
+    },
+    onError: (error) => {
+      if (isApiErrorOfKind(error, 'not_found')) {
+        toast({
+          variant: 'info',
+          title: 'Belum ada insight',
+          description: 'Merchant belum pernah memtrigger analisis insight.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'forbidden')) {
+        toast({
+          variant: 'warning',
+          title: 'Akses ditolak',
+          description: 'Peran Anda tidak memiliki izin untuk memtrigger analisis insight.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'unauthorized')) {
+        toast({
+          variant: 'error',
+          title: 'Sesi expiring',
+          description: 'Token otentikasi telah expiring. Silakan login kembali.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'rate_limited')) {
+        toast({
+          variant: 'warning',
+          title: 'Terlalu banyak permintaan',
+          description: 'Silakan tunggu beberapa saat sebelum mencoba lagi.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'server') || isApiErrorOfKind(error, 'timeout')) {
+        toast({
+          variant: 'warning',
+          title: 'Gagal koneksi',
+          description: 'Terjadi kesalahan sementara. Coba lagi dalam beberapa saat.',
+        });
+        return;
+      }
+      toast({
+        variant: 'error',
+        title: 'Gagal memtrigger',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan tidak diketahui',
+      });
     },
   });
 }

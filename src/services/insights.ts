@@ -23,7 +23,6 @@ import {
   id,
   insightStatusSchema,
   insightTypeSchema,
-  isoDate,
   isoDateTime,
 } from '@/api/schema';
 
@@ -35,14 +34,13 @@ import {
 const analysisJobSchema = z
   .object({
     id,
-    status: analysisJobStatusSchema,
-    analysis_date: isoDate,
+    state: analysisJobStatusSchema,
+    analysis_date: isoDateTime,
     updated_at: isoDateTime,
   })
   .transform((value) => ({
     jobId: value.id,
-    status: value.status,
-    /** Local calendar date in the merchant's timezone; the dedupe key. */
+    status: value.state,
     analysisDate: value.analysis_date,
     updatedAt: value.updated_at,
   }));
@@ -96,8 +94,8 @@ const insightsResponseSchema = z
 export type InsightsResponse = z.infer<typeof insightsResponseSchema>;
 
 const triggerResultSchema = z
-  .object({ job_id: id, status: analysisJobStatusSchema })
-  .transform((value) => ({ jobId: value.job_id, status: value.status }));
+  .object({ job_id: id, state: analysisJobStatusSchema })
+  .transform((value) => ({ jobId: value.job_id, status: value.state }));
 
 export type TriggerResult = z.infer<typeof triggerResultSchema> & {
   /** True when this call created the day's job (202) rather than finding it (200). */

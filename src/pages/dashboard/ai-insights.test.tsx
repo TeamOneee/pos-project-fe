@@ -95,7 +95,7 @@ describe('S-05 · AI insight', () => {
     );
 
     // The queue landed in the store §7.1 rule 2 dedupes on: one job for today.
-    expect(getDb().analysisJob?.status).toBe('PENDING');
+    expect(getDb().analysisJob?.state).toBe('PENDING');
   });
 
   it('copies an insight to the clipboard', async () => {

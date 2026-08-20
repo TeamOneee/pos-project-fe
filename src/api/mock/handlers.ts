@@ -1403,20 +1403,20 @@ function triggerInsights(): MockEnvelope {
   // same day returns the existing job with 200 rather than starting another.
   if (state.analysisJob?.analysis_date === today) {
     return ok(
-      { job_id: state.analysisJob.id, status: state.analysisJob.status },
+      { job_id: state.analysisJob.id, state: state.analysisJob.state },
       'Analisis sudah dijadwalkan hari ini'
     );
   }
 
   state.analysisJob = {
     id: nextId('job'),
-    status: 'PENDING',
+    state: 'PENDING',
     analysis_date: today,
     updated_at: NOW,
   };
 
   return ok(
-    { job_id: state.analysisJob.id, status: state.analysisJob.status },
+    { job_id: state.analysisJob.id, state: state.analysisJob.state },
     'Analisis insight dijadwalkan',
     202
   );
@@ -1427,7 +1427,7 @@ function triggerInsights(): MockEnvelope {
 /* -------------------------------------------------------------------------- */
 
 function health(): MockEnvelope {
-  const pending = getDb().analysisJob?.status === 'PENDING' ? 1 : 0;
+  const pending = getDb().analysisJob?.state === 'PENDING' ? 1 : 0;
   return ok(
     { status: 'ok', database: 'ok', worker_backlog: { ai_job_pending: pending } },
     'Sistem sehat'

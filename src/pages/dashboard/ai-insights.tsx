@@ -63,12 +63,68 @@ export default function AiInsightsPage() {
   const handleTrigger = () => {
     trigger.mutate(undefined, {
       onSuccess: (result) => {
+        if (result.status === 'FAILED') {
+          toast({
+            variant: 'warning',
+            title: 'Analisis hari ini gagal diproses',
+            description:
+              'Analisis sudah pernah dicoba hari ini dan tidak dapat diulang sampai besok.',
+          });
+          return;
+        }
         toast({
           variant: result.isNewJob ? 'success' : 'info',
-          title: result.isNewJob ? 'Analisis dijadwalkan' : 'Analisis sudah berjalan',
+          title: result.isNewJob ? 'Analisis dijadwalkan' : 'Analisis sedang berjalan',
           description: result.isNewJob
             ? 'Hasil akan muncul di halaman ini dalam beberapa saat.'
             : 'Analisis hari ini sudah dijalankan. Tunggu hingga selesai.',
+        });
+      },
+      onError: (error) => {
+        if (isApiErrorOfKind(error, 'not_found')) {
+          toast({
+            variant: 'info',
+            title: 'Belum ada insight',
+            description: 'Merchant belum pernah memtrigger analisis insight.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'forbidden')) {
+          toast({
+            variant: 'warning',
+            title: 'Akses ditolak',
+            description: 'Peran Anda tidak memiliki izin untuk memtrigger analisis insight.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'unauthorized')) {
+          toast({
+            variant: 'error',
+            title: 'Sesi expiring',
+            description: 'Token otentikasi telah expiring. Silakan login kembali.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'rate_limited')) {
+          toast({
+            variant: 'warning',
+            title: 'Terlalu banyak permintaan',
+            description: 'Silakan tunggu beberapa saat sebelum mencoba lagi.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'server') || isApiErrorOfKind(error, 'timeout')) {
+          toast({
+            variant: 'warning',
+            title: 'Gagal koneksi',
+            description: 'Terjadi kesalahan sementara. Coba lagi dalam beberapa saat.',
+          });
+          return;
+        }
+        toast({
+          variant: 'error',
+          title: 'Gagal memtrigger',
+          description: error instanceof Error ? error.message : 'Terjadi kesalahan tidak diketahui',
         });
       },
     });
@@ -88,7 +144,7 @@ export default function AiInsightsPage() {
       {jobFailed && (
         <FormBanner title="Analisis terakhir gagal diproses">
           <Text variant="caption" tone="muted">
-            Anda dapat menjalankan analisis baru kapan saja.
+            Analisis hari ini tidak dapat diulang sampai besok.
           </Text>
         </FormBanner>
       )}
@@ -113,6 +169,8 @@ export default function AiInsightsPage() {
         <EmptyStateCard />
       ) : jobRunning ? (
         <ProcessingCard />
+      ) : jobFailed && results.length === 0 ? (
+        <FailedStateCard />
       ) : (
         <div className="flex flex-col gap-lg">
           {results.map((insight) => (
@@ -197,6 +255,22 @@ function EmptyStateCard() {
         <Text variant="h3">Belum ada insight</Text>
         <Text variant="body" tone="muted" className="max-w-[420px]">
           Jalankan analisis pertama Anda untuk melihat rekomendasi bisnis.
+        </Text>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FailedStateCard() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-md p-xl text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-subtle">
+          <Icon as={Sparkles} size={22} className="text-fg-muted" />
+        </div>
+        <Text variant="h3">Analisis gagal diproses</Text>
+        <Text variant="body" tone="muted" className="max-w-[420px]">
+          Terjadi kendala saat menganalisis data Anda. Silakan coba lagi besok.
         </Text>
       </CardContent>
     </Card>
