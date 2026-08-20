@@ -39,7 +39,7 @@ export function Sidebar({ role, pathname, merchantName }: SidebarProps) {
         </Text>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-lg overflow-y-auto px-md">
+      <nav className="scrollbar-none flex flex-1 flex-col gap-lg overflow-y-auto px-md">
         {sections.map((section, index) => (
           <div key={section.title ?? `section-${index}`} className="flex flex-col gap-xs">
             {section.title && (

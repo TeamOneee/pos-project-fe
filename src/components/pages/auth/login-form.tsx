@@ -105,7 +105,7 @@ export function LoginForm() {
                   autoComplete="current-password"
                   disabled={login.isPending}
                   invalid={Boolean(fieldState.error) || markFieldsInvalid}
-                  className="pr-touch"
+                  className="w-full pr-touch"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void submit();
                   }}

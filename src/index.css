@@ -119,4 +119,14 @@
     outline: 2px solid rgb(var(--accent));
     outline-offset: 2px;
   }
+
+  /* Hide a scrollbar while keeping the element scrollable — the sidebar nav
+     scrolls but never shows a track next to its links. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

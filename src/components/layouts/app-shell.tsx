@@ -57,11 +57,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const merchant = useMerchant();
   const merchantName = merchant.data?.name ?? null;
 
-  const scrollRef = React.useRef<HTMLDivElement>(null);
+  // The shell survives navigation (it is a layout route), so `<main>` keeps its
+  // scroll unless reset here — the sidebar, by contrast, deliberately keeps its
+  // position. Only the panel resets; the side rail does not.
   const mainRef = React.useRef<HTMLElement>(null);
 
   React.useEffect(() => {
-    scrollRef.current?.scrollTo(0, 0);
     mainRef.current?.scrollTo(0, 0);
   }, [location.pathname]);
 

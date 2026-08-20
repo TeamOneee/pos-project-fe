@@ -33,123 +33,28 @@ export function Router() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      <Route
-        path="/"
-        element={
-          <AppLayout>
-            <LandingRedirect />
-          </AppLayout>
-        }
-      />
+      {/* One layout route for every signed-in screen: the shell (and its
+          sidebar scroll) survives navigation, and only `<main>` resets. */}
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<LandingRedirect />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/ai-insights" element={<AiInsightsPage />} />
 
-      <Route
-        path="/dashboard"
-        element={
-          <AppLayout>
-            <DashboardPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/analytics"
-        element={
-          <AppLayout>
-            <AnalyticsPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/ai-insights"
-        element={
-          <AppLayout>
-            <AiInsightsPage />
-          </AppLayout>
-        }
-      />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/categories" element={<CategoriesPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/inventory/low-stock" element={<LowStockPage />} />
 
-      <Route
-        path="/products"
-        element={
-          <AppLayout>
-            <ProductsPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/categories"
-        element={
-          <AppLayout>
-            <CategoriesPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/inventory"
-        element={
-          <AppLayout>
-            <InventoryPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/inventory/low-stock"
-        element={
-          <AppLayout>
-            <LowStockPage />
-          </AppLayout>
-        }
-      />
+        <Route path="/pos" element={<PosPage />} />
 
-      <Route
-        path="/pos"
-        element={
-          <AppLayout>
-            <PosPage />
-          </AppLayout>
-        }
-      />
+        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/transactions/:id" element={<TransactionDetailPage />} />
 
-      <Route
-        path="/transactions"
-        element={
-          <AppLayout>
-            <TransactionsPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/transactions/:id"
-        element={
-          <AppLayout>
-            <TransactionDetailPage />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/users"
-        element={
-          <AppLayout>
-            <UsersPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/outlets"
-        element={
-          <AppLayout>
-            <OutletsPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/merchant"
-        element={
-          <AppLayout>
-            <MerchantPage />
-          </AppLayout>
-        }
-      />
+        <Route path="/users" element={<UsersPage />} />
+        <Route path="/outlets" element={<OutletsPage />} />
+        <Route path="/merchant" element={<MerchantPage />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

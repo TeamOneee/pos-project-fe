@@ -13,13 +13,16 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { AddStockDialog } from '@/components/pages/inventory/add-stock-dialog';
 import {
   AdjustStockDialog,
   type AdjustTarget,
 } from '@/components/pages/inventory/adjust-stock-dialog';
+import type { PickedProduct } from '@/components/pages/inventory/product-search-select';
 import {
   InventoryFilterBar,
   matchesCondition,
@@ -39,8 +42,8 @@ import {
 import { useInventory } from '@/hooks/use-inventory';
 import { useOutlets } from '@/hooks/use-outlets';
 
-/** One outlet rarely carries more rows than this; paging would add a control for nothing. */
-const PAGE_LIMIT = 200;
+/** One outlet rarely carries more rows than this; paging would add a control for nothing. §0 caps size at 100. */
+const PAGE_LIMIT = 100;
 
 export default function InventoryPage() {
   // The Admin dashboard's "Kelola Stok →" link arrives with the outlet already
@@ -52,6 +55,7 @@ export default function InventoryPage() {
   const [condition, setCondition] = React.useState<StockCondition>('ALL');
   const [adjustTarget, setAdjustTarget] = React.useState<AdjustTarget | null>(null);
   const [drawerProduct, setDrawerProduct] = React.useState<DrawerProduct | null>(null);
+  const [addStockOpen, setAddStockOpen] = React.useState(false);
 
   const outlets = useOutlets({ status: 'ACTIVE' });
   const inventory = useInventory({
@@ -101,6 +105,19 @@ export default function InventoryPage() {
     });
   };
 
+  /** A picked product has no row yet, so its first adjustment starts at zero. */
+  const openAddStock = (product: PickedProduct) => {
+    if (!outletId) return;
+    setAddStockOpen(false);
+    setAdjustTarget({
+      productId: product.productId,
+      productName: product.name,
+      outletId,
+      outletName,
+      currentStock: 0,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
@@ -109,11 +126,15 @@ export default function InventoryPage() {
         </Text>
 
         {/*
-          There are no header actions any more. §4.2 gives inventory exactly one
-          write — `POST /inventory/adjustments`, one product at a time — so the
-          bulk-update and transfer-between-outlets buttons had no endpoint behind
-          them and are gone rather than left to 404. Adjustment lives on the row.
+          Stock only comes into being through an adjustment (§4.2), and a product
+          with no row is invisible in the table below — so the first stock needs
+          its own entry point. Hidden until an outlet decides the target.
         */}
+        {outletId ? (
+          <Button className="shrink-0" onClick={() => setAddStockOpen(true)}>
+            <Text>+ Tambah Stok</Text>
+          </Button>
+        ) : null}
       </div>
 
       <OutletPicker
@@ -183,6 +204,13 @@ export default function InventoryPage() {
         onOpenChange={(open) => {
           if (!open) setAdjustTarget(null);
         }}
+      />
+
+      <AddStockDialog
+        open={addStockOpen}
+        onOpenChange={setAddStockOpen}
+        outletName={outletName}
+        onPick={openAddStock}
       />
 
       <StockPerOutletDrawer
