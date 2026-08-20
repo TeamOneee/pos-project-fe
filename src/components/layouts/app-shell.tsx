@@ -16,6 +16,7 @@
  * header toggle brings it back.
  */
 
+import * as React from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { useAuth } from '@/components/pages/auth/auth-provider';
@@ -54,6 +55,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // §2.2 opens `GET /merchant` to every role, so every sidebar can carry the
   // merchant name — it is no longer an Owner-only fact.
   const merchant = useMerchant();
+  const merchantName = merchant.data?.name ?? null;
+
+  // The shell survives navigation (it is a layout route), so `<main>` keeps its
+  // scroll unless reset here — the sidebar, by contrast, deliberately keeps its
+  // position. Only the panel resets; the side rail does not.
+  const mainRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+  }, [location.pathname]);
 
   if (!role) return null;
 
@@ -75,7 +86,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const title = titleOverride ?? navTitleFor(role, location.pathname);
-  const merchantName = merchant.data?.name ?? null;
   const desktop = breakpoint === 'desktop';
 
   return (
@@ -98,7 +108,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <IconRail role={role} pathname={location.pathname} />
         ) : null}
 
-        <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
       {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
     </div>
