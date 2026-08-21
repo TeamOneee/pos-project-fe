@@ -30,7 +30,6 @@ import { Header } from '@/components/layouts/header';
 import { IconRail } from '@/components/layouts/icon-rail';
 import { activeHref, navFor } from '@/components/layouts/nav-config';
 import {
-  useSetSidebarCollapsed,
   useSidebarCollapsed,
   useTopBarActionsValue,
   useTopBarTitleOverride,
@@ -54,7 +53,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const titleOverride = useTopBarTitleOverride();
   const topBarActions = useTopBarActionsValue();
   const sidebarCollapsed = useSidebarCollapsed();
-  const setSidebarCollapsed = useSetSidebarCollapsed();
 
   // §2.2 opens `GET /merchant` to every role, so every sidebar can carry the
   // merchant name — it is no longer an Owner-only fact.
@@ -98,14 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             rail runs the full height of the window and the merchant name is the
             top-left corner on every screen. */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {showHeader && (
-            <Header
-              title={title}
-              actions={topBarActions}
-              sidebarCollapsed={sidebarCollapsed}
-              onToggleSidebar={desktop ? () => setSidebarCollapsed(!sidebarCollapsed) : undefined}
-            />
-          )}
+          {showHeader && <Header title={title} actions={topBarActions} />}
 
           <main ref={mainRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             {children}

@@ -367,6 +367,28 @@ describe('the desktop sidebar collapses and comes back', () => {
     expect(screen.getByRole('link', { name: 'Analitik' })).toBeInTheDocument();
   });
 
+  it('lets the cashier collapse it from the till, which has no app header', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/pos', DESKTOP);
+
+    await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
+
+    // "Kasir" is a link only in the sidebar — the till's own label is text.
+    expect(screen.getByRole('link', { name: 'Kasir' })).toBeInTheDocument();
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Sembunyikan menu samping' }).click();
+    });
+
+    expect(screen.queryByRole('link', { name: 'Kasir' })).toBeNull();
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Tampilkan menu samping' }).click();
+    });
+
+    expect(screen.getByRole('link', { name: 'Kasir' })).toBeInTheDocument();
+  });
+
   it('has no sidebar toggle below desktop', async () => {
     await signInAs('owner@indomart.com');
     await openAt('/dashboard', TABLET);

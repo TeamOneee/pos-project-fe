@@ -2,10 +2,10 @@
  * The 64px header: a sidebar toggle on the left, the page title, and the
  * contextual controls on the right.
  *
- * The sidebar toggle exists only on desktop, where a sidebar is actually shown
- * — AppShell supplies it there and nowhere else. Collapsing the sidebar is how
- * a screen (the dashboard, say) gets the full width; the same button restores
- * the sidebar so navigation stays reachable.
+ * The sidebar toggle knows its own state and its own breakpoint (SidebarToggle),
+ * so it renders on desktop and nowhere else. Collapsing the sidebar is how a
+ * screen (the dashboard, say) gets the full width; the same button restores it
+ * so navigation stays reachable. The till's bar carries the same component.
  *
  * The controls slot is filled by screens through the shell context.
  *
@@ -14,40 +14,15 @@
  * the page, and it is the one control a user must never have to hunt for.
  */
 
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-
 import { AccountControls } from '@/components/layouts/account-controls';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { SidebarToggle } from '@/components/layouts/sidebar-toggle';
 import { Text } from '@/components/ui/text';
 
-export function Header({
-  title,
-  actions,
-  sidebarCollapsed,
-  onToggleSidebar,
-}: {
-  title: string;
-  actions?: React.ReactNode;
-  /** Present only on desktop; hidden when the sidebar is collapsed. */
-  sidebarCollapsed?: boolean;
-  /** Toggles the desktop sidebar. Absent below desktop, so no button renders. */
-  onToggleSidebar?: () => void;
-}) {
+export function Header({ title, actions }: { title: string; actions?: React.ReactNode }) {
   return (
     <header className="flex h-16 items-center justify-between gap-md border-b border-border bg-surface px-lg">
       <div className="flex min-w-0 flex-row items-center gap-md">
-        {onToggleSidebar && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={sidebarCollapsed ? 'Tampilkan menu samping' : 'Sembunyikan menu samping'}
-            onClick={onToggleSidebar}
-            className="shrink-0"
-          >
-            <Icon as={sidebarCollapsed ? PanelLeftOpen : PanelLeftClose} size={20} />
-          </Button>
-        )}
+        <SidebarToggle />
 
         <Text variant="h2" className="min-w-0 flex-1 truncate">
           {title}

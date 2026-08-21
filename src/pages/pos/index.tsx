@@ -32,6 +32,7 @@ import { stockMap, usePosCatalog, type PosProduct } from '@/lib/pos-catalog';
 import { ProductGrid } from '@/components/pages/pos/product-grid';
 import { usePosIdentity } from '@/hooks/use-pos-identity';
 import { useOutlets } from '@/hooks/use-outlets';
+import { SidebarToggle } from '@/components/layouts/sidebar-toggle';
 import { printReceipt } from '@/lib/print-receipt';
 import { receiptFromCheckout, type ReceiptData } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
@@ -383,6 +384,10 @@ function PosTopBar({
   return (
     <div className="flex h-16 shrink-0 flex-row items-center justify-between gap-md border-b border-border bg-surface px-lg">
       <div className="flex min-w-0 flex-row items-center gap-md">
+        {/* The till has no app header, so it carries the sidebar toggle itself —
+            otherwise the Cashier is the one user who cannot reclaim the width. */}
+        <SidebarToggle />
+
         <Text variant="body-strong" className="shrink-0">
           Kasir
         </Text>
