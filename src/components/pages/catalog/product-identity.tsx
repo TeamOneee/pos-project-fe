@@ -1,12 +1,4 @@
-/**
- * The product's identity cell, shared by the table, the grid and the stacked
- * mobile cards.
- *
- * The name doubles as the entry point to the per-outlet stock drawer (S-15b),
- * which both roles get: looking at stock is not managing it. That is why the
- * drawer is reached from the name rather than only from the row menu — the Owner
- * has no row menu.
- */
+/** The product's identity cell, shared by the table, the grid and the stacked mobile cards. */
 
 import { Text } from '@/components/ui/text';
 import { InactiveCategoryBadge } from '@/components/pages/catalog/catalog-badges';

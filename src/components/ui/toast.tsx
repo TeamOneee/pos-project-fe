@@ -19,8 +19,8 @@ type Toast = {
 type ToastInput = Omit<Partial<Toast>, 'title'> & { title: string };
 
 /**
- * Each variant pairs a colour with an icon and its own text, so status is
- * never signalled by colour alone (CLAUDE.md rule 6).
+ * Each variant pairs a colour with an icon and its own text, so status is never signalled by colour
+ * alone (CLAUDE.md rule 6).
  */
 const VARIANTS = {
   success: {
@@ -113,9 +113,8 @@ function ToastViewport() {
   if (toasts.length === 0) return null;
 
   return (
-    // Top-right, stacked downwards: success is confirmation, not an interruption,
-    // so it stays out of the reading path. Full width on a phone, where there is
-    // no room to be off to one side.
+    // Top-right, stacked downwards: success is confirmation, not an interruption, so it stays out
+    // of the reading path.
     <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-col items-stretch gap-sm p-lg tablet:left-auto tablet:right-0 tablet:items-end">
       {toasts.map((item) => (
         <ToastItem key={item.id} toast={item} onDismiss={() => dismiss(item.id)} />

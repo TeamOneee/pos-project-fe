@@ -1,10 +1,4 @@
-/**
- * The change an adjustment would make, as a chip.
- *
- * Distinct from the Owner's DeltaChip, which shows a period-over-period
- * percentage. This one is a signed count of units, and the sign is in the text
- * so direction never rides on colour alone (CLAUDE.md rule 6).
- */
+/** The change an adjustment would make, as a chip. */
 
 import { Text } from '@/components/ui/text';
 import { formatCount } from '@/lib/number';

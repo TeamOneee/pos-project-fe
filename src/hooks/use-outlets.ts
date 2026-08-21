@@ -1,10 +1,4 @@
-/**
- * Outlets.
- *
- * Reading is OWNER and ADMIN (§2.2) — a CASHIER gets a 403, so no cashier
- * screen may depend on this list. There is no `GET /outlets/:id`: one outlet is
- * found in the list rather than fetched.
- */
+/** Outlets. */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -22,12 +16,7 @@ import { queryKeys } from '@/lib/query-client';
 
 const MANAGE_OUTLETS: Requirement = { resource: 'outlets', access: 'manage' };
 
-/**
- * The outlet list, fetched only for roles that may read it.
- *
- * The `enabled` guard is not cosmetic: without it a cashier session would fire
- * a request that is certain to 403 on every screen carrying an outlet filter.
- */
+/** The outlet list, fetched only for roles that may read it. */
 export function useOutlets(filters: OutletFilters = {}) {
   const { role } = useAuth();
   const allowed = role !== null && can(role, 'outlets', 'read');
@@ -112,9 +101,8 @@ export function useUpdateOutlet() {
 }
 
 /**
- * Deactivating an outlet makes it read-only for business operations: no
- * checkout against it, no stock adjustment, and its cashiers cannot operate
- * (§2.2 warning, FR-TEN-004).
+ * Deactivating an outlet makes it read-only for business operations: no checkout against it, no
+ * stock adjustment, and its cashiers cannot operate (§2.2 warning, FR-TEN-004).
  */
 export function useDeactivateOutlet() {
   const queryClient = useQueryClient();

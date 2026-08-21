@@ -1,12 +1,4 @@
-/**
- * Mutable in-memory state for mock mode.
- *
- * Seeded lazily on first use, so importing the mock does not build the dataset
- * in live mode. Everything is stored in **contract 07 wire shape** — the
- * handlers hand these records straight back and let the real schemas parse
- * them, which is what makes the mock a genuine test of the boundary rather than
- * a second opinion about it.
- */
+/** Mutable in-memory state for mock mode. */
 
 import {
   ANALYSIS_JOB,
@@ -140,7 +132,7 @@ export type WireTransaction = {
 
 export type WireAnalysisJob = {
   id: string;
-  status: 'PENDING' | 'PROCESSING' | 'READY' | 'RETRY_SCHEDULED' | 'FAILED';
+  state: 'PENDING' | 'PROCESSING' | 'READY' | 'RETRY_SCHEDULED' | 'FAILED';
   analysis_date: string;
   updated_at: string;
 };
@@ -185,8 +177,8 @@ export function resetDb(): void {
 }
 
 /**
- * Empties the insight state so `GET /insights` answers 404, which §7.2 makes
- * the "never analysed" case rather than an error.
+ * Empties the insight state so `GET /insights` answers 404, which §7.2 makes the "never analysed"
+ * case rather than an error.
  */
 export function clearInsights(): void {
   const state = getDb();
@@ -287,12 +279,7 @@ export function findInventory(outletId: string, productId: string): WireInventor
   );
 }
 
-/**
- * The inventory row for a pairing, created at zero when it does not exist.
- *
- * §4.2 does this for the threshold endpoint explicitly, and an adjustment
- * against a product an outlet has never stocked has to land somewhere too.
- */
+/** The inventory row for a pairing, created at zero when it does not exist. */
 export function ensureInventory(outletId: string, productId: string): WireInventory {
   const existing = findInventory(outletId, productId);
   if (existing) return existing;
@@ -316,8 +303,8 @@ export function ensureInventory(outletId: string, productId: string): WireInvent
 /* -------------------------------------------------------------------------- */
 
 /**
- * §4.1 rule 5: the threshold a row is actually judged against — the outlet's
- * override where it set one, the product's base value otherwise.
+ * §4.1 rule 5: the threshold a row is actually judged against — the outlet's override where it set
+ * one, the product's base value otherwise.
  */
 export function effectiveThreshold(row: WireInventory): number {
   if (row.low_stock_threshold_override !== null) return row.low_stock_threshold_override;
@@ -358,12 +345,8 @@ function pad(value: number): string {
 }
 
 /**
- * §5.2 step 3: a hash over the canonical request, used to tell a genuine replay
- * from a reused `checkout_request_id` carrying different items.
- *
- * FNV-1a over sorted, normalised JSON. Not cryptographic — the real server uses
- * sha256 — but it separates "same request" from "different request", which is
- * the only thing the mock needs it to do.
+ * §5.2 step 3: a hash over the canonical request, used to tell a genuine replay from a reused
+ * `checkout_request_id` carrying different items.
  */
 export function requestHash(value: unknown): string {
   const canonical = canonicalJson(value);

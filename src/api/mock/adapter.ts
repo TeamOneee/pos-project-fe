@@ -1,10 +1,4 @@
-/**
- * Mock transport.
- *
- * Implements the same Transport interface as the live fetch transport: takes a
- * described request, returns a status and an envelope. Everything above it —
- * schemas, money parsing, error mapping, query hooks — is unchanged.
- */
+/** Mock transport. */
 
 import { API_CONFIG } from '@/api/config';
 import { dispatch, errorEnvelope, MockHttpError, type MockEnvelope } from '@/api/mock/handlers';
@@ -58,9 +52,9 @@ function asBody(body: unknown): Record<string, unknown> {
 /** Canned responses for the failures that are awkward to stage on demand. */
 function scenarioResponse(scenario: MockScenario, path: string): MockEnvelope {
   switch (scenario) {
-    // §0.1 states the message template for every named condition, and the
-    // client reads them: a scenario that invents its own wording would be
-    // testing the UI against an error the server cannot produce.
+    // §0.1 states the message template for every named condition, and the client reads them: a
+    // scenario that invents its own wording would be testing the UI against an error the server
+    // cannot produce.
     case 'unauthorized':
       return errorEnvelope(401, 'Autentikasi gagal', path);
 

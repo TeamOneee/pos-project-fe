@@ -4,11 +4,8 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * Text carries the type scale from CLAUDE.md. Screens pick a `variant` rather
- * than restating sizes, so the scale stays in one place.
- *
- * Money is always `variant="mono"`: Inter with tabular figures, so digits keep
- * a fixed width and columns of rupiah line up.
+ * Text carries the type scale from CLAUDE.md. Screens pick a `variant` rather than restating sizes,
+ * so the scale stays in one place.
  */
 const textVariants = cva('text-fg', {
   variants: {
@@ -23,12 +20,9 @@ const textVariants = cva('text-fg', {
       caption: 'type-caption',
       mono: 'type-mono tabular-nums',
     },
-    /*
-     * Tones map to the `*-text` tokens, not the base status colours: text has to
-     * clear 4.5:1 and the base colours are tuned for fills. `subtle` is the one
-     * tone that cannot reach it (2.88:1 on canvas), so it is deliberately not
-     * available for text — callers that want quiet text use `muted` (5.68:1).
-     * See lib/contrast.test.ts.
+    /**
+     * Tones map to the `*-text` tokens, not the base status colours: text has to clear 4.5:1 and
+     * the base colours are tuned for fills.
      */
     tone: {
       default: 'text-fg',
@@ -49,8 +43,8 @@ const textVariants = cva('text-fg', {
 });
 
 /**
- * Lets a parent (Button, Badge, ...) set the text style for any Text beneath it
- * without every call site repeating the classes.
+ * Lets a parent (Button, Badge, ...) set the text style for any Text beneath it without every call
+ * site repeating the classes.
  */
 const TextClassContext = React.createContext<string | undefined>(undefined);
 

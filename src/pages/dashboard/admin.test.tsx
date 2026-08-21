@@ -67,6 +67,9 @@ describe('S-14 · admin stock dashboard', () => {
   });
 
   it('moves the KPI counts after an adjustment made from the low-stock card', async () => {
+    // Ensure at least one low-stock row exists regardless of seed drift from dev merge.
+    const lowRow = getDb().inventory[0];
+    if (lowRow) lowRow.quantity = 1;
     render(<App />);
 
     await screen.findByText('Peringatan Stok Menipis');

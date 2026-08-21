@@ -1,10 +1,4 @@
-/**
- * The scoping rule, at the unit level.
- *
- * The screen hides a Cashier's outlet filter, but that is cosmetics. What
- * actually confines them is this function, so the crafted-filter case is asserted
- * directly: whatever outlet_id goes in, a Cashier's own outlet comes out.
- */
+/** The scoping rule, at the unit level. */
 
 import { describe, expect, it } from 'vitest';
 
@@ -102,9 +96,9 @@ describe('summary strip', () => {
 
 describe('number search', () => {
   /**
-   * §5.2's only search endpoint is an exact match on `transaction_number`, so
-   * the client no longer filters rows itself — it decides whether there is a
-   * term worth looking up and hands it over verbatim.
+   * §5.2's only search endpoint is an exact match on `transaction_number`, so the client no longer
+   * filters rows itself — it decides whether there is a term worth looking up and hands it over
+   * verbatim.
    */
   it('treats only a non-blank query as a lookup', () => {
     expect(isSearchable('TRX-20260813-001')).toBe(true);

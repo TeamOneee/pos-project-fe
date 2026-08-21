@@ -1,25 +1,4 @@
-/**
- * The receipt, as data.
- *
- * Built once and rendered three ways: the collapsible breakdown in the success
- * modal, the printable 80mm sheet, and the file that gets shared. Keeping it a
- * plain object means those three cannot drift apart.
- *
- * Two sources feed it, and they differ in what they can supply:
- *
- *   • `GET /receipts/:transaction_id` (§5.4 `ReceiptDto`) is complete — it adds
- *     `merchant_name`, `outlet_name` and `outlet_address` on top of the sale.
- *     This is the only endpoint that names the outlet to a cashier, so a
- *     reprint should always come through here.
- *   • The checkout response (§5.4 `CheckoutResult`) has the sale but no header
- *     fields, so the immediate success modal supplies the merchant and outlet
- *     names from the session's own context.
- *
- * Cash received and change are checkout-time facts that the API never stores —
- * §5.1 is explicit that there is no payment amount field, since the transaction
- * total *is* the amount. A reprint therefore names the method and does not
- * invent a change figure.
- */
+/** The receipt, as data. */
 
 import type { PaymentMethod } from '@/lib/checkout-machine';
 import type { Receipt, TransactionDetail, TransactionItem } from '@/services/transactions';
@@ -50,8 +29,8 @@ export type ReceiptData = {
 };
 
 /**
- * §5.1 records three methods; the receipt, like the till, only distinguishes
- * cash from everything else.
+ * §5.1 records three methods; the receipt, like the till, only distinguishes cash from everything
+ * else.
  */
 function tillMethod(method: TransactionDetail['payment']['method']): PaymentMethod {
   return method === 'CASH' ? 'CASH' : 'NON_CASH';
@@ -59,8 +38,8 @@ function tillMethod(method: TransactionDetail['payment']['method']): PaymentMeth
 
 function toLines(items: TransactionItem[]): ReceiptLine[] {
   return items.map((item) => ({
-    // The snapshot name, not a live product lookup — a renamed product must not
-    // change what an old receipt says (BR-006).
+    // The snapshot name, not a live product lookup — a renamed product must not change what an old
+    // receipt says (BR-006).
     name: item.name,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
@@ -68,14 +47,7 @@ function toLines(items: TransactionItem[]): ReceiptLine[] {
   }));
 }
 
-/**
- * The receipt for the sale that was just rung up.
- *
- * `merchantName` and `outletName` come from the caller because the checkout
- * response does not carry them. Either may be empty — a cashier has no endpoint
- * that names their outlet (§2.2) — and an empty header line is preferable to a
- * placeholder that looks like data.
- */
+/** The receipt for the sale that was just rung up. */
 export function receiptFromCheckout(input: {
   transaction: TransactionDetail;
   merchantName: string;
@@ -104,13 +76,7 @@ export function receiptFromCheckout(input: {
   };
 }
 
-/**
- * The same receipt, rebuilt from a stored sale (S-22).
- *
- * Deliberately the same `ReceiptData` the checkout path produces, so a reprint
- * is the same document rather than a second rendering that drifts. Everything
- * it needs is persisted and snapshotted — except the cash tendered, as above.
- */
+/** The same receipt, rebuilt from a stored sale (S-22). */
 export function receiptFromDto(receipt: Receipt): ReceiptData {
   const lines = toLines(receipt.items);
   const subtotal = receipt.subtotal || sumRupiah(lines.map((line) => line.subtotal));

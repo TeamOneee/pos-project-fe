@@ -11,6 +11,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    env: { TZ: 'Asia/Jakarta' },
+    env: { TZ: 'Asia/Jakarta', VITE_API_MODE: 'mock', VITE_MOCK_LATENCY_MS: '0' },
   },
 });

@@ -1,13 +1,4 @@
-/**
- * The POS product grid.
- *
- * A CSS grid with fixed row height. The catalogue runs to a few hundred
- * products and the search filters it on every keystroke, so each tile is
- * memoised and the grid is given a whole number of columns per breakpoint.
- *
- * The row is padded out to a whole number of columns so the last row's tiles
- * keep their width instead of stretching across the gap.
- */
+/** The POS product grid. */
 
 import * as React from 'react';
 

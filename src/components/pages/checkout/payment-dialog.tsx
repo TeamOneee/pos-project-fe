@@ -1,10 +1,4 @@
-/**
- * S-17 · Payment, and the S-18 failures rendered inside it.
- *
- * While a request is in flight the modal cannot be dismissed and the confirm
- * button is disabled — but neither of those is the duplicate guard. The guard
- * is the lock in use-checkout.ts; this is the part of it the cashier can see.
- */
+/** S-17 · Payment, and the S-18 failures rendered inside it. */
 
 import { useNavigate } from 'react-router-dom';
 
@@ -31,9 +25,8 @@ type PaymentDialogProps = {
   checkout: ReturnType<typeof useCheckout>;
   total: Rupiah;
   /**
-   * The basket as submitted, in order. §5.2 reports a faulted line by its
-   * position in the request, so both the failure body and the reprice
-   * calculation need the same array that was sent.
+   * The basket as submitted, in order. §5.2 reports a faulted line by its position in the request,
+   * so both the failure body and the reprice calculation need the same array that was sent.
    */
   lines: readonly CartLine[];
   /** Flags the offending lines in the cart and closes the modal. */

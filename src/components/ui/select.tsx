@@ -16,8 +16,10 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex min-h-touch flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus:border-accent focus-ring-always',
-      invalid && 'border-danger',
+      // One line at a time: the resting border hides under the ring, and an invalid trigger
+      // recolours the ring rather than keeping a second border.
+      'flex min-h-touch flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus:border-transparent',
+      invalid ? 'border-danger focus-ring-danger' : 'focus-ring-always',
       props.disabled && 'cursor-not-allowed opacity-50',
       className
     )}
@@ -38,8 +40,13 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
+      // Radix defaults to `item-aligned`, which lifts the menu so the selected row lands on top of
+      // the trigger — covering the field's own label and whatever sits above it.
+      position="popper"
+      sideOffset={4}
       className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-md border border-border-interactive bg-surface-raised p-xs shadow-md',
+        // Matching the trigger's width keeps the menu squared with the field.
+        'z-50 flex max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] min-w-[8rem] flex-col overflow-hidden rounded-md border border-border-interactive bg-surface-raised p-xs shadow-md',
         className
       )}
       {...props}

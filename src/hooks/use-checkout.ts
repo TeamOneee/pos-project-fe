@@ -1,18 +1,4 @@
-/**
- * Drives a checkout attempt: the machine, the request, and the lock.
- *
- * The lock is a ref, checked before anything else happens. React state updates
- * are asynchronous, so a `disabled` button and even the reducer guard can both
- * be raced by two events dispatched in the same tick — a double tap, or Enter
- * arriving while a press is already in flight. The ref closes that window.
- *
- * `checkout_request_id` is minted once per attempt and reused for retries, so a
- * resend after a dropped connection returns the sale the server already made
- * instead of making a second one (§5.2). Accepting new prices deliberately
- * mints a fresh id, because at that point a genuinely different request is
- * being sent — reusing the old id would earn an `IDEMPOTENCY_CONFLICT` rather
- * than a sale.
- */
+/** Drives a checkout attempt: the machine, the request, and the lock. */
 
 import * as React from 'react';
 
@@ -37,8 +23,8 @@ type Options = {
 };
 
 /**
- * §5.1 lists `CASH`, `QRIS` and `TRANSFER`. The till offers two buttons, so
- * Non-Tunai is recorded as `QRIS` — the closest thing the contract offers.
+ * §5.1 lists `CASH`, `QRIS` and `TRANSFER`. The till offers two buttons, so Non-Tunai is recorded
+ * as `QRIS` — the closest thing the contract offers.
  */
 const METHOD_FOR_API = { CASH: 'CASH', NON_CASH: 'QRIS' } as const;
 
@@ -74,8 +60,8 @@ export function useCheckout({ outletId, lines, total }: Options) {
       items: current.lines.map((line) => ({
         product_id: line.productId,
         quantity: line.quantity,
-        // Omitted once the cashier has accepted the server's prices, which is
-        // what turns the next attempt into "sell at whatever it costs now".
+        // Omitted once the cashier has accepted the server's prices, which is what turns the next
+        // attempt into "sell at whatever it costs now".
         ...(current.state.assertPrices
           ? { expected_unit_price: formatMoneyForApi(line.unitPrice) }
           : {}),
@@ -107,13 +93,7 @@ export function useCheckout({ outletId, lines, total }: Options) {
   /** Resends the identical request — same id, same payload. */
   const retry = React.useCallback(() => send(), [send]);
 
-  /**
-   * Accepts the server's prices and resubmits at them.
-   *
-   * The resubmit waits for the reducer to settle, because the new request has
-   * to be built from the cleared id and the dropped price assertions, not the
-   * ones that were rejected.
-   */
+  /** Accepts the server's prices and resubmits at them. */
   const repriceThenSend = React.useRef(false);
 
   const acceptNewPrices = React.useCallback(() => {

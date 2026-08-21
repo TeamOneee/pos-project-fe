@@ -1,24 +1,4 @@
-/**
- * S-04 · Analitik — the four deep-dive panels.
- *
- * There is no `/analytics/*` module in this contract. Every panel here reads
- * the same reporting endpoints the Owner dashboard does (§6.2); the difference
- * is the controls — an explicit date range, an outlet selector and a bucket
- * width — rather than a different data source. That also means the two screens
- * can no longer disagree about a figure.
- *
- * What each panel lost, and why:
- *
- *   • **Sales & AOV** — the endpoints send `points[]` and no summary block, so
- *     the tiles underneath are computed from the points on screen.
- *   • **Interval** collapses from three options to two. §6.2 accepts `HOUR` or
- *     `DAY` and nothing else, so "Mingguan" and "Bulanan" are gone rather than
- *     silently sent and ignored.
- *   • **Product performance** is `GET /dashboard/top-products`, which ranks by
- *     omzet and units and carries neither SKU, category, stock, nor days since
- *     last sale. Those columns are gone; the top/least split the endpoint
- *     already returns is what the panel shows instead.
- */
+/** S-04 · Analitik — the four deep-dive panels. */
 
 import { Download } from 'lucide-react';
 import * as React from 'react';
@@ -65,8 +45,8 @@ const BUCKET_LABELS: Record<Bucket, string> = { DAY: 'Harian', HOUR: 'Per Jam' }
 /* -------------------------------------------------------------------------- */
 
 /**
- * The date range every panel takes, held as `YYYY-MM-DD` for the two inputs and
- * widened to the inclusive ISO instants §6.2 wants on the way out.
+ * The date range every panel takes, held as `YYYY-MM-DD` for the two inputs and widened to the
+ * inclusive ISO instants §6.2 wants on the way out.
  */
 function useDateRange() {
   const initial = React.useMemo(() => defaultMonthRange(), []);
@@ -485,9 +465,8 @@ export function ProductPerformancePanel({ outlets }: CommonProps) {
 type QueryLike<T> = { data: T | undefined; isPending: boolean; isError: boolean };
 
 /**
- * The four states every panel has, with the controls kept mounted through all
- * of them — a filter row that disappears while its own result loads cannot be
- * corrected.
+ * The four states every panel has, with the controls kept mounted through all of them — a filter
+ * row that disappears while its own result loads cannot be corrected.
  */
 function AnalyticsState<T>({
   query,
@@ -573,12 +552,7 @@ function TableCard({
   );
 }
 
-/**
- * Export is a stub, and says so.
- *
- * There is no export endpoint anywhere in the contract, so the button explains
- * that rather than producing a file the server never generated.
- */
+/** Export is a stub, and says so. */
 function ExportButton({ label }: { label: string }) {
   const { toast } = useToast();
 

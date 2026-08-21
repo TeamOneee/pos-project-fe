@@ -1,12 +1,4 @@
-/**
- * The current breakpoint, from CLAUDE.md: mobile <768, tablet 768–1279,
- * desktop ≥1280.
- *
- * Styling should use the `tablet:` and `desktop:` Tailwind variants wherever it
- * can. This hook is for the cases where the *structure* changes rather than the
- * styling — a sidebar becoming an icon rail becoming a tab bar is three
- * different trees, not one tree with different classes.
- */
+/** The current breakpoint, from CLAUDE.md: mobile <768, tablet 768–1279, desktop ≥1280. */
 
 import * as React from 'react';
 

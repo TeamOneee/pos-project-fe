@@ -1,14 +1,4 @@
-/**
- * The per-module API clients — one file per module in the contract.
- *
- * Each client is a thin layer over `@/api`'s transport: it describes a request
- * and validates the wire payload with the module's zod schema. Hooks and
- * screens import from here, never from the transport directly.
- *
- * Module layout follows docs/07-iterasi-1-api-contract.md: identity (§1),
- * tenant (§2), catalog (§3), inventory (§4), sales (§5), reporting (§6) and
- * insight (§7), plus the platform health read (§8).
- */
+/** The per-module API clients — one file per module in the contract. */
 
 export {
   authApi,

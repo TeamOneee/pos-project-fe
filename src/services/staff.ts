@@ -1,14 +1,4 @@
-/**
- * Staff lifecycle — contract §1.2. Owner only.
- *
- * Two rules the backend enforces and the forms must mirror (§1.1 rule 2): a
- * CASHIER needs an `outlet_id`, an ADMIN must have none — sending one for an
- * ADMIN is rejected. Both come back as a 400 naming the field.
- *
- * There is no delete and no `GET /staff/:id`. Deactivation is
- * `PATCH /staff/:user_id` with `status: "INACTIVE"`, which also invalidates
- * that account's ability to log in (§1.1).
- */
+/** Staff lifecycle — contract §1.2. Owner only. */
 
 import { request } from '@/api/client';
 import { staffSchema, type Staff } from '@/services/auth';

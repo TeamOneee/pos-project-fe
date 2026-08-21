@@ -1,15 +1,4 @@
-/**
- * Row 6 — this period against the last, side by side.
- *
- * The three deltas sit between the two blocks rather than inside either, so it
- * is obvious they describe the relationship and not one of the columns.
- *
- * There is no comparison endpoint in §6.2. Both columns are `/dashboard/summary`
- * reads — one over the selected period, one over the range immediately before
- * it — and the deltas are computed from the pair. That is why a delta can be
- * null: a merchant with no trading in the earlier window has nothing to be
- * compared against, and "Baru" is the honest thing to show.
- */
+/** Row 6 — this period against the last, side by side. */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';

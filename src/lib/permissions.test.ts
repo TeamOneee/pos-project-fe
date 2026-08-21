@@ -1,20 +1,4 @@
-/**
- * The role matrix, every role against every route.
- *
- * Written as an explicit table rather than a loop over the implementation,
- * because a test that derives its expectations from the code it is testing proves
- * only that the code is self-consistent. The table below is transcribed from
- * CLAUDE.md § Role matrix and § Routes; if the implementation drifts from the
- * product decision, this fails.
- *
- * The three lines from the rules that are easiest to get wrong, and are asserted
- * here directly:
- *   • The Owner manages the catalog and stock too — it inherits the Admin's
- *     mutation rights (BR-011B), so there is no read-only Owner variant.
- *   • The Admin has *no access* to transactions, analytics or AI insight.
- *   • The Owner may run the till (pos = manage, §4.2); the Admin still cannot
- *     reach the POS at all.
- */
+/** The role matrix, every role against every route. */
 
 import { describe, expect, it } from 'vitest';
 
@@ -51,13 +35,7 @@ const ROUTE_ACCESS: Record<string, Role[]> = {
 /** The capability table from CLAUDE.md, transcribed. */
 const CAPABILITIES: Record<Resource, Record<Role, 'none' | 'read' | 'manage'>> = {
   merchant: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'none' },
-  /**
-   * The Admin reads outlets but does not manage them.
-   *
-   * §2.2 puts ADMIN on `GET /outlets`, and every stock screen needs that list
-   * to render its outlet picker at all. The `/outlets` route above still asks
-   * for `manage`, so the Admin has the data without the management screen.
-   */
+  /** The Admin reads outlets but does not manage them. */
   outlets: { OWNER: 'manage', ADMIN: 'read', CASHIER: 'none' },
   staff: { OWNER: 'manage', ADMIN: 'none', CASHIER: 'none' },
   catalog: { OWNER: 'manage', ADMIN: 'manage', CASHIER: 'none' },

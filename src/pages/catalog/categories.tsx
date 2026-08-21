@@ -1,16 +1,4 @@
-/**
- * S-13 · Kategori.
- *
- * Deliberately the plainest screen in the app: four columns and one modal. The
- * only thing here that needs care is the deactivate dialog, because deactivating
- * a category has a consequence somewhere else — its products stay exactly where
- * they are and silently stop being sellable. The dialog states that before the
- * fact; S-11 marks the affected products after it (KATEGORI NONAKTIF), and the
- * POS is where the products actually disappear.
- *
- * `GET /categories` carries no product count, so the count column is joined from
- * a single wide products query rather than one request per row.
- */
+/** S-13 · Kategori. */
 
 import * as React from 'react';
 
@@ -30,11 +18,7 @@ import type { Category } from '@/services/categories';
 import { formatCount } from '@/lib/number';
 import { cn } from '@/lib/utils';
 
-/**
- * One page wide enough to count every product against its category. The catalog
- * is a few hundred rows at most; a per-category request would be twelve requests
- * to render one column.
- */
+/** One page wide enough to count every product against its category. */
 const COUNT_LIMIT = 500;
 
 export default function CategoriesPage() {
@@ -137,8 +121,8 @@ export default function CategoriesPage() {
               </Button>
             </div>
           ) : stacked ? (
-            // Below tablet: the name and the count stay, status and menu demote
-            // to the second line (brief §7.3).
+            // Below tablet: the name and the count stay, status and menu demote to the second line
+            // (brief §7.3).
             <div className="flex flex-col gap-md">
               {rows.map((category) => (
                 <div

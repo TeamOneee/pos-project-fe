@@ -1,14 +1,4 @@
-/**
- * Boundary behaviour, exercised against a stub transport rather than the mock.
- *
- * That is the point: these are the same domain clients the app uses in mock
- * mode, fed hand-written contract payloads. If they behave identically here,
- * nothing above the transport depends on which mode is active.
- *
- * Everything below is shaped by docs/07-iterasi-1-api-contract.md — §0 for the
- * envelopes, pagination and money, §0.1 for the error conditions, §5.2 for
- * checkout.
- */
+/** Boundary behaviour, exercised against a stub transport rather than the mock. */
 
 import { z } from 'zod';
 

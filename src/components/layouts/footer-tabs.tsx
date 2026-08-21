@@ -1,10 +1,4 @@
-/**
- * The mobile footer tab bar. Five items maximum, per the design brief.
- *
- * A role with more than five nav items gets its first four plus "Lainnya",
- * which opens the remainder in a dialog. The Owner is the only role this
- * affects.
- */
+/** The mobile footer tab bar. Five items maximum, per the design brief. */
 
 import { LogOut, Menu } from 'lucide-react';
 import * as React from 'react';
@@ -28,8 +22,8 @@ export function FooterTabs({ role, pathname }: { role: Role; pathname: string })
   const items = navFor(role).flatMap((section) => section.items);
   const active = activeHref(items, pathname);
 
-  // Always reserve the last slot for "Lainnya" so logout is reachable even
-  // when the role has <=5 items (ADMIN/CASHIER). Keeps total tabs <=5.
+  // Always reserve the last slot for "Lainnya" so logout is reachable even when the role has <=5
+  // items (ADMIN/CASHIER).
   const needsOverflow = items.length >= MAX_TABS;
   const visible = needsOverflow ? items.slice(0, MAX_TABS - 1) : items;
   const overflow = needsOverflow ? items.slice(MAX_TABS - 1) : [];
@@ -53,7 +47,9 @@ export function FooterTabs({ role, pathname }: { role: Role; pathname: string })
           <span
             className={cn(
               'flex h-10 w-10 items-center justify-center rounded-full transition-colors',
-              overflowActive ? 'bg-accent text-white' : 'bg-transparent text-fg-muted hover:bg-subtle'
+              overflowActive
+                ? 'bg-accent text-white'
+                : 'bg-transparent text-fg-muted hover:bg-subtle'
             )}
           >
             <Icon as={Menu} size={20} className={overflowActive ? 'text-white' : 'text-fg-muted'} />

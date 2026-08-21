@@ -4,17 +4,14 @@ import * as React from 'react';
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
-/**
- * Every size clears the 44×44 minimum touch target from CLAUDE.md rule 6.
- * `pos` is the oversized variant for POS tiles and cart steppers.
- */
+/** Every size clears the 44×44 minimum touch target from CLAUDE.md rule 6. */
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-sm rounded-md transition-colors focus-ring select-none',
   {
     variants: {
       variant: {
-        // `*-fill` rather than the base accent: white on the dark theme's accent
-        // is 4.47:1, and on its hover state 2.7:1. The fills hold 4.5:1 in both.
+        // `*-fill` rather than the base accent: white on the dark theme's accent is 4.47:1, and on
+        // its hover state 2.7:1.
         primary: 'bg-accent-fill text-white active:bg-accent-fill-hover hover:bg-accent-fill-hover',
         secondary: 'bg-subtle text-fg active:bg-border hover:bg-border',
         outline:

@@ -1,13 +1,4 @@
-/**
- * S-21 and S-22 end to end, plus the two conditions the work is done against:
- *
- *   1. A Cashier cannot retrieve another outlet's transaction by ID. Asserted
- *      through the API a screen would use, from a real Cashier session — not by
- *      checking that a link is missing.
- *   2. A reprinted receipt is the document the sale printed at checkout. Asserted
- *      by rendering both and comparing the output, rather than eyeballing a
- *      screenshot.
- */
+/** S-21 and S-22 end to end, plus the two conditions the work is done against: */
 
 import '@/api';
 
@@ -30,10 +21,8 @@ class MockResizeObserver {
 
 /** trx_004 belongs to Outlet B; budi is a cashier at Outlet A. */
 /**
- * §5.2 (OD-003) scopes a Cashier to **their own sales**, not to their outlet:
- * `operator_user_id` is forced in the service. So the pair below is Budi's own
- * sale and one he may not see — and `trx_002` is Ani's at the *same* outlet,
- * which is what makes the rule operator-level rather than outlet-level.
+ * §5.2 (OD-003) scopes a Cashier to **their own sales**, not to their outlet: `operator_user_id` is
+ * forced in the service.
  */
 const OWN_TRANSACTION = 'trx_001';
 const COLLEAGUE_TRANSACTION = 'trx_002';
@@ -84,8 +73,8 @@ describe('S-21 · transaction history', () => {
     await signInAs('budi@indomart.com');
     await openTransactions();
 
-    // The outlet cannot be named to a cashier — §2.2 closes GET /outlets to
-    // them — so the scope line says what it can.
+    // The outlet cannot be named to a cashier — §2.2 closes GET /outlets to them — so the scope
+    // line says what it can.
     expect(await screen.findByText('Transaksi di outlet Anda.')).toBeInTheDocument();
 
     // No outlet filter at all, not a disabled one.
@@ -94,8 +83,8 @@ describe('S-21 · transaction history', () => {
 
     // Every sale at the outlet, including a colleague's: trx_003 is Ani's.
     expect(await screen.findByText('TRX-20260813-001')).toBeInTheDocument();
-    // Outlet B's sales are absent.
-    // Ani's sale at the same outlet, and Rudi's at another: neither is Budi's.
+    // Outlet B's sales are absent. Ani's sale at the same outlet, and Rudi's at another: neither is
+    // Budi's.
     expect(screen.queryByText('TRX-20260813-002')).toBeNull();
     expect(screen.queryByText('TRX-20260813-003')).toBeNull();
   });
@@ -153,8 +142,8 @@ describe('S-22 · transaction detail', () => {
 
     const drawer = await screen.findByRole('dialog');
     expect(
-      // §5.2 disguises another scope's sale as a 404 rather than a 403, so the
-      // screen must not claim to know the transaction exists elsewhere.
+      // §5.2 disguises another scope's sale as a 404 rather than a 403, so the screen must not
+      // claim to know the transaction exists elsewhere.
       await within(drawer).findByText('Nomor transaksi ini tidak ada, atau sudah tidak tersedia.')
     ).toBeInTheDocument();
   });
@@ -171,8 +160,8 @@ describe('the two conditions this work is done against', () => {
       .catch((error: unknown) => error);
 
     expect(isApiError(refusal)).toBe(true);
-    // Disguised as "not found" (§5.2), which is the point: a cashier cannot
-    // even learn that another outlet's transaction exists.
+    // Disguised as "not found" (§5.2), which is the point: a cashier cannot even learn that another
+    // outlet's transaction exists.
     expect(isApiError(refusal) && refusal.kind).toBe('not_found');
 
     // Nor is a colleague's sale at the same outlet readable (OD-003).

@@ -1,9 +1,4 @@
-/**
- * S-02 · Register — merchant and its first Owner in one submission.
- *
- * `POST /auth/register` returns a token, so the form signs in with it and
- * routes straight to the dashboard.
- */
+/** S-02 · Register — merchant and its first Owner in one submission. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
@@ -68,8 +63,7 @@ export function RegisterForm() {
   const submit = handleSubmit((values) => {
     register.mutate(
       {
-        // §1.2 takes a flat body, and creates the merchant and its OWNER in one
-        // atomic call.
+        // §1.2 takes a flat body, and creates the merchant and its OWNER in one atomic call.
         name: values.name,
         email: values.email,
         password: values.password,
@@ -86,8 +80,7 @@ export function RegisterForm() {
           navigate('/login', { replace: true });
         },
         onError: (error) => {
-          // A taken email is a field problem, so it is shown on the field as
-          // well as in the banner. Nothing is being concealed here, unlike login.
+          // A taken email is a field problem, so it is shown on the field as well as in the banner.
           if (isDuplicateEmail(error)) {
             setError('email', { message: 'Email ini sudah terdaftar.' });
           }

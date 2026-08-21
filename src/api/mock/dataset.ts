@@ -1,16 +1,4 @@
-/**
- * The seed data mock mode starts from — IndoMart Retail, three outlets.
- *
- * Everything is declared in **contract 07 wire shape**, so the handlers hand
- * these records back and the real zod schemas parse them. If a field is not in
- * docs/07-iterasi-1-api-contract.md, it is not here: no `sku`, no merchant-level
- * low-stock threshold, no `DEBIT` payment method, no cart tables.
- *
- * The analytics blobs this file used to carry are gone too. §6.2 derives every
- * dashboard figure from `COMPLETED` transactions, so the mock does the same —
- * a seeded sale now moves the Owner's dashboard, which is the whole point of
- * having one.
- */
+/** The seed data mock mode starts from — IndoMart Retail, three outlets. */
 
 export const NOW = '2026-08-13T14:30:00.000Z';
 const CREATED = '2026-08-01T09:00:00.000Z';
@@ -59,8 +47,8 @@ export const OUTLETS = [
 ];
 
 /**
- * Five accounts. Outlet A has two cashiers and Outlet C has none, so the
- * transaction seeds cover A and B only.
+ * Five accounts. Outlet A has two cashiers and Outlet C has none, so the transaction seeds cover A
+ * and B only.
  */
 export const STAFF = [
   {
@@ -128,12 +116,7 @@ export const PASSWORDS: Record<string, string> = {
 /* Catalog                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Kebutuhan Harian and Beku carry no products, so the catalog screens have real
- * empty states. Rokok is seeded **inactive** with a product still in it — that
- * is the S-11 case §3.2 describes, where an active product is invisible to the
- * cashier because its category is not.
- */
+/** Kebutuhan Harian and Beku carry no products, so the catalog screens have real empty states. */
 export const CATEGORIES = [
   { id: 'cat_minuman', name: 'Minuman', is_active: true },
   { id: 'cat_makanan_ringan', name: 'Makanan Ringan', is_active: true },
@@ -240,8 +223,8 @@ const PRODUCT_SEEDS: ProductSeed[] = [
     price: '6500.00',
     low_stock_threshold: 10,
   },
-  // Active product in an inactive category: visible to the Admin, invisible
-  // to the cashier, and rejected at checkout with CATEGORY_INACTIVE (§3.2).
+  // Active product in an inactive category: visible to the Admin, invisible to the cashier, and
+  // rejected at checkout with CATEGORY_INACTIVE (§3.2).
   {
     id: 'prd_rk016',
     category_id: 'cat_rokok',
@@ -275,12 +258,7 @@ export const PRODUCTS = PRODUCT_SEEDS.map((seed) => ({
 /* Inventory                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Stock per product, in outlet order [A, B, C].
- *
- * Chosen so the alert screens have real data against the per-product
- * thresholds above: several low rows and three that have run out.
- */
+/** Stock per product, in outlet order [A, B, C]. */
 const STOCK: Record<string, [number, number, number]> = {
   //                    A    B    C
   prd_cc1500: /*  */ [5, 42, 45], // A low
@@ -299,14 +277,7 @@ const STOCK: Record<string, [number, number, number]> = {
   prd_old01: /*   */ [4, 0, 0],
 };
 
-/**
- * Per-outlet threshold overrides (§4.2).
- *
- * Outlet C is a small kiosk that holds less of everything, so it flags Coca
- * Cola early; Outlet B moves Indomie fast enough to want a lower floor. Two
- * rows is enough for the UI to have to explain why two outlets disagree about
- * what "low" means for one product.
- */
+/** Per-outlet threshold overrides (§4.2). */
 const THRESHOLD_OVERRIDES: Record<string, number> = {
   'otl_c:prd_cc1500': 50,
   'otl_b:prd_im001': 20,
@@ -341,12 +312,8 @@ export type TransactionSeed = {
 };
 
 /**
- * Sales across Outlet A and Outlet B, spread over several days and hours so the
- * trend, time-pattern and outlet-comparison endpoints have a shape to report
- * rather than a single spike.
- *
- * Totals are derived from the catalog rather than written out, so a price edit
- * can never leave a transaction inconsistent.
+ * Sales across Outlet A and Outlet B, spread over several days and hours so the trend, time-pattern
+ * and outlet-comparison endpoints have a shape to report rather than a single spike.
  */
 export const TRANSACTION_SEEDS: TransactionSeed[] = [
   {
@@ -476,13 +443,12 @@ export const TRANSACTION_SEEDS: TransactionSeed[] = [
 /* -------------------------------------------------------------------------- */
 
 /**
- * One completed analysis, so `GET /insights` has something to return before the
- * Owner triggers a new one. §7.2 answers 404 for a merchant that has never
- * triggered one at all — `resetDb` can be used to reach that state.
+ * One completed analysis, so `GET /insights` has something to return before the Owner triggers a
+ * new one.
  */
 export const ANALYSIS_JOB = {
   id: 'job_20260812',
-  status: 'READY' as const,
+  state: 'READY' as const,
   analysis_date: '2026-08-12',
   updated_at: '2026-08-12T08:02:00.000Z',
 };

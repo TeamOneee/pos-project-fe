@@ -1,14 +1,4 @@
-/**
- * S-19 · Payment succeeded.
- *
- * Celebratory but quick to leave: the primary action starts the next sale,
- * because the next customer is already waiting. Printing and sharing are
- * secondary and never block that.
- *
- * The breakdown is collapsed by default. It contains Subtotal and Total and
- * nothing between them — rule 2, and a receipt is exactly where a stray
- * discount row would do the most damage.
- */
+/** S-19 · Payment succeeded. */
 
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import * as React from 'react';
@@ -48,8 +38,7 @@ export function SuccessDialog({
   if (!receipt) return null;
 
   return (
-    // Not dismissable by overlay: leaving is a decision, and the only way out
-    // starts the next sale.
+    // Not dismissable by overlay: leaving is a decision, and the only way out starts the next sale.
     <Dialog open={open}>
       <DialogContent hideClose className="max-w-[480px]">
         <div className="flex flex-col items-center gap-md">

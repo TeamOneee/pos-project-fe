@@ -1,13 +1,4 @@
-/**
- * Row 3 right — the shape of the trading day, with the busiest hours picked out
- * in accent.
- *
- * §6.2 reports `points[{ hour_of_day, omzet, transaction_count }]` and nothing
- * else: no peak-hour list, no prose insights, no busiest/quietest **day** —
- * this endpoint buckets by hour of day, not by weekday, so there was never a
- * day to name. The peaks below are therefore derived from the points on screen,
- * and the sentence about the busiest weekday is gone rather than invented.
- */
+/** Row 3 right — the shape of the trading day, with the busiest hours picked out in accent. */
 
 import { Lightbulb } from 'lucide-react';
 

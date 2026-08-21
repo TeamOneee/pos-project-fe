@@ -1,16 +1,4 @@
-/**
- * Row 5 — the AOV trend, and the last few sales.
- *
- * The trend is `GET /dashboard/aov-trend` (§6.2), which reports the series and
- * no headline: the current figure below is the last point, and the delta is the
- * period-over-period one the KPI row already computes, passed in so the two
- * cards cannot disagree.
- *
- * The recent sales are not a dashboard endpoint at all — the reporting module
- * serves aggregates only — so they come from `GET /transactions` (§5.2). A row
- * there is a `TransactionSummaryDto`, which carries the operator's name but not
- * the outlet's, so the subtitle names the operator alone.
- */
+/** Row 5 — the AOV trend, and the last few sales. */
 
 import { Link } from 'react-router-dom';
 

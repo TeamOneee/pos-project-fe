@@ -1,9 +1,4 @@
-/**
- * Staff. Owner only, for both reading and writing (§1.2).
- *
- * There is no single-staff endpoint, so a screen that needs one row takes it
- * from the list it already has.
- */
+/** Staff. Owner only, for both reading and writing (§1.2). */
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -91,9 +86,8 @@ export function useUpdateStaff() {
 }
 
 /**
- * Deactivation, which §1.1 makes stronger than it sounds: an INACTIVE account
- * cannot log in and cannot check out, and any token it already holds stops
- * working on the next request.
+ * Deactivation, which §1.1 makes stronger than it sounds: an INACTIVE account cannot log in and
+ * cannot check out, and any token it already holds stops working on the next request.
  */
 export function useDeactivateStaff() {
   const invalidate = useStaffInvalidation();

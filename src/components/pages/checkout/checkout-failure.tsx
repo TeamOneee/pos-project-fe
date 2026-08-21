@@ -1,21 +1,4 @@
-/**
- * The three ways a checkout fails (S-18a/b/c).
- *
- * All three render inside the payment modal with the form still on screen, so
- * the cashier can correct and resubmit rather than starting over.
- *
- * The distinction that matters most is the last one. A dropped connection is
- * not a failed sale — the request may have gone through — so it never says the
- * transaction failed. It says the status is unknown and points at the history,
- * because the dangerous move is charging the customer twice.
- *
- * Naming the offending product takes a join. §5.2 identifies a faulted line by
- * its **position in the request we sent** (`errors[].field` is
- * `items[2].product_id`) and never by product id or name, so the basket lines
- * are passed in and indexed into. A fault whose index cannot be resolved still
- * renders — as an unnamed line — rather than being dropped, because the cashier
- * needs to know something failed even when we cannot say which.
- */
+/** The three ways a checkout fails (S-18a/b/c). */
 
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 import * as React from 'react';

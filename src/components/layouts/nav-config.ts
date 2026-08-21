@@ -1,14 +1,9 @@
-/**
- * Navigation, declared per role.
- *
- * The shape and wording of the nav are a design decision, so they live in a
- * config object rather than being inferred from permissions. Access stays
- * centralized in the role matrix (shared/permissions).
- */
+/** Navigation, declared per role. */
 
 import {
   Boxes,
   Building2,
+  History,
   LayoutDashboard,
   Package,
   ReceiptText,
@@ -67,6 +62,7 @@ const NAV: Record<Role, NavSection[]> = {
         { href: '/categories', label: 'Kategori', icon: Tag },
         // The Owner manages stock like the Admin does (BR-011B).
         { href: '/inventory', label: 'Stok', icon: Boxes, exact: true },
+        { href: '/inventory/movements', label: 'Riwayat Stok', icon: History },
       ],
     },
     {
@@ -79,8 +75,8 @@ const NAV: Record<Role, NavSection[]> = {
     },
   ],
 
-  // No Analitik, no AI Insight and no Riwayat: the matrix closes all three to
-  // the Admin, and the stock dashboard is where they land instead.
+  // No Analitik, no AI Insight and no Riwayat: the matrix closes all three to the Admin, and the
+  // stock dashboard is where they land instead.
   ADMIN: [
     {
       title: 'Operasional',
@@ -88,6 +84,7 @@ const NAV: Record<Role, NavSection[]> = {
         { href: '/dashboard', label: 'Dashboard Stok', icon: LayoutDashboard, exact: true },
         { href: '/inventory', label: 'Inventori', icon: Boxes, exact: true },
         { href: '/inventory/low-stock', label: 'Stok Menipis', icon: TriangleAlert },
+        { href: '/inventory/movements', label: 'Riwayat Stok', icon: History },
       ],
     },
     {
@@ -125,12 +122,7 @@ export function navItemsFor(role: Role): NavItem[] {
   return navFor(role).flatMap((section) => section.items);
 }
 
-/**
- * Which item owns the current route.
- *
- * Longest match wins, so `/inventory/low-stock` highlights its own item rather
- * than the `/inventory` one above it.
- */
+/** Which item owns the current route. */
 export function activeHref(items: NavItem[], pathname: string): string | null {
   const matches = items.filter((item) =>
     item.exact

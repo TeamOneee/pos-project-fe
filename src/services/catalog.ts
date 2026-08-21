@@ -1,19 +1,4 @@
-/**
- * Cashier catalogue — contract §4.2 `GET /products/catalog`.
- *
- * This is the POS screen's only product source, and it is a different endpoint
- * from `GET /products`: it is scoped to one outlet, it already excludes
- * everything unsellable, and its `price` is the **effective** price for that
- * outlet (a `product_outlet_price` override when one exists, the master price
- * otherwise — OD-002).
- *
- * The server decides visibility, not the client: a row appears only when the
- * product is active, its category is active, and an inventory row exists for
- * it at that outlet (FR-CAT-006, FR-CAT-011–012).
- *
- * `outlet_id` is mandatory. A CASHIER must pass the outlet on their own token;
- * an OWNER passes an active outlet of their merchant. Anything else is a 403.
- */
+/** Cashier catalogue — contract §4.2 `GET /products/catalog`. */
 
 import { z } from 'zod';
 
@@ -51,8 +36,8 @@ export type CatalogFilters = {
 
 export const catalogApi = {
   /**
-   * 400 without an `outlet_id`; 403 when the outlet is not the cashier's own,
-   * or is inactive, or sits outside the merchant.
+   * 400 without an `outlet_id`; 403 when the outlet is not the cashier's own, or is inactive, or
+   * sits outside the merchant.
    */
   list: (filters: CatalogFilters): Promise<Page<CatalogProduct>> =>
     request({

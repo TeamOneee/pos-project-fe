@@ -1,10 +1,4 @@
-/**
- * The expired-session modal (design brief §7.2).
- *
- * Raised by any 401 on a session that was previously working — see
- * api/unauthorized.ts. One button, no dismiss: there is nothing useful the
- * user can do on the page behind it.
- */
+/** The expired-session modal (design brief §7.2). */
 
 import { TriangleAlert } from 'lucide-react';
 
@@ -27,7 +21,11 @@ export function SessionExpiredDialog() {
   return (
     <Dialog open={sessionExpired}>
       {/* No close affordance: acknowledging is the only way out. */}
-      <DialogContent hideClose className="max-w-[400px]">
+      {/*
+        `tablet:` prefixed, or it loses: DialogContent's own tablet:max-w-[480px]
+        sits in a later media query and would win over a bare max-w-[400px].
+      */}
+      <DialogContent hideClose className="tablet:max-w-[400px]">
         <DialogHeader className="items-center gap-md">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warning-subtle">
             <Icon as={TriangleAlert} size={24} className="text-warning" />

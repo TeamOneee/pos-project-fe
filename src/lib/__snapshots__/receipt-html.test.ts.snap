@@ -8,56 +8,90 @@ exports[`receipt output > prints a cash sale 1`] = `
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TRX-20260813-003</title>
 <style>
-  /* 80mm roll, no printer margins. */
-  @page { size: 80mm auto; margin: 0; }
+  /* Whatever paper the printer reports; the column centres inside it. */
+  @page { margin: 0; }
 
-  html, body {
-    margin: 0;
-    padding: 0;
+  html {
     background: #fff;
+    /* Pure black throughout. A thermal head has one dot and no grey, so a
+       "muted" tone dithers into a smudge rather than reading as secondary —
+       hierarchy here is size and weight only. */
     color: #000;
   }
 
   body {
-    width: 302px;
-    padding: 12px;
+    width: 80mm;
+    margin: 0 auto;
+    padding: 5mm 4mm 7mm;
     box-sizing: border-box;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5pt;
+    line-height: 1.5;
+    -webkit-font-smoothing: none;
   }
 
-  .center { text-align: center; }
-  .bold { font-weight: 700; }
-  .muted { color: #333; }
+  header { text-align: center; margin-bottom: 4mm; }
 
-  header { text-align: center; margin-bottom: 8px; }
-  header .merchant { font-size: 15px; font-weight: 700; }
+  .merchant {
+    font-size: 14pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    word-break: break-word;
+  }
 
-  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+  .outlet { font-size: 10.5pt; }
 
-  .row { display: flex; justify-content: space-between; gap: 8px; }
+  /* Dashed between sections, solid where the eye should stop: around the
+     figures a customer checks. */
+  .rule { border-top: 1px dashed #000; margin: 3mm 0; }
+  .rule-strong { border-top: 2px solid #000; margin: 3mm 0; }
 
-  .item { margin-bottom: 6px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 3mm;
+  }
+
+  /* Amounts share a column: same width, right-aligned, figures lined up. */
+  .row > :last-child { text-align: right; white-space: nowrap; }
+
+  .meta { font-size: 10.5pt; }
+  .meta .row > :first-child { min-width: 16mm; }
+
+  .item + .item { margin-top: 2.5mm; }
   .item-name { word-break: break-word; }
-  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+  .item-row { display: flex; justify-content: space-between; gap: 3mm; }
+  .item-row > :last-child { text-align: right; white-space: nowrap; }
 
-  .total { font-size: 15px; font-weight: 700; }
+  .total {
+    font-size: 14pt;
+    font-weight: 700;
+    margin-top: 1mm;
+  }
 
-  footer { text-align: center; margin-top: 10px; }
+  footer {
+    text-align: center;
+    margin-top: 5mm;
+    font-size: 10.5pt;
+  }
 </style>
 </head>
 <body>
   <header>
     <div class="merchant">IndoMart Retail</div>
-    <div class="muted">Outlet A - Mall Central</div>
+    <div class="outlet">Outlet A - Mall Central</div>
   </header>
 
-  <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
-  <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
-  <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+  <div class="rule"></div>
 
-  <div class="divider"></div>
+  <div class="meta">
+    <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
+    <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
+    <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+  </div>
+
+  <div class="rule"></div>
 
   
       <div class="item">
@@ -82,12 +116,12 @@ exports[`receipt output > prints a cash sale 1`] = `
         </div>
       </div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   <div class="row"><span>Subtotal</span><span>Rp 52.500</span></div>
   <div class="row total"><span>Total</span><span>Rp 52.500</span></div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   
       <div class="row"><span>Tunai</span><span>Rp 100.000</span></div>
@@ -106,56 +140,90 @@ exports[`receipt output > prints a non-cash sale 1`] = `
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TRX-20260813-003</title>
 <style>
-  /* 80mm roll, no printer margins. */
-  @page { size: 80mm auto; margin: 0; }
+  /* Whatever paper the printer reports; the column centres inside it. */
+  @page { margin: 0; }
 
-  html, body {
-    margin: 0;
-    padding: 0;
+  html {
     background: #fff;
+    /* Pure black throughout. A thermal head has one dot and no grey, so a
+       "muted" tone dithers into a smudge rather than reading as secondary —
+       hierarchy here is size and weight only. */
     color: #000;
   }
 
   body {
-    width: 302px;
-    padding: 12px;
+    width: 80mm;
+    margin: 0 auto;
+    padding: 5mm 4mm 7mm;
     box-sizing: border-box;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5pt;
+    line-height: 1.5;
+    -webkit-font-smoothing: none;
   }
 
-  .center { text-align: center; }
-  .bold { font-weight: 700; }
-  .muted { color: #333; }
+  header { text-align: center; margin-bottom: 4mm; }
 
-  header { text-align: center; margin-bottom: 8px; }
-  header .merchant { font-size: 15px; font-weight: 700; }
+  .merchant {
+    font-size: 14pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    word-break: break-word;
+  }
 
-  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+  .outlet { font-size: 10.5pt; }
 
-  .row { display: flex; justify-content: space-between; gap: 8px; }
+  /* Dashed between sections, solid where the eye should stop: around the
+     figures a customer checks. */
+  .rule { border-top: 1px dashed #000; margin: 3mm 0; }
+  .rule-strong { border-top: 2px solid #000; margin: 3mm 0; }
 
-  .item { margin-bottom: 6px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 3mm;
+  }
+
+  /* Amounts share a column: same width, right-aligned, figures lined up. */
+  .row > :last-child { text-align: right; white-space: nowrap; }
+
+  .meta { font-size: 10.5pt; }
+  .meta .row > :first-child { min-width: 16mm; }
+
+  .item + .item { margin-top: 2.5mm; }
   .item-name { word-break: break-word; }
-  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+  .item-row { display: flex; justify-content: space-between; gap: 3mm; }
+  .item-row > :last-child { text-align: right; white-space: nowrap; }
 
-  .total { font-size: 15px; font-weight: 700; }
+  .total {
+    font-size: 14pt;
+    font-weight: 700;
+    margin-top: 1mm;
+  }
 
-  footer { text-align: center; margin-top: 10px; }
+  footer {
+    text-align: center;
+    margin-top: 5mm;
+    font-size: 10.5pt;
+  }
 </style>
 </head>
 <body>
   <header>
     <div class="merchant">IndoMart Retail</div>
-    <div class="muted">Outlet A - Mall Central</div>
+    <div class="outlet">Outlet A - Mall Central</div>
   </header>
 
-  <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
-  <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
-  <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+  <div class="rule"></div>
 
-  <div class="divider"></div>
+  <div class="meta">
+    <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
+    <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
+    <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+  </div>
+
+  <div class="rule"></div>
 
   
       <div class="item">
@@ -180,12 +248,12 @@ exports[`receipt output > prints a non-cash sale 1`] = `
         </div>
       </div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   <div class="row"><span>Subtotal</span><span>Rp 52.500</span></div>
   <div class="row total"><span>Total</span><span>Rp 52.500</span></div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   <div class="row"><span>Metode</span><span>Non-Tunai</span></div>
 
@@ -202,56 +270,90 @@ exports[`receipt output > prints a reprint, where the cash handed over is not re
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TRX-20260813-003</title>
 <style>
-  /* 80mm roll, no printer margins. */
-  @page { size: 80mm auto; margin: 0; }
+  /* Whatever paper the printer reports; the column centres inside it. */
+  @page { margin: 0; }
 
-  html, body {
-    margin: 0;
-    padding: 0;
+  html {
     background: #fff;
+    /* Pure black throughout. A thermal head has one dot and no grey, so a
+       "muted" tone dithers into a smudge rather than reading as secondary —
+       hierarchy here is size and weight only. */
     color: #000;
   }
 
   body {
-    width: 302px;
-    padding: 12px;
+    width: 80mm;
+    margin: 0 auto;
+    padding: 5mm 4mm 7mm;
     box-sizing: border-box;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5pt;
+    line-height: 1.5;
+    -webkit-font-smoothing: none;
   }
 
-  .center { text-align: center; }
-  .bold { font-weight: 700; }
-  .muted { color: #333; }
+  header { text-align: center; margin-bottom: 4mm; }
 
-  header { text-align: center; margin-bottom: 8px; }
-  header .merchant { font-size: 15px; font-weight: 700; }
+  .merchant {
+    font-size: 14pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    word-break: break-word;
+  }
 
-  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+  .outlet { font-size: 10.5pt; }
 
-  .row { display: flex; justify-content: space-between; gap: 8px; }
+  /* Dashed between sections, solid where the eye should stop: around the
+     figures a customer checks. */
+  .rule { border-top: 1px dashed #000; margin: 3mm 0; }
+  .rule-strong { border-top: 2px solid #000; margin: 3mm 0; }
 
-  .item { margin-bottom: 6px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 3mm;
+  }
+
+  /* Amounts share a column: same width, right-aligned, figures lined up. */
+  .row > :last-child { text-align: right; white-space: nowrap; }
+
+  .meta { font-size: 10.5pt; }
+  .meta .row > :first-child { min-width: 16mm; }
+
+  .item + .item { margin-top: 2.5mm; }
   .item-name { word-break: break-word; }
-  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+  .item-row { display: flex; justify-content: space-between; gap: 3mm; }
+  .item-row > :last-child { text-align: right; white-space: nowrap; }
 
-  .total { font-size: 15px; font-weight: 700; }
+  .total {
+    font-size: 14pt;
+    font-weight: 700;
+    margin-top: 1mm;
+  }
 
-  footer { text-align: center; margin-top: 10px; }
+  footer {
+    text-align: center;
+    margin-top: 5mm;
+    font-size: 10.5pt;
+  }
 </style>
 </head>
 <body>
   <header>
     <div class="merchant">IndoMart Retail</div>
-    <div class="muted">Outlet A - Mall Central</div>
+    <div class="outlet">Outlet A - Mall Central</div>
   </header>
 
-  <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
-  <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
-  <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+  <div class="rule"></div>
 
-  <div class="divider"></div>
+  <div class="meta">
+    <div class="row"><span>No.</span><span>TRX-20260813-003</span></div>
+    <div class="row"><span>Waktu</span><span>13 Agu 2026, 20.05</span></div>
+    <div class="row"><span>Kasir</span><span>Budi Santoso</span></div>
+  </div>
+
+  <div class="rule"></div>
 
   
       <div class="item">
@@ -276,12 +378,12 @@ exports[`receipt output > prints a reprint, where the cash handed over is not re
         </div>
       </div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   <div class="row"><span>Subtotal</span><span>Rp 52.500</span></div>
   <div class="row total"><span>Total</span><span>Rp 52.500</span></div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   <div class="row"><span>Metode</span><span>Tunai</span></div>
 

@@ -5,8 +5,8 @@ import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
 /**
- * Tooltips are a desktop affordance and must never be the only carrier of
- * information — touch users cannot hover. Anything essential goes in a label.
+ * Tooltips are a desktop affordance and must never be the only carrier of information — touch users
+ * cannot hover.
  */
 const TooltipProvider = TooltipPrimitive.Provider;
 const Tooltip = TooltipPrimitive.Root;

@@ -1,25 +1,4 @@
-/**
- * S-05 · AI Insight, against contract §7.
- *
- * The page is a trigger plus a read, and the two map onto two different things
- * the contract is careful to keep apart: the **job** is the process
- * (`PENDING → PROCESSING → READY | RETRY_SCHEDULED → FAILED`), and the
- * **insights** are only ever completed results. The screen polls the job while
- * it runs and renders the results when it is done; it never infers one from the
- * other.
- *
- * A merchant that has never triggered an analysis gets 404 — that is the empty
- * state, not an error. There is no history list: the API holds one result per
- * type and overwrites it (OD-007), so the page renders exactly what it returns.
- *
- * Two contract points shape the affordances:
- *
- *   • One analysis per merchant per local day (§7.1 rule 2). Triggering again
- *     the same day returns 200 with the existing job, so the screen does not
- *     block a second press — it just tells the truth about what came back.
- *   • `evidence_summary` is structured data the LLM was given, not user-facing
- *     copy, so the cards show `title` + `content` and leave the evidence alone.
- */
+/** S-05 · AI Insight, against contract §7. */
 
 import { Copy, Sparkles } from 'lucide-react';
 
@@ -63,12 +42,68 @@ export default function AiInsightsPage() {
   const handleTrigger = () => {
     trigger.mutate(undefined, {
       onSuccess: (result) => {
+        if (result.status === 'FAILED') {
+          toast({
+            variant: 'warning',
+            title: 'Analisis hari ini gagal diproses',
+            description:
+              'Analisis sudah pernah dicoba hari ini dan tidak dapat diulang sampai besok.',
+          });
+          return;
+        }
         toast({
           variant: result.isNewJob ? 'success' : 'info',
-          title: result.isNewJob ? 'Analisis dijadwalkan' : 'Analisis sudah berjalan',
+          title: result.isNewJob ? 'Analisis dijadwalkan' : 'Analisis sedang berjalan',
           description: result.isNewJob
             ? 'Hasil akan muncul di halaman ini dalam beberapa saat.'
             : 'Analisis hari ini sudah dijalankan. Tunggu hingga selesai.',
+        });
+      },
+      onError: (error) => {
+        if (isApiErrorOfKind(error, 'not_found')) {
+          toast({
+            variant: 'info',
+            title: 'Belum ada insight',
+            description: 'Merchant belum pernah memtrigger analisis insight.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'forbidden')) {
+          toast({
+            variant: 'warning',
+            title: 'Akses ditolak',
+            description: 'Peran Anda tidak memiliki izin untuk memtrigger analisis insight.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'unauthorized')) {
+          toast({
+            variant: 'error',
+            title: 'Sesi expiring',
+            description: 'Token otentikasi telah expiring. Silakan login kembali.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'rate_limited')) {
+          toast({
+            variant: 'warning',
+            title: 'Terlalu banyak permintaan',
+            description: 'Silakan tunggu beberapa saat sebelum mencoba lagi.',
+          });
+          return;
+        }
+        if (isApiErrorOfKind(error, 'server') || isApiErrorOfKind(error, 'timeout')) {
+          toast({
+            variant: 'warning',
+            title: 'Gagal koneksi',
+            description: 'Terjadi kesalahan sementara. Coba lagi dalam beberapa saat.',
+          });
+          return;
+        }
+        toast({
+          variant: 'error',
+          title: 'Gagal memtrigger',
+          description: error instanceof Error ? error.message : 'Terjadi kesalahan tidak diketahui',
         });
       },
     });
@@ -78,17 +113,15 @@ export default function AiInsightsPage() {
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[960px]">
-      <div className="flex flex-col gap-xs">
-        <Text variant="h1">AI Insight</Text>
-        <Text variant="body" tone="muted">
-          Analisis dan rekomendasi bisnis berbasis data Anda.
-        </Text>
-      </div>
+      {/* The shell's top bar carries the title; this is its subtitle. */}
+      <Text variant="body" tone="muted">
+        Analisis dan rekomendasi bisnis berbasis data Anda.
+      </Text>
 
       {jobFailed && (
         <FormBanner title="Analisis terakhir gagal diproses">
           <Text variant="caption" tone="muted">
-            Anda dapat menjalankan analisis baru kapan saja.
+            Analisis hari ini tidak dapat diulang sampai besok.
           </Text>
         </FormBanner>
       )}
@@ -113,6 +146,8 @@ export default function AiInsightsPage() {
         <EmptyStateCard />
       ) : jobRunning ? (
         <ProcessingCard />
+      ) : jobFailed && results.length === 0 ? (
+        <FailedStateCard />
       ) : (
         <div className="flex flex-col gap-lg">
           {results.map((insight) => (
@@ -203,6 +238,22 @@ function EmptyStateCard() {
   );
 }
 
+function FailedStateCard() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-md p-xl text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-subtle">
+          <Icon as={Sparkles} size={22} className="text-fg-muted" />
+        </div>
+        <Text variant="h3">Analisis gagal diproses</Text>
+        <Text variant="body" tone="muted" className="max-w-[420px]">
+          Terjadi kendala saat menganalisis data Anda. Silakan coba lagi besok.
+        </Text>
+      </CardContent>
+    </Card>
+  );
+}
+
 function InsightResultCard({ insight }: { insight: Insight }) {
   const { toast } = useToast();
   const meta = INSIGHT_TYPE_META[insight.type];
@@ -281,8 +332,8 @@ function ResultSkeleton() {
 }
 
 /**
- * Copy with a `navigator.clipboard`-first, `execCommand` fallback, because
- * some embedded webviews refuse the async clipboard API without a permission.
+ * Copy with a `navigator.clipboard`-first, `execCommand` fallback, because some embedded webviews
+ * refuse the async clipboard API without a permission.
  */
 async function copyText(text: string): Promise<boolean> {
   try {

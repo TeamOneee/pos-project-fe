@@ -150,11 +150,23 @@ module.exports = {
             outlineOffset: '2px',
           },
         },
-        // For controls whose own focus style is the border (text inputs): the
-        // same ring, applied on any focus rather than keyboard focus only.
+        // Text inputs and selects: the same ring, on any focus rather than
+        // keyboard focus only, because clicking into a field should show where
+        // typing will go. It is the *only* thing these controls change on focus
+        // — pairing it with an accent border drew two rings around one field.
         '.focus-ring-always': {
           '&:focus': {
             outline: `2px solid rgb(var(--accent) / 0.4)`,
+            outlineOffset: '2px',
+          },
+        },
+        // The same ring in the error colour, for a field that is focused *and*
+        // invalid. Recolouring the one ring is what keeps that state down to a
+        // single line: a red border inside an accent ring is two, and the pair
+        // reads as a rendering fault rather than as an error.
+        '.focus-ring-danger': {
+          '&:focus': {
+            outline: `2px solid rgb(var(--danger) / 0.4)`,
             outlineOffset: '2px',
           },
         },

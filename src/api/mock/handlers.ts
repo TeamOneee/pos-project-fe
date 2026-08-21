@@ -1,22 +1,4 @@
-/**
- * Mock request handlers — one per endpoint in contract 07.
- *
- * Responses are built in wire shape and wrapped in the contract's envelope, so
- * they go through exactly the same schema validation as live responses. A mock
- * that answered a shape the schemas reject is doing its job; one that bypasses
- * them is not.
- *
- * ROLE GATING follows the contract's "Required Roles" tables, with one
- * deliberate exception: §5.2 permits an OWNER to check out at a selected
- * outlet, and CLAUDE.md's Out-of-scope list forbids Owner checkout in this
- * product. The stricter rule wins, so `POST /checkout` here is CASHIER only —
- * building against the looser contract would let a screen exist that the
- * product does not have.
- *
- * The dashboard endpoints aggregate the seeded transactions rather than
- * returning canned figures, so a sale made in the POS moves the Owner's
- * dashboard exactly as §6.1 says it should.
- */
+/** Mock request handlers — one per endpoint in contract 07. */
 
 import { NOW, PASSWORDS } from '@/api/mock/dataset';
 import {
@@ -100,14 +82,7 @@ function fieldError(field: string, message: string) {
 /* Session                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Who is signed in.
- *
- * The real API carries this in the JWT and reads it per request; the mock has
- * no headers to read, so it remembers the last successful login. Login still
- * mints a **decodable** token, because the app now reads its own session from
- * the claims (§0) rather than from any endpoint.
- */
+/** Who is signed in. */
 let session: WireStaff | null = null;
 
 export function clearMockSession(): void {
@@ -261,8 +236,8 @@ function transactionSummaryView(transaction: WireTransaction) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * §5.2 (OD-003): a CASHIER sees only their own sales, and the restriction is
- * applied in the service rather than trusted from the query.
+ * §5.2 (OD-003): a CASHIER sees only their own sales, and the restriction is applied in the service
+ * rather than trusted from the query.
  */
 function visibleTransactions(user: WireStaff): WireTransaction[] {
   const all = getDb().transactions;
@@ -738,13 +713,7 @@ function deleteOutletPrice(context: MockContext): MockEnvelope {
   return noContent();
 }
 
-/**
- * §4.2 `GET /products/catalog` — the cashier's catalogue.
- *
- * The three visibility conditions are applied here, server-side, exactly as the
- * contract describes: the product is active, its category is active, and an
- * inventory row exists at the outlet.
- */
+/** §4.2 `GET /products/catalog` — the cashier's catalogue. */
 function listCatalog(context: MockContext): MockEnvelope {
   const user = requireRole('CASHIER', 'OWNER');
 
@@ -884,8 +853,8 @@ function putThreshold(context: MockContext): MockEnvelope {
   const outlet = findOutlet(context.params.outletId ?? '');
   if (!product || !outlet) throw new MockHttpError(404, 'Data tidak ditemukan');
 
-  // §4.2: the pairing is created at zero when it does not exist yet, so an
-  // Admin can prepare thresholds before any stock arrives.
+  // §4.2: the pairing is created at zero when it does not exist yet, so an Admin can prepare
+  // thresholds before any stock arrives.
   const row = ensureInventory(outlet.id, product.id);
   row.low_stock_threshold_override = threshold;
   row.updated_at = NOW;
@@ -920,8 +889,8 @@ function deleteThreshold(context: MockContext): MockEnvelope {
 /* -------------------------------------------------------------------------- */
 
 function checkout(context: MockContext): MockEnvelope {
-  // Contract §5.2 allows OWNER too; CLAUDE.md forbids Owner checkout, and the
-  // stricter of the two wins. See the note at the top of this file.
+  // Contract §5.2 allows OWNER too; CLAUDE.md forbids Owner checkout, and the stricter of the two
+  // wins.
   const user = requireRole('CASHIER');
 
   const requestId = readString(context.body, 'checkout_request_id');
@@ -950,8 +919,7 @@ function checkout(context: MockContext): MockEnvelope {
     payment_method: method,
   });
 
-  // §5.2 step 5: replay returns the original; a reused id with a different
-  // payload is a conflict.
+  // §5.2 step 5: replay returns the original; a reused id with a different payload is a conflict.
   const existing = getDb().transactions.find(
     (transaction) => transaction.checkout_request_id === requestId
   );
@@ -1049,8 +1017,8 @@ function checkout(context: MockContext): MockEnvelope {
 
   getDb().transactions.unshift(transaction);
 
-  // §5.2: 200 for a fresh sale as well as a replay — the two are deliberately
-  // indistinguishable from the response alone.
+  // §5.2: 200 for a fresh sale as well as a replay — the two are deliberately indistinguishable
+  // from the response alone.
   return ok(transactionDetailView(transaction), 'Checkout berhasil');
 }
 
@@ -1383,8 +1351,8 @@ function getInsights(): MockEnvelope {
   requireRole('OWNER');
 
   const state = getDb();
-  // §7.2: a merchant that has never triggered an analysis gets 404, which the
-  // screen renders as an empty state rather than a failure.
+  // §7.2: a merchant that has never triggered an analysis gets 404, which the screen renders as an
+  // empty state rather than a failure.
   if (!state.analysisJob) throw new MockHttpError(404, 'Data tidak ditemukan');
 
   return ok(
@@ -1399,24 +1367,24 @@ function triggerInsights(): MockEnvelope {
   const state = getDb();
   const today = NOW.slice(0, 10);
 
-  // §7.1 rule 2: one analysis per merchant per local day. A second trigger the
-  // same day returns the existing job with 200 rather than starting another.
+  // §7.1 rule 2: one analysis per merchant per local day. A second trigger the same day returns the
+  // existing job with 200 rather than starting another.
   if (state.analysisJob?.analysis_date === today) {
     return ok(
-      { job_id: state.analysisJob.id, status: state.analysisJob.status },
+      { job_id: state.analysisJob.id, state: state.analysisJob.state },
       'Analisis sudah dijadwalkan hari ini'
     );
   }
 
   state.analysisJob = {
     id: nextId('job'),
-    status: 'PENDING',
+    state: 'PENDING',
     analysis_date: today,
     updated_at: NOW,
   };
 
   return ok(
-    { job_id: state.analysisJob.id, status: state.analysisJob.status },
+    { job_id: state.analysisJob.id, state: state.analysisJob.state },
     'Analisis insight dijadwalkan',
     202
   );
@@ -1427,7 +1395,7 @@ function triggerInsights(): MockEnvelope {
 /* -------------------------------------------------------------------------- */
 
 function health(): MockEnvelope {
-  const pending = getDb().analysisJob?.status === 'PENDING' ? 1 : 0;
+  const pending = getDb().analysisJob?.state === 'PENDING' ? 1 : 0;
   return ok(
     { status: 'ok', database: 'ok', worker_backlog: { ai_job_pending: pending } },
     'Sistem sehat'
@@ -1445,9 +1413,9 @@ type Route = {
 };
 
 /**
- * Order matters: the literal paths under `/transactions` and `/products` have
- * to be tried before the parameterised ones, or `/transactions/search` would
- * be read as a transaction whose id is "search".
+ * Order matters: the literal paths under `/transactions` and `/products` have to be tried before
+ * the parameterised ones, or `/transactions/search` would be read as a transaction whose id is
+ * "search".
  */
 const ROUTES: Route[] = [
   { method: 'POST', template: '/auth/register', handle: register },

@@ -1,9 +1,4 @@
-/**
- * The application's routes, mapped to layouts and pages.
- *
- * The root index redirects to the signed-in role's landing route; the guard
- * decides that once the session is known.
- */
+/** The application's routes, mapped to layouts and pages. */
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 
@@ -17,6 +12,7 @@ import ProductsPage from '@/pages/catalog/products';
 import CategoriesPage from '@/pages/catalog/categories';
 import InventoryPage from '@/pages/catalog/inventory';
 import LowStockPage from '@/pages/catalog/low-stock';
+import StockMovementsPage from '@/pages/catalog/stock-movements';
 import PosPage from '@/pages/pos/index';
 import TransactionsPage from '@/pages/transactions/index';
 import TransactionDetailPage from '@/pages/transactions/[id]';
@@ -45,6 +41,7 @@ export function Router() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/inventory/low-stock" element={<LowStockPage />} />
+        <Route path="/inventory/movements" element={<StockMovementsPage />} />
 
         <Route path="/pos" element={<PosPage />} />
 

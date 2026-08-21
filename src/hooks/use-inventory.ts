@@ -1,13 +1,4 @@
-/**
- * Inventory. Admin and Owner adjust and read; the cashier never touches it.
- *
- * One write exists — `POST /inventory/adjustments` — and it takes a signed
- * delta plus a reason (§4.2). Bulk adjustment and transfer between outlets are
- * not in this contract and have no client here.
- *
- * Every write invalidates the low-stock report and the operational dashboard,
- * because both are derived from the same quantities.
- */
+/** Inventory. Admin and Owner adjust and read; the cashier never touches it. */
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -23,9 +14,8 @@ import { queryKeys } from '@/lib/query-client';
 const MANAGE_INVENTORY: Requirement = { resource: 'inventory', access: 'manage' };
 
 /**
- * Stock levels. Unlike the previous contract, the outlet filter is optional —
- * omitting it spans every outlet in the merchant, which is what the all-outlets
- * view wants.
+ * Stock levels. Unlike the previous contract, the outlet filter is optional — omitting it spans
+ * every outlet in the merchant, which is what the all-outlets view wants.
  */
 export function useInventory(filters: InventoryFilters = {}) {
   return useQuery({
@@ -53,14 +43,7 @@ export function useStockMovements(filters: MovementFilters = {}) {
   });
 }
 
-/**
- * What a write to stock makes stale.
- *
- * Both keys are bare domain prefixes, so one call covers everything derived
- * from the quantity that just changed: every filtered inventory list, the
- * movement ledger, the low-stock report and the operational dashboard, whose
- * counts are all computed from current stock.
- */
+/** What a write to stock makes stale. */
 function useInventoryInvalidation() {
   const queryClient = useQueryClient();
 
@@ -74,13 +57,7 @@ function useInventoryInvalidation() {
   };
 }
 
-/**
- * Adjust stock by a signed delta.
- *
- * 400 for a zero delta or a missing reason, 403 when the outlet is inactive,
- * and 409 when the result would go negative — in which case §4.6 guarantees
- * nothing was written at all, so no optimistic update is safe here.
- */
+/** Adjust stock by a signed delta. */
 export function useAdjustStock() {
   const invalidate = useInventoryInvalidation();
 

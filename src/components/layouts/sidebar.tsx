@@ -1,14 +1,8 @@
-/**
- * The 248px desktop sidebar.
- *
- * Nothing here decides what to show — `navFor(role)` does, and it has already
- * been filtered through the role matrix.
- */
+/** The 248px desktop sidebar. */
 
 import { NavLink } from 'react-router-dom';
 
 import { activeHref, navFor, type NavItem } from '@/components/layouts/nav-config';
-import { UserChip } from '@/components/layouts/user-chip';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { Role } from '@/lib/permissions';
@@ -53,10 +47,6 @@ export function Sidebar({ role, pathname, merchantName }: SidebarProps) {
           </div>
         ))}
       </nav>
-
-      <div className="border-t border-border p-md">
-        <UserChip />
-      </div>
     </aside>
   );
 }

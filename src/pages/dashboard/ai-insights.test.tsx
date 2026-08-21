@@ -1,11 +1,4 @@
-/**
- * S-05 · AI Insight, against contract §7.
- *
- * The states worth proving are the ones the contract dictates: the 404
- * "never analysed" empty state is not an error, a triggered analysis flips the
- * screen to the polling/progress state, and the results render with the
- * contract's type labels rather than the brief's older ones.
- */
+/** S-05 · AI Insight, against contract §7. */
 
 import '@/api';
 
@@ -95,7 +88,7 @@ describe('S-05 · AI insight', () => {
     );
 
     // The queue landed in the store §7.1 rule 2 dedupes on: one job for today.
-    expect(getDb().analysisJob?.status).toBe('PENDING');
+    expect(getDb().analysisJob?.state).toBe('PENDING');
   });
 
   it('copies an insight to the clipboard', async () => {

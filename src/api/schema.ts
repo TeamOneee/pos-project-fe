@@ -1,31 +1,16 @@
-/**
- * Zod primitives shared by every domain schema.
- *
- * Two jobs happen here, both at the API boundary and nowhere else:
- *
- * 1. Money is converted from the API's decimal strings to integer rupiah
- *    (CLAUDE.md rule 1). Past this file, no part of the app ever sees
- *    "15750000.00" — it sees the integer 15750000.
- * 2. snake_case wire fields become camelCase domain types, so screens never
- *    reach into the transport's naming.
- *
- * The contract is docs/07-iterasi-1-api-contract.md; section references below
- * point at it.
- */
+/** Zod primitives shared by every domain schema. */
 
 import { z } from 'zod';
 
-import { MoneyParseError, parseMoney } from '@/lib/money';
+import { MoneyParseError, parseMoney, parseMoneyLenient } from '@/lib/money';
 
 /* -------------------------------------------------------------------------- */
 /* Scalars                                                                     */
 /* -------------------------------------------------------------------------- */
 
 /**
- * A money field. §0 makes every rupiah value an explicit decimal string
- * ("15750000.00") and never a JSON number; a plain integer is still accepted
- * so fixtures stay readable. A fractional rupiah is a contract violation and
- * fails the parse rather than rounding silently.
+ * A money field. §0 makes every rupiah value an explicit decimal string ("15750000.00") and never a
+ * JSON number; a plain integer is still accepted so fixtures stay readable.
  */
 export const money = z
   .union([z.string(), z.number()])
@@ -43,6 +28,24 @@ export const money = z
     }
   })
   .transform((value) => parseMoney(value));
+
+/** Lenient money: same as `money` but rounds fractional rupiah (for averages). */
+export const moneyLenient = z
+  .union([z.string(), z.number()])
+  .superRefine((value, ctx) => {
+    try {
+      parseMoneyLenient(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          error instanceof MoneyParseError
+            ? `Nilai uang tidak valid: ${JSON.stringify(value)}`
+            : 'Nilai uang tidak valid',
+      });
+    }
+  })
+  .transform((value) => parseMoneyLenient(value));
 
 /** Money the backend may omit or null out. Absent means zero. */
 export const moneyOrZero = money
@@ -75,11 +78,7 @@ export type Role = z.infer<typeof roleSchema>;
 export const statusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 export type Status = z.infer<typeof statusSchema>;
 
-/**
- * §5.1: TransactionStatus is `COMPLETED` and nothing else on the MVP. A failed
- * checkout is an HTTP error that writes no Transaction row, so there is no
- * PENDING to observe and no CANCELLED to reach.
- */
+/** §5.1: TransactionStatus is `COMPLETED` and nothing else on the MVP. */
 export const transactionStatusSchema = z.enum(['COMPLETED']);
 export type TransactionStatus = z.infer<typeof transactionStatusSchema>;
 
@@ -99,9 +98,8 @@ export const bucketSchema = z.enum(['HOUR', 'DAY']);
 export type Bucket = z.infer<typeof bucketSchema>;
 
 /**
- * §6.1: a dashboard read is FRESH or STALE. STALE still arrives as HTTP 200
- * carrying the last aggregate — the dashboard renders it with a caveat rather
- * than treating it as an error.
+ * §6.1: a dashboard read is FRESH or STALE. STALE still arrives as HTTP 200 carrying the last
+ * aggregate — the dashboard renders it with a caveat rather than treating it as an error.
  */
 export const freshnessSchema = z.enum(['FRESH', 'STALE']);
 export type Freshness = z.infer<typeof freshnessSchema>;
@@ -134,12 +132,7 @@ export type AnalysisJobStatus = z.infer<typeof analysisJobStatusSchema>;
 /* Dashboard metadata                                                          */
 /* -------------------------------------------------------------------------- */
 
-/**
- * §6.4 `DashboardMeta`, carried inline by every `/dashboard/*` response rather
- * than nested. `period_start` / `period_end` are present on the Owner's
- * business endpoints and absent on the current-state ones (operations,
- * low-stock), which have no period to report.
- */
+/** §6.4 `DashboardMeta`, carried inline by every `/dashboard/*` response rather than nested. */
 export const dashboardMetaFields = {
   data_updated_at: isoDateTime,
   freshness_status: freshnessSchema,
@@ -190,12 +183,8 @@ export function successEnvelope<T extends z.ZodTypeAny>(data: T) {
 }
 
 /**
- * §0: the paginated `data` block — `content`, zero-based `page`, `size`,
- * `total_elements`, `total_pages`.
- *
- * The §4.2 `GET /products/catalog` example prints `items` instead of `content`
- * and omits `size`; §0 is the global convention and wins. Filed with the
- * backend as a documentation defect rather than special-cased here.
+ * §0: the paginated `data` block — `content`, zero-based `page`, `size`, `total_elements`,
+ * `total_pages`.
  */
 export function paginated<T extends z.ZodTypeAny>(item: T) {
   return z

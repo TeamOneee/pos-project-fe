@@ -1,7 +1,7 @@
 /**
- * Presentational tooltip shell shared by every chart. Charts pass their own
- * rows; the shell owns nothing except placement and the resolved palette, so
- * tooltips stay visually identical across the four chart kinds.
+ * Presentational tooltip shell shared by every chart. Charts pass their own rows; the shell owns
+ * nothing except placement and the resolved palette, so tooltips stay visually identical across the
+ * four chart kinds.
  */
 
 import { useChartColors } from '@/lib/chart-colors';

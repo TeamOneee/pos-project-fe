@@ -1,10 +1,4 @@
-/**
- * Bearer token holder.
- *
- * Kept deliberately small and framework-free: the transport needs the token
- * synchronously on every request, and the auth screens are not built yet. The
- * session store, when it lands, drives this rather than replacing it.
- */
+/** Bearer token holder. */
 
 import { tokenStorage } from '@/lib/token-storage';
 
@@ -22,8 +16,8 @@ export function setToken(token: string | null): void {
   current = token;
   listeners.forEach((listener) => listener(token));
 
-  // Persistence is fire-and-forget: a failed write must not fail the login that
-  // triggered it, and the in-memory value is already correct.
+  // Persistence is fire-and-forget: a failed write must not fail the login that triggered it, and
+  // the in-memory value is already correct.
   const write = token === null ? tokenStorage.clear() : tokenStorage.write(token);
   void write.catch(() => {
     // Storage unavailable; the session simply will not survive a restart.

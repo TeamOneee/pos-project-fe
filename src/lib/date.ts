@@ -1,10 +1,6 @@
 /**
- * Date formatting. CLAUDE.md rule 5: dates render as "13 Agu 2026, 14.30" —
- * Indonesian short month, 24-hour clock, dot as the time separator.
- *
- * Formatted by hand rather than via Intl: RN's Hermes engine ships a trimmed
- * ICU on Android, so `id-ID` locale data is not reliably present, and the
- * dot-separated time is not what `id-ID` produces anyway.
+ * Date formatting. CLAUDE.md rule 5: dates render as "13 Agu 2026, 14.30" — Indonesian short month,
+ * 24-hour clock, dot as the time separator.
  */
 
 /** Indonesian short month names, index 0 = January. */
@@ -88,6 +84,24 @@ export function formatMonthYear(input: DateInput): string {
   return `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "15–21 Agu" / "28 Agu – 3 Sep" / "15 Agu" — a compact inclusive day range. */
+export function formatDayRangeShort(from: DateInput, to: DateInput): string {
+  const start = toDate(from);
+  const end = toDate(to);
+
+  if (isSameDay(start, end)) return `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]}`;
+
+  // Within one month the month name is said once: "15–21 Agu", not "15 Agu – 21 Agu".
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${start.getDate()}–${end.getDate()} ${MONTHS_SHORT[start.getMonth()]}`;
+  }
+
+  return (
+    `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]} – ` +
+    `${end.getDate()} ${MONTHS_SHORT[end.getMonth()]}`
+  );
+}
+
 /** True when the two inputs fall on the same local calendar day. */
 export function isSameDay(a: DateInput, b: DateInput): boolean {
   const dateA = toDate(a);
@@ -99,10 +113,7 @@ export function isSameDay(a: DateInput, b: DateInput): boolean {
   );
 }
 
-/**
- * "Hari ini, 14.30" / "Kemarin, 14.30" / "13 Agu 2026, 14.30".
- * For transaction lists where recency is the thing being scanned for.
- */
+/** "Hari ini, 14.30" / "Kemarin, 14.30" / "13 Agu 2026, 14.30". */
 export function formatRelativeDateTime(input: DateInput, now: DateInput = new Date()): string {
   const date = toDate(input);
   const today = toDate(now);
@@ -115,13 +126,7 @@ export function formatRelativeDateTime(input: DateInput, now: DateInput = new Da
   return formatDateTime(date);
 }
 
-/**
- * "Baru saja" / "2 menit lalu" / "3 jam lalu", falling back to the full
- * timestamp past a day.
- *
- * For freshness captions — the dashboard is not real-time, and how stale it is
- * has to be legible at a glance rather than inferred from a clock time.
- */
+/** "Baru saja" / "2 menit lalu" / "3 jam lalu", falling back to the full timestamp past a day. */
 export function formatTimeAgo(input: DateInput, now: DateInput = new Date()): string {
   const then = toDate(input).getTime();
   const current = toDate(now).getTime();

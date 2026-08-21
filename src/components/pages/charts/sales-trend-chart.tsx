@@ -1,10 +1,6 @@
 /**
- * Sales trend over the period: revenue as a filled area under a solid line on
- * the left axis, transaction count as a dashed line projected on the right
- * axis. Projection keeps the two series from sharing scale; the dashed style
- * is how the reader tells count from money at a glance.
- *
- * To compact charts only every Nth x tick is drawn so labels never collide.
+ * Sales trend over the period: revenue as a filled area under a solid line on the left axis,
+ * transaction count as a dashed line projected on the right axis.
  */
 
 import { Area, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
@@ -55,8 +51,8 @@ function SalesTrendTip({ active, payload, label }: TipProps) {
 export function SalesTrendChart({ points, width, height, compact = false }: SalesTrendChartProps) {
   const colors = useChartColors();
 
-  // Skip labels when compact so the ticks stay legible; skip twice the rate
-  // if there are so many points that even the quarter still crowds.
+  // Skip labels when compact so the ticks stay legible; skip twice the rate if there are so many
+  // points that even the quarter still crowds.
   const step = compact ? Math.max(1, Math.ceil(points.length / 4)) : 1;
   const tickValues = points
     .map((point, index) => (index % step === 0 ? point.label : null))

@@ -1,6 +1,4 @@
-/**
- * Root providers: query client, theme, toast, auth, shell, router.
- */
+/** Root providers: query client, theme, toast, auth, shell, router. */
 
 import '@/api';
 
@@ -27,7 +25,8 @@ function ScrollToTop() {
     requestAnimationFrame(() => {
       // Scroll window utama (jika ada scroll global)
       window.scrollTo(0, 0);
-      // Scroll semua container yang memiliki class overflow-y-auto (seperti di AppShell dan AuthLayout)
+      // Scroll semua container yang memiliki class overflow-y-auto (seperti di AppShell dan
+      // AuthLayout)
       document.querySelectorAll('.overflow-y-auto').forEach((el) => {
         el.scrollTo(0, 0);
       });

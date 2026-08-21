@@ -1,55 +1,47 @@
 /**
- * The 64px header: a sidebar toggle on the left, the page title, and the
- * contextual controls on the right.
- *
- * The sidebar toggle exists only on desktop, where a sidebar is actually shown
- * — AppShell supplies it there and nowhere else. Collapsing the sidebar is how
- * a screen (the dashboard, say) gets the full width; the same button restores
- * the sidebar so navigation stays reachable.
- *
- * The controls slot is filled by screens through the shell context.
+ * The 64px header: a sidebar toggle on the left, the page title, and the contextual controls on the
+ * right. The till at /pos renders it too, so both screens carry one header.
  */
 
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { AccountControls } from '@/components/layouts/account-controls';
+import { SidebarToggle } from '@/components/layouts/sidebar-toggle';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 export function Header({
   title,
+  badge,
   actions,
-  sidebarCollapsed,
-  onToggleSidebar,
+  className,
 }: {
   title: string;
+  /** Sits beside the title: the till names its outlet there. */
+  badge?: React.ReactNode;
   actions?: React.ReactNode;
-  /** Present only on desktop; hidden when the sidebar is collapsed. */
-  sidebarCollapsed?: boolean;
-  /** Toggles the desktop sidebar. Absent below desktop, so no button renders. */
-  onToggleSidebar?: () => void;
+  className?: string;
 }) {
   return (
-    <header className="flex h-16 items-center justify-between gap-md border-b border-border bg-surface px-lg">
+    <header
+      className={cn(
+        'flex h-16 items-center justify-between gap-md border-b border-border bg-surface px-lg',
+        className
+      )}
+    >
       <div className="flex min-w-0 flex-row items-center gap-md">
-        {onToggleSidebar && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={sidebarCollapsed ? 'Tampilkan menu samping' : 'Sembunyikan menu samping'}
-            onClick={onToggleSidebar}
-            className="shrink-0"
-          >
-            <Icon as={sidebarCollapsed ? PanelLeftOpen : PanelLeftClose} size={20} />
-          </Button>
-        )}
+        <SidebarToggle />
 
-        <Text variant="h2" className="min-w-0 flex-1 truncate">
+        <Text variant="h2" className="min-w-0 truncate">
           {title}
         </Text>
+
+        {badge}
       </div>
 
-      <div className="flex items-center gap-sm">{actions}</div>
+      <div className="flex min-w-0 items-center gap-sm">
+        {actions}
+        {actions ? <div className="mx-xs h-6 w-px shrink-0 bg-border" aria-hidden="true" /> : null}
+        <AccountControls />
+      </div>
     </header>
   );
 }

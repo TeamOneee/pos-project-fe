@@ -1,13 +1,4 @@
-/**
- * AI Insight (BI) — §7.2. Owner only.
- *
- * The read is polled while a job is running, because generation is asynchronous:
- * `POST /insights/trigger` queues work for the worker and returns immediately,
- * and `GET /insights` is how the screen learns it finished.
- *
- * A 404 is not an error state here — it is "this merchant has never run an
- * analysis", which is the empty state.
- */
+/** AI Insight (BI) — §7.2. Owner only. */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -15,6 +6,7 @@ import { useGuardedMutation, type Requirement } from '@/hooks/use-guarded-mutati
 import { insightsApi } from '@/services/insights';
 import { isApiErrorOfKind } from '@/api/errors';
 import { queryKeys } from '@/lib/query-client';
+import { useToast } from '@/components/ui/toast';
 import type { AnalysisJobStatus } from '@/api/schema';
 
 const READ_INSIGHTS: Requirement = { resource: 'aiInsights', access: 'read' };
@@ -34,8 +26,8 @@ export function useInsights(options: { enabled?: boolean } = {}) {
     queryKey: queryKeys.insights,
     queryFn: () => insightsApi.get(),
     enabled: options.enabled ?? true,
-    // 404 means "never triggered", which the screen renders as an empty state
-    // rather than a failure. Retrying it would only delay that.
+    // 404 means "never triggered", which the screen renders as an empty state rather than a
+    // failure.
     retry: (failureCount, error) =>
       !isApiErrorOfKind(error, 'not_found') &&
       !isApiErrorOfKind(error, 'forbidden') &&
@@ -47,20 +39,62 @@ export function useInsights(options: { enabled?: boolean } = {}) {
   });
 }
 
-/**
- * Queue today's analysis.
- *
- * §7.1 rule 2 allows one per merchant per local day, so a second press the same
- * day returns the existing job (200) instead of starting another (202). The
- * screen reads `isNewJob` to word its confirmation honestly.
- */
+/** Queue today's analysis. */
 export function useTriggerInsights() {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useGuardedMutation(READ_INSIGHTS, {
     mutationFn: () => insightsApi.trigger(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.insights });
+    },
+    onError: (error) => {
+      if (isApiErrorOfKind(error, 'not_found')) {
+        toast({
+          variant: 'info',
+          title: 'Belum ada insight',
+          description: 'Merchant belum pernah memtrigger analisis insight.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'forbidden')) {
+        toast({
+          variant: 'warning',
+          title: 'Akses ditolak',
+          description: 'Peran Anda tidak memiliki izin untuk memtrigger analisis insight.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'unauthorized')) {
+        toast({
+          variant: 'error',
+          title: 'Sesi expiring',
+          description: 'Token otentikasi telah expiring. Silakan login kembali.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'rate_limited')) {
+        toast({
+          variant: 'warning',
+          title: 'Terlalu banyak permintaan',
+          description: 'Silakan tunggu beberapa saat sebelum mencoba lagi.',
+        });
+        return;
+      }
+      if (isApiErrorOfKind(error, 'server') || isApiErrorOfKind(error, 'timeout')) {
+        toast({
+          variant: 'warning',
+          title: 'Gagal koneksi',
+          description: 'Terjadi kesalahan sementara. Coba lagi dalam beberapa saat.',
+        });
+        return;
+      }
+      toast({
+        variant: 'error',
+        title: 'Gagal memtrigger',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan tidak diketahui',
+      });
     },
   });
 }

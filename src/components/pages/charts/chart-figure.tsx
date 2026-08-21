@@ -1,21 +1,4 @@
-/**
- * The text alternative every chart in this app ships with.
- *
- * A recharts chart renders as an SVG full of paths: to a screen reader it is
- * nothing, and to anyone who cannot separate the series by colour it is nearly
- * nothing (three of the six specified series sit below 3:1 against a light
- * surface — see lib/contrast.test.ts). Neither is fixable by relabelling the SVG,
- * so each chart is wrapped here and gets two things instead:
- *
- *   • `role="img"` with a one-line summary, so assistive tech announces what the
- *     picture says rather than skipping it.
- *   • The same numbers as a real table, one keypress away. Not a caption
- *     describing the trend — the actual figures, so the chart is a convenience
- *     rather than the only way to read the data.
- *
- * The table is a `<details>`: collapsed, no library, keyboard-reachable, and
- * searchable by the browser's own find-in-page.
- */
+/** The text alternative every chart in this app ships with. */
 
 import * as React from 'react';
 

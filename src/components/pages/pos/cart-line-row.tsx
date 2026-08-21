@@ -1,14 +1,4 @@
-/**
- * One line in the POS cart.
- *
- * The stepper buttons are 44px rather than the brief's 32px: CLAUDE.md rule 6
- * puts the floor at 44×44 on tablet and mobile and says cart steppers should be
- * larger still, and it wins where the two disagree. These are pressed under
- * time pressure with a queue waiting.
- *
- * The remove control is always visible rather than revealed on hover. The
- * primary form factor is a tablet, where there is no hover to reveal it.
- */
+/** One line in the POS cart. */
 
 import { Minus, Plus, X } from 'lucide-react';
 import * as React from 'react';

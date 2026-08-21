@@ -1,11 +1,4 @@
-/**
- * The mock, driven through the real domain clients.
- *
- * Every request here goes transport → envelope → zod schema, so a mock response
- * that does not match docs/07-iterasi-1-api-contract.md fails as a parse error
- * rather than passing quietly. That is what makes these tests worth having:
- * they check the contract, not the mock's own opinion of it.
- */
+/** The mock, driven through the real domain clients. */
 
 import { z } from 'zod';
 
@@ -57,12 +50,7 @@ afterAll(() => setTransport(null));
 
 const signIn = (credentials: { email: string; password: string }) => authApi.login(credentials);
 
-/**
- * The failure a call is expected to produce.
- *
- * `.catch()` widens the result to "the payload or the error", which then needs
- * narrowing at every assertion; this keeps the expectation in one place.
- */
+/** The failure a call is expected to produce. */
 async function failing(promise: Promise<unknown>): Promise<ApiError> {
   try {
     await promise;
@@ -527,8 +515,8 @@ describe('the error cases the UI has to design for', () => {
     await signIn(OWNER);
     setMockScenario('timeout');
 
-    // A short deadline, so the assertion is about the timeout path rather than
-    // about how long the suite is willing to wait.
+    // A short deadline, so the assertion is about the timeout path rather than about how long the
+    // suite is willing to wait.
     const error = await failing(
       request({ method: 'GET', path: '/products', schema: z.unknown(), timeoutMs: 20 })
     );
@@ -712,9 +700,9 @@ describe('transactions', () => {
     const to = Date.parse('2026-08-13T23:59:59+07:00');
 
     expect(narrow.total).toBeGreaterThan(0);
-    // Compared as instants, not as strings: the range carries a +07:00 offset
-    // and the timestamps are stored in UTC, so a sale at 01:40 local reads as
-    // the previous calendar day in its own text.
+    // Compared as instants, not as strings: the range carries a +07:00 offset and the timestamps
+    // are stored in UTC, so a sale at 01:40 local reads as the previous calendar day in its own
+    // text.
     for (const row of narrow.items) {
       const at = Date.parse(row.createdAt);
       expect(at).toBeGreaterThanOrEqual(from);

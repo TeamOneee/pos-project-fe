@@ -1,10 +1,7 @@
 /**
- * Measures its own width so a chart can be sized explicitly (recharts has no
- * awareness of layout) and only mounts the chart once a real width exists —
- * this avoids the "width or height must be a number" recharts warning.
- *
- * Height is always supplied explicitly so charts are a fixed height regardless
- * of content; see `CHART_HEIGHT` below.
+ * Measures its own width so a chart can be sized explicitly (recharts has no awareness of layout)
+ * and only mounts the chart once a real width exists — this avoids the "width or height must be a
+ * number" recharts warning.
  */
 
 import * as React from 'react';

@@ -7,8 +7,8 @@ type IconProps = LucideProps & {
 };
 
 /**
- * Icon accepts a className so callers set the colour through Tailwind classes
- * (text-accent, text-fg-muted, ...) rather than a color prop.
+ * Icon accepts a className so callers set the colour through Tailwind classes (text-accent,
+ * text-fg-muted, ...) rather than a color prop.
  */
 function Icon({ as: Component, className, ...props }: IconProps) {
   return <Component className={cn('size-5', className)} aria-hidden="true" {...props} />;

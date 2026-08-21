@@ -1,20 +1,4 @@
-/**
- * The checkout state machine, as pure functions.
- *
- * The reason this is not just component state: the duplicate-transaction guard
- * has to be a real lock, and a lock that lives in a `disabled` prop is not one.
- * A second submit is refused *here*, before any request is built, so a double
- * tap, an Enter key on a focused button, and a retry racing an in-flight
- * request all hit the same wall.
- *
- * `checkoutRequestId` is minted once per attempt and held across retries. That
- * is what makes "Coba Lagi" safe after a connection drop: the server either
- * recognises the id and returns the sale it already made, or has never seen it
- * and makes one. Either way there is exactly one transaction (§5.2).
- *
- * There is no cart on the server (§5.2), so there is only ever one payload
- * shape — the basket, sent inline.
- */
+/** The checkout state machine, as pure functions. */
 
 import type { TransactionDetail } from '@/services/transactions';
 import {
@@ -28,10 +12,9 @@ import {
 import type { Rupiah } from '@/lib/money';
 
 /**
- * S-17 offers two buttons, not three. The contract's three methods are
- * `CASH`, `QRIS` and `TRANSFER`; the till collapses the latter two into one
- * "Non-Tunai" choice and records it as `QRIS`, which is the closest thing on
- * offer. Worth a backend note if the distinction ever matters for reporting.
+ * S-17 offers two buttons, not three. The contract's three methods are `CASH`, `QRIS` and
+ * `TRANSFER`; the till collapses the latter two into one "Non-Tunai" choice and records it as
+ * `QRIS`, which is the closest thing on offer.
  */
 export type PaymentMethod = 'CASH' | 'NON_CASH';
 
@@ -52,18 +35,9 @@ export type CheckoutState = {
   received: Rupiah | null;
   failure: CheckoutFailure | null;
   result: TransactionDetail | null;
-  /**
-   * Held for the whole attempt, including retries, so the server can recognise
-   * a resend. Minted on the first submit.
-   */
+  /** Held for the whole attempt, including retries, so the server can recognise a resend. */
   checkoutRequestId: string | null;
-  /**
-   * Whether to send `expected_unit_price` on each line.
-   *
-   * On by default, so price drift is caught before the sale (§5.2). Accepting
-   * the server's prices turns it off, which is exactly what "sell at the new
-   * price" means.
-   */
+  /** Whether to send `expected_unit_price` on each line. */
   assertPrices: boolean;
 };
 
@@ -91,8 +65,8 @@ export type CheckoutAction =
 export function checkoutReducer(state: CheckoutState, action: CheckoutAction): CheckoutState {
   switch (action.type) {
     case 'select-method':
-      // Switching away from cash drops the amount, so a stale figure cannot
-      // survive into a non-cash sale.
+      // Switching away from cash drops the amount, so a stale figure cannot survive into a non-cash
+      // sale.
       return {
         ...state,
         method: action.method,
@@ -120,9 +94,8 @@ export function checkoutReducer(state: CheckoutState, action: CheckoutAction): C
       return { ...state, status: 'error', failure: action.failure };
 
     case 'accept-new-prices':
-      // A payload at different prices is a different request, so the old id
-      // must not be reused — resending it unchanged would be an
-      // IDEMPOTENCY_CONFLICT rather than a new sale.
+      // A payload at different prices is a different request, so the old id must not be reused —
+      // resending it unchanged would be an IDEMPOTENCY_CONFLICT rather than a new sale.
       return {
         ...state,
         status: 'idle',
@@ -144,8 +117,7 @@ export function checkoutReducer(state: CheckoutState, action: CheckoutAction): C
 /* -------------------------------------------------------------------------- */
 
 /**
- * Change owed, or what is still missing. Negative means the cashier has not
- * been handed enough yet.
+ * Change owed, or what is still missing. Negative means the cashier has not been handed enough yet.
  */
 export function changeFor(total: Rupiah, received: Rupiah | null): Rupiah {
   return (received ?? 0) - total;
@@ -156,13 +128,7 @@ export function isShort(total: Rupiah, received: Rupiah | null): boolean {
   return changeFor(total, received) < 0;
 }
 
-/**
- * Whether confirming is allowed right now.
- *
- * Cash needs enough money on the counter. Non-cash needs nothing — it is
- * recorded, not processed. Neither may proceed while a request is in flight,
- * and an empty basket is not a sale.
- */
+/** Whether confirming is allowed right now. */
 export function canConfirm(state: CheckoutState, total: Rupiah): boolean {
   if (state.status === 'processing' || state.status === 'success') return false;
   if (total <= 0) return false;
@@ -180,15 +146,7 @@ export function isDismissable(state: CheckoutState): boolean {
 /* Failure classification                                                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Which of S-18's frames an error belongs in.
- *
- * A timeout or a dropped connection is deliberately *not* treated as a failure
- * to sell: §5.2 warns the sale may well have committed before the response was
- * lost, so it becomes the "status unknown" frame that tells the cashier to
- * check rather than charge again. `GET /transactions/status` is the endpoint
- * that settles it.
- */
+/** Which of S-18's frames an error belongs in. */
 export function classifyFailure(error: unknown): CheckoutFailure {
   const shortfalls = insufficientStockDetails(error);
   if (shortfalls.length > 0) return { kind: 'insufficient_stock', items: shortfalls };
@@ -224,17 +182,7 @@ export function classifyFailure(error: unknown): CheckoutFailure {
 /** One basket line, as the reprice calculation needs to see it. */
 export type PricedLine = { unitPrice: Rupiah; quantity: number };
 
-/**
- * The total after accepting the server's current prices.
- *
- * §5.2 reports drift by position — `errors[].field` is `items[2].product_id` —
- * and gives only the new price, never the old one. So the old price comes from
- * the basket line at that index, which is the same array that was submitted.
- *
- * A fault with no usable index cannot be priced and is skipped; the server
- * still reprices the line itself, so the figure shown is conservative rather
- * than wrong in the customer's favour.
- */
+/** The total after accepting the server's current prices. */
 export function repricedTotal(
   faults: PriceChangedDetail[],
   lines: readonly PricedLine[],

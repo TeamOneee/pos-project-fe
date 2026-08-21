@@ -1,12 +1,4 @@
-/**
- * S-07 · Tambah / Edit Outlet.
- *
- * Two fields and a toggle. `POST /outlets` takes `{ name, address }` (§2.2) and
- * always returns ACTIVE, so the status toggle appears only when editing — on
- * create the outlet is born active and a toggle that says "Nonaktif" would be
- * a lie the API ignores. Address is optional: §2.4 lets the row carry none, so
- * the form does not demand one.
- */
+/** S-07 · Tambah / Edit Outlet. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
@@ -27,14 +19,16 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
+import { cnTextarea } from '@/components/pages/inventory/adjust-stock-dialog';
 import { useCreateOutlet, useUpdateOutlet } from '@/hooks/use-outlets';
 import type { Outlet } from '@/services/outlets';
 import { fieldErrors } from '@/api/errors';
-import { requiredString } from '@/lib/validation';
+import { optionalText, requiredString } from '@/lib/validation';
+import { cn } from '@/lib/utils';
 
 const outletFormSchema = z.object({
   name: requiredString('Nama outlet', 100),
-  address: z.string().trim().max(255, 'Alamat maksimal 255 karakter'),
+  address: optionalText('Alamat'),
   active: z.boolean(),
 });
 
@@ -170,7 +164,9 @@ function OutletForm({ outlet, onDone }: { outlet: Outlet | null; onDone: () => v
                 placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
                 disabled={pending}
                 aria-invalid={Boolean(fieldState.error) || undefined}
-                className="min-h-[90px] resize-none rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle transition-colors focus:border-accent focus-ring-always invalid:border-danger"
+                // Same field styling as the other modals, keyed off the form's own error rather
+                // than native :invalid, so focus and error read identically everywhere.
+                className={cn(cnTextarea(Boolean(fieldState.error)), 'min-h-[90px] resize-none')}
               />
             </FormField>
           )}

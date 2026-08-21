@@ -3,16 +3,8 @@ import { create } from 'zustand';
 import { lineTotal, sumRupiah, type Rupiah } from '@/lib/money';
 
 /**
- * Cart state — the only thing Zustand holds. Everything else is server state
- * and belongs to TanStack Query (CLAUDE.md § Stack).
- *
- * Contract §5.2 makes this the *whole* cart: "Cart Iterasi 1 = client-side
- * only… tidak ada endpoint REST `/cart/*`". Nothing here is mirrored on the
- * server, nothing is reconciled with it, and the basket is submitted inline at
- * checkout. A refresh loses it, which is the contract's accepted behaviour.
- *
- * Prices are integer rupiah from the moment they cross the API boundary; this
- * store never sees a decimal string and never does float arithmetic.
+ * Cart state — the only thing Zustand holds. Everything else is server state and belongs to
+ * TanStack Query (CLAUDE.md § Stack).
  */
 export type CartLine = {
   productId: string;
@@ -33,14 +25,12 @@ type CartState = {
   removeLine: (productId: string) => void;
   clear: () => void;
   /**
-   * Rewrites unit prices after the server rejects a checkout with
-   * PRICE_CHANGED and the cashier accepts the new ones.
+   * Rewrites unit prices after the server rejects a checkout with PRICE_CHANGED and the cashier
+   * accepts the new ones.
    */
   applyPrices: (priceByProduct: Record<string, Rupiah>) => void;
   /**
-   * Refreshes the stock ceilings after inventory refetches, trimming any line
-   * that no longer fits. Quantities are otherwise left alone — the cashier's
-   * local edits stay authoritative.
+   * Refreshes the stock ceilings after inventory refetches, trimming any line that no longer fits.
    */
   syncAvailability: (stockByProduct: Record<string, number>) => void;
 };
@@ -130,21 +120,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(Math.trunc(value), min), max);
 }
 
-/**
- * Cart subtotal in integer rupiah.
- *
- * Total = subtotal. There is no discount, tax, or service charge in this
- * product (CLAUDE.md rule 2), so no other selector exists on purpose.
- */
+/** Cart subtotal in integer rupiah. */
 export function selectSubtotal(state: CartState): Rupiah {
   return sumRupiah(state.lines.map((line) => lineTotal(line.unitPrice, line.quantity)));
 }
 
-/**
- * Total units in the cart, for the badge and the mobile bar ("3 item").
- *
- * This counts units, not lines: two Coca Cola and one Sprite is "3 item".
- */
+/** Total units in the cart, for the badge and the mobile bar ("3 item"). */
 export function selectItemCount(state: CartState): number {
   return state.lines.reduce((count, line) => count + line.quantity, 0);
 }

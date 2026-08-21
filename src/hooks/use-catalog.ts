@@ -1,14 +1,4 @@
-/**
- * The cashier catalogue — `GET /products/catalog` (§4.2).
- *
- * This is the POS screen's product source and it is not `GET /products`: it is
- * scoped to a single outlet, the server has already removed anything unsellable,
- * and each row carries that outlet's effective price and its stock on hand.
- *
- * `outlet_id` is required, so the query stays disabled until the session has
- * one. For a cashier that is the outlet on their token; sending any other is a
- * 403, so it is taken from the session rather than from a screen control.
- */
+/** The cashier catalogue — `GET /products/catalog` (§4.2). */
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 

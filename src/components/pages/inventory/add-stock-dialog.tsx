@@ -1,18 +1,4 @@
-/**
- * Tambah Stok.
- *
- * A freshly created product has no inventory row at any outlet: §4.2 never
- * seeds stock on create, and `GET /inventory` only returns rows that exist.
- * That leaves the first adjustment with nothing to hang off — the Stok screen
- * can only reach the adjust dialog from an existing row, so a new product is
- * unfindable there.
- *
- * This dialog is that missing entry point. It picks a product from the active
- * catalogue and hands it back so the caller can open `AdjustStockDialog` at
- * quantity 0; `POST /inventory/adjustments` addresses by `(outlet_id,
- * product_id)` and creates the row on first write, which is exactly how §4.2
- * says stock is initialized.
- */
+/** Tambah Stok. */
 
 import { useState } from 'react';
 

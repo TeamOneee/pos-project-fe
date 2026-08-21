@@ -6,3 +6,15 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# The full CSP is a <meta> on the built document (see vite.config.ts). These are
+# the pieces a meta tag cannot express; both policies apply together.
+[[headers]]
+  for = "/*"
+
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"

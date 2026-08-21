@@ -1,23 +1,11 @@
-/**
- * Non-money number formatting. CLAUDE.md rule 5: percentages use a comma
- * decimal ("12,5%"). Thousands are grouped with dots, Indonesian style.
- *
- * Money does NOT come through here — it goes through lib/money.ts, which never
- * emits a decimal separator at all.
- */
+/** Non-money number formatting. CLAUDE.md rule 5: percentages use a comma decimal ("12,5%"). */
 
 /** Group digits with "." every three. */
 function groupDigits(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-/**
- * Format a number with a comma decimal and dot thousands separators.
- *
- *   formatDecimal(12.5, 1)    === "12,5"
- *   formatDecimal(1234.56, 2) === "1.234,56"
- *   formatDecimal(12, 1)      === "12"   (trailing zeros trimmed by default)
- */
+/** Format a number with a comma decimal and dot thousands separators. */
 export function formatDecimal(
   value: number,
   maximumFractionDigits = 1,
@@ -46,40 +34,20 @@ export function formatCount(value: number): string {
   return integer < 0 ? `-${formatted}` : formatted;
 }
 
-/**
- * Percentage with a comma decimal.
- *
- *   formatPercent(12.5)  === "12,5%"
- *   formatPercent(100)   === "100%"
- *   formatPercent(0)     === "0%"
- *   formatPercent(-3.25) === "-3,3%"
- */
+/** Percentage with a comma decimal. */
 export function formatPercent(value: number, maximumFractionDigits = 1): string {
   if (!Number.isFinite(value)) return '—';
   return `${formatDecimal(value, maximumFractionDigits)}%`;
 }
 
-/**
- * Signed percentage for deltas, where direction is the point.
- *
- *   formatPercentDelta(12.5) === "+12,5%"
- *   formatPercentDelta(-8)   === "-8%"
- *   formatPercentDelta(0)    === "0%"
- *
- * Never the only signal of direction — pair it with a label or icon
- * (CLAUDE.md rule 6).
- */
+/** Signed percentage for deltas, where direction is the point. */
 export function formatPercentDelta(value: number, maximumFractionDigits = 1): string {
   if (!Number.isFinite(value)) return '—';
   const formatted = formatPercent(value, maximumFractionDigits);
   return value > 0 ? `+${formatted}` : formatted;
 }
 
-/**
- * Percentage change from `previous` to `current`, as a number.
- * Returns null when there is no baseline to compare against — the caller
- * shows "—" or "Baru" rather than a fake 100%.
- */
+/** Percentage change from `previous` to `current`, as a number. */
 export function percentChange(current: number, previous: number): number | null {
   if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
     return null;

@@ -1,13 +1,4 @@
-/**
- * S-11's grid view — the same rows, laid out as cards.
- *
- * Table is the default because the catalog is read for facts (which SKU, what
- * price, active or not) and a table beats a grid at that. The grid exists for the
- * other pass: scanning the shape of the catalog, spotting the products nobody has
- * priced or the block of inactive ones. It carries the same fields, the same
- * badges and the same permission story as the table — `rowMenu` absent means no
- * menu anywhere in the card.
- */
+/** S-11's grid view — the same rows, laid out as cards. */
 
 import { RowMenu, type RowMenuItem } from '@/components/ui/row-menu';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,10 +18,13 @@ export function ProductGrid({
   rows,
   rowMenu,
   onOpenStock,
+  categoryHues,
 }: {
   rows: CatalogRow[];
   rowMenu?: ((product: Product) => RowMenuItem[]) | undefined;
   onOpenStock: (product: Product) => void;
+  /** categoryId → hue, so a category keeps one colour across the catalogue. */
+  categoryHues?: Map<string, string> | undefined;
 }) {
   return (
     <div className="grid grid-cols-1 gap-md tablet:grid-cols-2 desktop:grid-cols-3">
@@ -68,7 +62,10 @@ export function ProductGrid({
             </Text>
 
             <div className="flex flex-row flex-wrap items-center gap-sm">
-              <CategoryBadge name={product.categoryName} />
+              <CategoryBadge
+                name={product.categoryName}
+                hue={product.categoryId ? categoryHues?.get(product.categoryId) : undefined}
+              />
               <ActiveBadge active={product.isActive} />
               {hiddenByCategory && <InactiveCategoryBadge />}
             </div>
