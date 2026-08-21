@@ -33,10 +33,27 @@ function day(offset: number): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-async function openPicker(): Promise<HTMLElement> {
-  const chip = await screen.findByRole('tab', { name: 'Pilih Tanggal' });
+/** The closed dropdown, which reads as whatever the dashboard is showing. */
+function trigger(): HTMLElement {
+  return screen.getByRole('button', { name: 'Pilih periode' });
+}
+
+async function openMenu(): Promise<HTMLElement> {
+  // The element is resolved before act() rather than inside it: findByRole
+  // polls, and awaiting a polling query within act stalls the effects it is
+  // waiting on — the screen never gets past its loading spinner.
+  const button = await screen.findByRole('button', { name: 'Pilih periode' });
   await act(async () => {
-    fireEvent.click(chip);
+    fireEvent.click(button);
+  });
+  return screen.findByRole('menu', { name: 'Pilih periode' });
+}
+
+async function openPicker(): Promise<HTMLElement> {
+  const menu = await openMenu();
+  const item = within(menu).getByRole('menuitemradio', { name: /Pilih Tanggal/ });
+  await act(async () => {
+    fireEvent.click(item);
   });
   return screen.findByRole('dialog');
 }
@@ -62,25 +79,44 @@ beforeEach(async () => {
 });
 
 describe('S-03 · the period control', () => {
+  it('collapses the whole choice into one closed dropdown', async () => {
+    render(<App />);
+
+    // Nothing is on screen but the trigger, which says what is being shown.
+    expect(await screen.findByRole('button', { name: 'Pilih periode' })).toHaveTextContent(
+      '30 Hari Terakhir'
+    );
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('offers three rolling presets and a manual range, and nothing else', async () => {
     render(<App />);
 
-    const tabs = await screen.findByRole('tablist', { name: 'Pilih periode' });
+    const menu = await openMenu();
 
     expect(
-      within(tabs)
-        .getAllByRole('tab')
-        .map((tab) => tab.textContent)
-    ).toEqual(['Hari Ini', '7 Hari Terakhir', '30 Hari Terakhir', 'Pilih Tanggal']);
+      within(menu)
+        .getAllByRole('menuitemradio')
+        .map((item) => item.textContent)
+    ).toEqual(['Hari Ini', '7 Hari Terakhir', '30 Hari Terakhir', 'Pilih Tanggal…']);
   });
 
-  it('starts on the widest preset', async () => {
+  it('ticks the active preset and switches on a pick', async () => {
     render(<App />);
 
-    expect(await screen.findByRole('tab', { name: '30 Hari Terakhir' })).toHaveAttribute(
-      'aria-selected',
+    const menu = await openMenu();
+    expect(within(menu).getByRole('menuitemradio', { name: '30 Hari Terakhir' })).toHaveAttribute(
+      'aria-checked',
       'true'
     );
+
+    await act(async () => {
+      fireEvent.click(within(menu).getByRole('menuitemradio', { name: '7 Hari Terakhir' }));
+    });
+
+    // Choosing closes the menu and the trigger takes up the new label.
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(trigger()).toHaveTextContent('7 Hari Terakhir');
   });
 
   it('refuses to apply a range wider than the cap, and says why', async () => {
@@ -107,7 +143,7 @@ describe('S-03 · the period control', () => {
     );
   });
 
-  it('applies a legal range and names it on the chip', async () => {
+  it('applies a legal range and names it on the trigger', async () => {
     render(<App />);
 
     const dialog = await openPicker();
@@ -121,13 +157,16 @@ describe('S-03 · the period control', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    // The chip now names the applied range rather than prompting, and no preset
-    // is selected — the dashboard is showing something none of them mean.
-    expect(screen.queryByRole('tab', { name: 'Pilih Tanggal' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '30 Hari Terakhir' })).toHaveAttribute(
-      'aria-selected',
+    // The trigger now names the applied range rather than a preset, and
+    // reopening the menu shows the custom row ticked instead of any preset.
+    expect(trigger()).not.toHaveTextContent('30 Hari Terakhir');
+
+    const menu = await openMenu();
+    expect(within(menu).getByRole('menuitemradio', { name: '30 Hari Terakhir' })).toHaveAttribute(
+      'aria-checked',
       'false'
     );
+    expect(within(menu).getAllByRole('menuitemradio')[3]).toHaveAttribute('aria-checked', 'true');
   });
 
   it('discards the draft on Batal', async () => {
@@ -141,9 +180,18 @@ describe('S-03 · the period control', () => {
     });
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('tab', { name: '30 Hari Terakhir' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(trigger()).toHaveTextContent('30 Hari Terakhir');
+  });
+
+  it('closes the menu on Escape without changing anything', async () => {
+    render(<App />);
+
+    await openMenu();
+    await act(async () => {
+      fireEvent.keyDown(document, { key: 'Escape' });
+    });
+
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(trigger()).toHaveTextContent('30 Hari Terakhir');
   });
 });

@@ -78,20 +78,12 @@ export function Segmented<T extends string>({
   onChange,
   labels,
   accessibilityLabel,
-  trailing,
 }: {
   options: readonly T[];
-  /** Null when the choice on screen is not one of these options. */
-  value: T | null;
+  value: T;
   onChange: (value: T) => void;
   labels: Record<T, string>;
   accessibilityLabel: string;
-  /**
-   * An extra tab rendered after the options — one that opens something rather
-   * than selecting a fixed value. Inside the same tablist so it shares the
-   * group's scroll, spacing and shape instead of floating beside it.
-   */
-  trailing?: React.ReactNode;
 }) {
   return (
     <div
@@ -119,7 +111,6 @@ export function Segmented<T extends string>({
           </button>
         );
       })}
-      {trailing}
     </div>
   );
 }

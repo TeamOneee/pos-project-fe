@@ -1,6 +1,13 @@
 /**
- * The Owner dashboard's period control: three rolling presets and a manual
- * range behind them.
+ * The Owner dashboard's period control: a dropdown of three rolling presets
+ * with a manual range behind them.
+ *
+ * A dropdown rather than a chip row because it sits in a top bar next to the
+ * outlet select, and two controls side by side should read as two controls of
+ * the same kind. The trigger is styled to match `SelectTrigger` for that
+ * reason, but the menu is written by hand — the same call `RowMenu` made, and
+ * for the same reason: the app has no menu dependency, and Radix's Select
+ * cannot carry an item that opens a dialog instead of choosing a value.
  *
  * The manual range is committed on "Terapkan", not as the fields are typed.
  * That is what keeps a half-typed or over-wide range from ever reaching a query
@@ -10,15 +17,15 @@
  * takes no override, so "don't fetch that" is not something the data layer can
  * be asked for after the fact.
  *
- * The dialog's open and draft state stays in here deliberately. The screen
- * feeds its controls into the shell's top bar through an effect that writes
- * state, so anything that changes on every keystroke must not be visible to
- * that memo.
+ * The menu's open state and the dialog's draft stay in here deliberately. The
+ * screen feeds its controls into the shell's top bar through an effect that
+ * writes state, so anything that changes on every keystroke must not be visible
+ * to that memo.
  */
 
+import { Check, ChevronDown } from 'lucide-react';
 import * as React from 'react';
 
-import { Segmented } from '@/components/pages/owner/controls';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import {
@@ -28,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { formatDayRangeShort, toApiDate } from '@/lib/date';
 import {
@@ -48,7 +56,7 @@ import { cn } from '@/lib/utils';
  */
 const ERROR_MESSAGES: Record<Exclude<CustomRangeError, 'INCOMPLETE'>, string> = {
   REVERSED: 'Tanggal mulai melebihi tanggal akhir.',
-  // Says why, not just no: a 30-day preset sits right next to this, and a bare
+  // Says why, not just no: a 30-day preset sits right above this, and a bare
   // refusal at 7 days reads as a bug rather than a rule.
   TOO_WIDE: `Rentang maksimal ${MAX_CUSTOM_RANGE_DAYS} hari. Gunakan preset untuk rentang lebih panjang.`,
 };
@@ -60,14 +68,45 @@ export function PeriodControl({
   value: PeriodSelection;
   onChange: (next: PeriodSelection) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
   const [draft, setDraft] = React.useState({ from: '', to: '' });
+
+  const container = React.useRef<HTMLDivElement>(null);
+  const trigger = React.useRef<HTMLButtonElement>(null);
 
   const today = React.useMemo(() => toApiDate(new Date()), []);
   const error = validateCustomRange(draft.from, draft.to);
 
+  // Dismissal, as RowMenu does it: an outside press or Escape closes the menu.
+  // Escape also returns focus to the trigger, so the keyboard is not stranded
+  // at the top of the document.
+  React.useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!container.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      trigger.current?.focus();
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
+
   const selectPreset = (preset: PeriodPreset) => {
-    // A click on the active chip is not a change. Emitting a fresh-but-equal
+    setMenuOpen(false);
+    // A click on the active option is not a change. Emitting a fresh-but-equal
     // selection would churn every identity derived from it, including the node
     // the top bar re-reads through an effect.
     if (value.kind === 'PRESET' && value.preset === preset) return;
@@ -75,36 +114,65 @@ export function PeriodControl({
   };
 
   const openPicker = () => {
+    setMenuOpen(false);
     // Seeded from the applied range, or from the last week when a preset is
     // active, so the dialog opens on something legal rather than empty.
     setDraft(
       value.kind === 'CUSTOM' ? { from: value.from, to: value.to } : { from: lastWeek(), to: today }
     );
-    setOpen(true);
+    setPickerOpen(true);
   };
 
   const apply = () => {
     if (error) return;
     onChange({ kind: 'CUSTOM', from: draft.from, to: draft.to });
-    setOpen(false);
+    setPickerOpen(false);
   };
 
   return (
-    <>
-      <Segmented
-        options={PERIOD_PRESETS}
-        value={value.kind === 'PRESET' ? value.preset : null}
-        onChange={selectPreset}
-        labels={PRESET_LABELS}
-        accessibilityLabel="Pilih periode"
-        trailing={
-          <CustomChip active={value.kind === 'CUSTOM'} open={open} onClick={openPicker}>
-            {value.kind === 'CUSTOM' ? customLabel(value.from, value.to) : 'Pilih Tanggal'}
-          </CustomChip>
-        }
-      />
+    <div ref={container} className="relative">
+      <button
+        ref={trigger}
+        type="button"
+        aria-label="Pilih periode"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((open) => !open)}
+        className="flex min-h-touch min-w-[180px] flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus:border-accent focus-ring-always"
+      >
+        <Text variant="body">{triggerLabel(value)}</Text>
+        <Icon as={ChevronDown} size={16} className="text-fg-muted" />
+      </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {menuOpen && (
+        <div
+          role="menu"
+          aria-label="Pilih periode"
+          className="absolute left-0 top-full z-40 mt-xs flex min-w-full flex-col rounded-md border border-border bg-surface-raised p-xs shadow-lg"
+        >
+          {PERIOD_PRESETS.map((preset) => (
+            <MenuItem
+              key={preset}
+              checked={value.kind === 'PRESET' && value.preset === preset}
+              onSelect={() => selectPreset(preset)}
+            >
+              {PRESET_LABELS[preset]}
+            </MenuItem>
+          ))}
+
+          {/*
+            Separated because it is a different kind of thing: the three above
+            choose a value and close, this one opens a dialog.
+          */}
+          <div className="my-xs h-px bg-border" role="separator" />
+
+          <MenuItem checked={value.kind === 'CUSTOM'} onSelect={openPicker} aria-haspopup="dialog">
+            {value.kind === 'CUSTOM' ? customLabel(value.from, value.to) : 'Pilih Tanggal…'}
+          </MenuItem>
+        </div>
+      )}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="tablet:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Pilih Tanggal</DialogTitle>
@@ -133,7 +201,7 @@ export function PeriodControl({
           </div>
 
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={() => setPickerOpen(false)}>
               Batal
             </Button>
             <Button onClick={apply} disabled={error !== null}>
@@ -142,52 +210,57 @@ export function PeriodControl({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
 
 /**
- * The fourth tab. A tab by role — it is one of the period choices — but it
- * opens the picker rather than selecting a value, so it says so with
- * `aria-haspopup` and keeps `aria-selected` for whether a custom range is what
- * the dashboard is currently showing.
+ * One row of the menu.
+ *
+ * `aria-checked` rather than `aria-selected`: this is a menu of mutually
+ * exclusive choices, so the items are `menuitemradio`. The tick is doubled by
+ * that state rather than being the only thing carrying it.
  */
-function CustomChip({
-  active,
-  open,
-  onClick,
+function MenuItem({
+  checked,
+  onSelect,
   children,
+  ...props
 }: {
-  active: boolean;
-  open: boolean;
-  onClick: () => void;
+  checked: boolean;
+  onSelect: () => void;
   children: React.ReactNode;
-}) {
+} & React.ComponentPropsWithoutRef<'button'>) {
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
-      aria-haspopup="dialog"
-      aria-expanded={open}
-      onClick={onClick}
+      role="menuitemradio"
+      aria-checked={checked}
+      onClick={onSelect}
       className={cn(
-        'min-h-touch shrink-0 justify-center rounded-sm px-md focus-ring',
-        active ? 'bg-surface shadow-sm' : 'text-fg-muted hover:bg-border'
+        'flex min-h-touch flex-row items-center justify-between gap-md rounded-sm px-md text-left outline-none transition-colors',
+        'hover:bg-subtle focus-visible:bg-subtle'
       )}
+      {...props}
     >
-      <Text variant="label" tone={active ? 'default' : 'muted'}>
+      <Text variant="body" tone={checked ? 'default' : 'muted'}>
         {children}
       </Text>
+      {checked && <Icon as={Check} size={16} className="text-accent" />}
     </button>
   );
+}
+
+/** What the closed trigger says the dashboard is showing. */
+function triggerLabel(value: PeriodSelection): string {
+  return value.kind === 'PRESET' ? PRESET_LABELS[value.preset] : customLabel(value.from, value.to);
 }
 
 /** "15–21 Agu", falling back to the prompt if the pair somehow will not parse. */
 function customLabel(from: string, to: string): string {
   const start = parseLocalDay(from);
   const end = parseLocalDay(to);
-  if (!start || !end) return 'Pilih Tanggal';
+  if (!start || !end) return 'Pilih Tanggal…';
   return formatDayRangeShort(start, end);
 }
 
