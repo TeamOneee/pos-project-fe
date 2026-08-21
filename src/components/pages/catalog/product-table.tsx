@@ -88,7 +88,7 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
         <div
           key={product.productId}
           className={cn(
-            'flex flex-row items-center gap-md border-b border-border py-md',
+            'flex flex-row items-center gap-md border-b border-border py-md last:border-b-0',
             !product.isActive && 'opacity-60'
           )}
         >

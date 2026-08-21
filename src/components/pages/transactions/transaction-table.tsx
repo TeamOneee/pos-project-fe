@@ -100,7 +100,7 @@ export function TransactionTable({
       {rows.map((transaction) => (
         <div
           key={transaction.transactionId}
-          className="flex flex-row items-center gap-md border-b border-border py-md"
+          className="flex flex-row items-center gap-md border-b border-border py-md last:border-b-0"
         >
           <div className="min-w-0 flex-[2]">
             <button

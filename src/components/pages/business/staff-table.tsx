@@ -89,7 +89,7 @@ export function StaffTable({ staff, outlets, rowMenu, stacked }: StaffTableProps
         <div
           key={member.userId}
           className={cn(
-            'flex flex-row items-center gap-md border-b border-border py-md',
+            'flex flex-row items-center gap-md border-b border-border py-md last:border-b-0',
             member.status === 'INACTIVE' && 'opacity-60'
           )}
         >
