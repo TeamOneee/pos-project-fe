@@ -2,8 +2,14 @@
  * Revenue by hour of day. Peak hours are singled out in accent so the busy
  * window reads before the shape does. Every other bar falls back to the quiet
  * border colour so it sits back and doesn't compete with the peaks.
+ *
+ * Pointing at a bar moves the accent to it, so the hour being read is the hour
+ * being highlighted rather than the tooltip describing one bar while another
+ * stays blue. Clicking pins that, and clicking it again releases it back to the
+ * peaks.
  */
 
+import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Tooltip, XAxis, YAxis } from 'recharts';
 import { GRID_OPACITY, useChartColors } from '@/lib/chart-colors';
 import { ChartTip, type ChartTipRow } from '@/components/pages/charts/chart-tooltip';
@@ -56,11 +62,22 @@ export function HourlyBarChart({
   const colors = useChartColors();
   const peakSet = new Set(peakHours);
 
+  const [pinnedHour, setPinnedHour] = React.useState<number | null>(null);
+  const [hoveredHour, setHoveredHour] = React.useState<number | null>(null);
+
+  // Hover previews, a click holds. With neither, the peaks speak for themselves.
+  const activeHour = hoveredHour ?? pinnedHour;
+  const highlighted = (hour: number) =>
+    activeHour === null ? peakSet.has(hour) : hour === activeHour;
+
   const data = points.map((point) => ({
     hour: point.hour,
     revenue: point.revenue,
-    fill: peakSet.has(point.hour) ? colors.barHighlight : colors.bar,
+    fill: highlighted(point.hour) ? colors.barHighlight : colors.bar,
   }));
+
+  // Recharts hands the row back untyped; the index is the reliable way home.
+  const hourAt = (index: number) => points[index]?.hour ?? null;
 
   // Compact charts draw every other hour so labels don't crowd.
   const tickValues = points
@@ -93,9 +110,21 @@ export function HourlyBarChart({
         width={64}
       />
       <Tooltip content={<HourlyTip />} cursor={{ fill: colors.grid, fillOpacity: 0.08 }} />
-      <Bar dataKey="revenue" radius={[2, 2, 0, 0]}>
+      <Bar
+        dataKey="revenue"
+        radius={[2, 2, 0, 0]}
+        className="cursor-pointer"
+        onMouseEnter={(_, index: number) => setHoveredHour(hourAt(index))}
+        onMouseLeave={() => setHoveredHour(null)}
+        onClick={(_, index: number) => {
+          const hour = hourAt(index);
+          setPinnedHour((current) => (current === hour ? null : hour));
+        }}
+      >
         {data.map((entry) => (
-          <Cell key={entry.hour} fill={entry.fill} />
+          // The key is stable, so the fill lands on the same node and the
+          // transition runs instead of the bar being replaced outright.
+          <Cell key={entry.hour} fill={entry.fill} className="transition-colors duration-200" />
         ))}
       </Bar>
     </BarChart>
