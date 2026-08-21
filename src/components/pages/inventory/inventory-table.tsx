@@ -30,7 +30,7 @@ import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { StockBadge, rowTint } from '@/components/pages/inventory/stock-status';
+import { StockBadge, quantityTone } from '@/components/pages/inventory/stock-status';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import type { InventoryItem } from '@/services/inventory';
 import { formatDateTime, formatTimeAgo } from '@/lib/date';
@@ -114,15 +114,12 @@ export function InventoryTable({
           return (
             <div
               key={row.inventoryId}
-              className={cn(
-                'flex flex-col gap-sm rounded-md border border-border p-md',
-                rowTint(level)
-              )}
+              className="flex flex-col gap-sm rounded-md border border-border p-md"
             >
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
 
               <Line label="Stok">
-                <Text variant="body-strong" className="tabular-nums">
+                <Text variant="body-strong" tone={quantityTone(level)} className="tabular-nums">
                   {formatCount(row.quantity)}
                 </Text>
               </Line>
@@ -167,18 +164,16 @@ export function InventoryTable({
         return (
           <div
             key={row.inventoryId}
-            className={cn(
-              'flex flex-row items-center gap-md border-b border-border py-md last:border-b-0',
-              rowTint(level)
-            )}
+            className="flex flex-row items-center gap-md border-b border-border py-md last:border-b-0"
           >
             <div className="min-w-0 flex-1">
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
             </div>
 
-            {/* The number the screen exists for: large, mono, right-aligned. */}
+            {/* The number the screen exists for: large, right-aligned, and the
+                one thing on the row that carries the alarm colour. */}
             <div className="flex w-[80px] shrink-0 justify-end">
-              <Text variant="h3" className="tabular-nums">
+              <Text variant="h3" tone={quantityTone(level)} className="tabular-nums">
                 {formatCount(row.quantity)}
               </Text>
             </div>

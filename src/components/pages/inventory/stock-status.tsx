@@ -2,8 +2,13 @@
  * How a stock level reads on screen: AMAN / MENIPIS / HABIS.
  *
  * The badge always carries its word — the colour only reinforces it
- * (CLAUDE.md rule 6). The row tint is decoration on top of that badge, never
- * the signal itself, so a table stays readable without colour.
+ * (CLAUDE.md rule 6).
+ *
+ * Rows are not tinted. A whole tinted row puts colour behind the product name,
+ * the threshold and the timestamp, none of which are the problem, and at a
+ * dozen alarms it turns into wallpaper — it stops discriminating precisely
+ * where discrimination is the point. The colour goes on the quantity instead,
+ * which is the datum that is actually wrong, and the badge keeps the word.
  */
 
 import type { BadgeProps } from '@/components/ui/badge';
@@ -23,15 +28,18 @@ const STOCK_VARIANT: Record<StockLevel, NonNullable<BadgeProps['variant']>> = {
   out: 'danger',
 };
 
-/** Subtle row tint for the two alarm levels; AMAN rows stay on the surface. */
-const ROW_TINT: Record<StockLevel, string> = {
-  ok: '',
-  low: 'bg-warning-subtle',
-  out: 'bg-danger-subtle',
-};
+/**
+ * The tone for the quantity itself. `*-text` tokens, so it clears 4.5:1 —
+ * see lib/contrast.test.ts.
+ */
+const QUANTITY_TONE = {
+  ok: 'default',
+  low: 'warning',
+  out: 'danger',
+} as const;
 
-export function rowTint(level: StockLevel): string {
-  return ROW_TINT[level];
+export function quantityTone(level: StockLevel): (typeof QUANTITY_TONE)[StockLevel] {
+  return QUANTITY_TONE[level];
 }
 
 export function StockBadge({ level, className }: { level: StockLevel; className?: string }) {
