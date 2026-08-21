@@ -62,7 +62,12 @@ const DialogContent = React.forwardRef<
            * From tablet up the same component is the card it always was — the
            * `max-w-*` a caller passes only applies there.
            */
-          'z-50 flex h-full w-full flex-col gap-lg overflow-y-auto rounded-none border-0 bg-surface-raised p-lg shadow-lg',
+          // `relative` anchors the close button below. Without it the ✕ resolves
+          // against the overlay — which is `fixed inset-0`, so the viewport — and
+          // a centred panel gets its close button parked in the corner of the
+          // screen instead of its own. A full-height edge drawer hides the bug,
+          // because there the two corners coincide.
+          'relative z-50 flex h-full w-full flex-col gap-lg overflow-y-auto rounded-none border-0 bg-surface-raised p-lg shadow-lg',
           'tablet:h-auto tablet:max-h-[90vh] tablet:max-w-[480px] tablet:rounded-lg tablet:border tablet:border-border tablet:p-xl',
           className
         )}
@@ -71,12 +76,20 @@ const DialogContent = React.forwardRef<
         <DialogHasCloseContext.Provider value={!hideClose}>
           {children}
         </DialogHasCloseContext.Provider>
+        {/*
+          A 44px target that does not look like a 44px button: the hit area stays
+          full size for a thumb, while the ink is a 32px circle that only fills in
+          on hover. A square slab of grey in the corner competes with the panel's
+          own content, which is the thing being read.
+        */}
         {!hideClose && (
           <DialogPrimitive.Close
             aria-label="Tutup"
-            className="absolute right-md top-md flex h-touch w-touch items-center justify-center rounded-md transition-colors hover:bg-subtle"
+            className="group absolute right-md top-md flex h-touch w-touch items-center justify-center rounded-full text-fg-muted outline-none transition-colors hover:text-fg focus-ring"
           >
-            <Icon as={X} size={20} className="text-fg-muted" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-subtle group-active:bg-border">
+              <Icon as={X} size={18} />
+            </span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
