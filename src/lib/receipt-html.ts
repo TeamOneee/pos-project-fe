@@ -83,7 +83,9 @@ export function receiptHtml(receipt: ReceiptData, paper: ReceiptPaper = 'thermal
 
   html {
     background: #fff;
-    /** "muted" tone dithers into a smudge rather than reading as secondary — */
+    /* Pure black throughout. A thermal head has one dot and no grey, so a
+       "muted" tone dithers into a smudge rather than reading as secondary —
+       hierarchy here is size and weight only. */
     color: #000;
   }
 
@@ -110,6 +112,8 @@ export function receiptHtml(receipt: ReceiptData, paper: ReceiptPaper = 'thermal
 
   .outlet { font-size: 10.5pt; }
 
+  /* Dashed between sections, solid where the eye should stop: around the
+     figures a customer checks. */
   .rule { border-top: 1px dashed #000; margin: 3mm 0; }
   .rule-strong { border-top: 2px solid #000; margin: 3mm 0; }
 
