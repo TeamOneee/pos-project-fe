@@ -90,6 +90,49 @@ describe('S-08 · staff list', () => {
     expect(await screen.findByText('Menampilkan 1–5 dari 5')).toBeInTheDocument();
   });
 
+  it('searches by name across the whole list, not just the visible page', async () => {
+    await signInAs('owner@indomart.com');
+    await openUsers();
+    await screen.findByText('John Doe');
+
+    await act(async () => {
+      setInputValue(screen.getByLabelText('Cari nama atau email'), 'rudi');
+    });
+
+    expect(screen.getByText('Rudi Hartono')).toBeInTheDocument();
+    expect(screen.queryByText('John Doe')).toBeNull();
+    expect(screen.queryByText('Budi Santoso')).toBeNull();
+    // The footer counts what matched, not what the server returned.
+    expect(await screen.findByText('Menampilkan 1–1 dari 1')).toBeInTheDocument();
+  });
+
+  it('searches on the email column too, since it is on screen', async () => {
+    await signInAs('owner@indomart.com');
+    await openUsers();
+    await screen.findByText('John Doe');
+
+    await act(async () => {
+      setInputValue(screen.getByLabelText('Cari nama atau email'), 'sari@');
+    });
+
+    expect(screen.getByText('Sari Dewi')).toBeInTheDocument();
+    expect(screen.queryByText('Rudi Hartono')).toBeNull();
+  });
+
+  it('offers a way out when a search matches nobody', async () => {
+    await signInAs('owner@indomart.com');
+    await openUsers();
+    await screen.findByText('John Doe');
+
+    await act(async () => {
+      setInputValue(screen.getByLabelText('Cari nama atau email'), 'zzzz');
+    });
+
+    // The filtered empty state, which carries "Hapus filter" — not the
+    // "no staff yet" copy, which would be a lie.
+    expect(await screen.findByRole('button', { name: /Hapus filter/i })).toBeInTheDocument();
+  });
+
   it('gives the Owner no row menu but others Edit, Reset Password and Nonaktifkan', async () => {
     await signInAs('owner@indomart.com');
     await openUsers();

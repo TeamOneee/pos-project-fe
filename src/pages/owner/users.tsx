@@ -23,6 +23,7 @@ import { StaffTable } from '@/components/pages/business/staff-table';
 import {
   EMPTY_QUERY,
   isFiltered,
+  matchesStaffSearch,
   StaffFilterBar,
   type StaffQuery,
 } from '@/components/pages/business/staff-filters';
@@ -47,12 +48,15 @@ export default function UsersPage() {
   const [resetting, setResetting] = React.useState<Staff | null>(null);
   const [deactivating, setDeactivating] = React.useState<Staff | null>(null);
 
-  // §1.2 filters on role and status; both go to the server with the page.
+  // §1.2 filters on role and status, so those go to the server. There is no
+  // search parameter, so the whole (already role/status-filtered) list is
+  // fetched in one page and the name search runs here — searching a single
+  // server page would silently miss matches on the pages it had not fetched.
   const staff = useStaff({
     ...(query.role ? { role: query.role } : {}),
     ...(query.status ? { status: query.status } : {}),
-    page: page - 1,
-    size: PAGE_LIMIT,
+    page: 0,
+    size: PAGE_SIZE_MAX,
   });
 
   // The Outlet column needs names, and the dialog needs the active list, so the
@@ -68,12 +72,27 @@ export default function UsersPage() {
 
   // A filter change invalidates the page number: page 4 of a narrower list is
   // usually empty, which looks like "no results" for the wrong reason.
-  const filterKey = `${query.role ?? ''}|${query.status ?? ''}`;
+  const filterKey = `${query.role ?? ''}|${query.status ?? ''}|${query.search.trim()}`;
   React.useEffect(() => {
     setPage(1);
   }, [filterKey]);
 
-  const rows = staff.data?.items ?? [];
+  const loaded = React.useMemo(() => staff.data?.items ?? [], [staff.data]);
+
+  const matched = React.useMemo(
+    () => loaded.filter((member) => matchesStaffSearch(member, query.search)),
+    [loaded, query.search]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(matched.length / PAGE_LIMIT));
+  const rows = matched.slice((page - 1) * PAGE_LIMIT, page * PAGE_LIMIT);
+
+  /*
+   * The contract caps a page at 100 (§0), so a merchant with more staff than
+   * that has rows this screen never fetched. Saying so is better than a search
+   * that quietly covers part of the list.
+   */
+  const truncated = (staff.data?.total ?? 0) > loaded.length;
 
   const openEditor = (member: Staff | null) => {
     setEditing(member);
@@ -114,7 +133,7 @@ export default function UsersPage() {
     });
   };
 
-  const total = staff.data?.total ?? 0;
+  const total = matched.length;
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
@@ -153,12 +172,18 @@ export default function UsersPage() {
             <>
               <StaffTable staff={rows} outlets={outletMap} rowMenu={rowMenu} stacked={stacked} />
 
+              {truncated && (
+                <Text variant="caption" tone="warning">
+                  {`Menampilkan ${loaded.length} staf pertama; pencarian belum mencakup sisanya.`}
+                </Text>
+              )}
+
               <PaginationFooter
                 page={page}
-                limit={staff.data?.size ?? PAGE_LIMIT}
+                limit={PAGE_LIMIT}
                 total={total}
                 shown={rows.length}
-                totalPages={staff.data?.totalPages ?? 1}
+                totalPages={totalPages}
                 onPageChange={setPage}
               />
             </>
