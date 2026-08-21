@@ -7,6 +7,9 @@
  * which only applies to the document being printed, and hiding an entire SPA
  * for print is fragile — anything portalled outside the root, a dialog
  * included, escapes the rule and prints over the receipt.
+ *
+ * Sandboxed without `allow-scripts` — a second line of defence behind the
+ * escaping in receipt-html.ts. See docs/security.md.
  */
 
 const FRAME_ID = 'pos-receipt-print-frame';
@@ -29,6 +32,11 @@ export async function printReceipt(html: string): Promise<void> {
   frame.style.height = '0';
   frame.style.border = '0';
   frame.style.visibility = 'hidden';
+
+  // No `allow-scripts`: a value that ever escapes the template lands as inert
+  // markup, not script on the app's origin where the token lives. Same-origin
+  // is needed to write the frame and print it, modals for the dialog itself.
+  frame.setAttribute('sandbox', 'allow-same-origin allow-modals');
 
   document.body.appendChild(frame);
 
