@@ -37,6 +37,7 @@ import { StockDeltaChip } from '@/components/pages/inventory/stock-delta';
 import { StepperInput } from '@/components/pages/inventory/stepper-input';
 import { useAdjustStock } from '@/hooks/use-inventory';
 import { formatCount } from '@/lib/number';
+import { optionalText } from '@/lib/validation';
 
 /** Everything the modal needs about the row being adjusted. */
 export type AdjustTarget = {
@@ -56,7 +57,7 @@ function adjustSchema(currentStock: number) {
       // §4.2: `delta` may not be zero, so an unchanged quantity is not a
       // submittable adjustment. Caught here rather than as a 400.
       .refine((value) => value !== currentStock, 'Stok baru harus berbeda dari stok saat ini'),
-    reason: z.string().trim().max(255, 'Alasan maksimal 255 karakter').optional(),
+    reason: optionalText('Alasan').optional(),
   });
 }
 

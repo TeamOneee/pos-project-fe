@@ -31,12 +31,12 @@ import { cnTextarea } from '@/components/pages/inventory/adjust-stock-dialog';
 import { useCreateOutlet, useUpdateOutlet } from '@/hooks/use-outlets';
 import type { Outlet } from '@/services/outlets';
 import { fieldErrors } from '@/api/errors';
-import { requiredString } from '@/lib/validation';
+import { optionalText, requiredString } from '@/lib/validation';
 import { cn } from '@/lib/utils';
 
 const outletFormSchema = z.object({
   name: requiredString('Nama outlet', 100),
-  address: z.string().trim().max(255, 'Alamat maksimal 255 karakter'),
+  address: optionalText('Alamat'),
   active: z.boolean(),
 });
 
