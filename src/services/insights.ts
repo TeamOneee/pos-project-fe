@@ -30,18 +30,42 @@ import {
 /* Schemas                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** §7.1 `AiAnalysisJob`, as `GET /insights` reports it. */
+/** §7.1 `AiAnalysisJob`, as `GET /insights` reports it.
+ *
+ * Backend field drift: older contract uses `status`, current API sends `state`,
+ * and `analysis_date` may be full ISO datetime (`2026-08-21T00:00:00.000Z`) instead
+ * of `YYYY-MM-DD`. Schema accepts both to avoid parse errors (network 200 but
+ * FE "Gagal memuat insight").
+ */
 const analysisJobSchema = z
   .object({
     id,
+<<<<<<< HEAD
     state: analysisJobStatusSchema,
     analysis_date: isoDateTime,
+=======
+    status: analysisJobStatusSchema.optional(),
+    state: analysisJobStatusSchema.optional(),
+    analysis_date: z.string().refine((v) => !Number.isNaN(Date.parse(v)), 'Format tanggal tidak valid'),
+>>>>>>> dev
     updated_at: isoDateTime,
+  })
+  .passthrough()
+  .superRefine((value, ctx) => {
+    if (!value.status && !value.state) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'status/state required', path: ['status'] });
+    }
   })
   .transform((value) => ({
     jobId: value.id,
+<<<<<<< HEAD
     status: value.state,
     analysisDate: value.analysis_date,
+=======
+    status: (value.status ?? value.state)!,
+    /** Local calendar date in the merchant's timezone; the dedupe key. Normalizes datetime to YYYY-MM-DD. */
+    analysisDate: value.analysis_date.includes('T') ? value.analysis_date.slice(0, 10) : value.analysis_date,
+>>>>>>> dev
     updatedAt: value.updated_at,
   }));
 
@@ -66,6 +90,7 @@ const insightSchema = z
     period_end: isoDateTime,
     generated_at: isoDateTime,
   })
+  .passthrough()
   .transform((value) => ({
     insightId: value.id,
     type: value.type,
@@ -94,8 +119,14 @@ const insightsResponseSchema = z
 export type InsightsResponse = z.infer<typeof insightsResponseSchema>;
 
 const triggerResultSchema = z
+<<<<<<< HEAD
   .object({ job_id: id, state: analysisJobStatusSchema })
   .transform((value) => ({ jobId: value.job_id, status: value.state }));
+=======
+  .object({ job_id: id, status: analysisJobStatusSchema.optional(), state: analysisJobStatusSchema.optional() })
+  .passthrough()
+  .transform((value) => ({ jobId: value.job_id, status: (value.status ?? value.state)! }));
+>>>>>>> dev
 
 export type TriggerResult = z.infer<typeof triggerResultSchema> & {
   /** True when this call created the day's job (202) rather than finding it (200). */
