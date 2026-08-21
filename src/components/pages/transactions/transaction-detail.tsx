@@ -1,19 +1,4 @@
-/**
- * S-22 · Detail transaksi.
- *
- * One body, two containers: a 480px right drawer on desktop and tablet, a full
- * page on mobile. Same component either way, so the two cannot describe the same
- * sale differently.
- *
- * Three things this screen deliberately does not have: an edit button, a void
- * button and a refund button. §5.1 gives `TransactionStatus` exactly one member,
- * `COMPLETED`, and the contract defines no endpoint that changes a sale — so a
- * completed transaction is immutable and the screen does not imply otherwise.
- *
- * The line prices are historical. The caption says so, because a product's price
- * can have moved since, and the natural assumption is that a screen showing a
- * price is showing today's.
- */
+/** S-22 · Detail transaksi. */
 
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -46,8 +31,7 @@ export function TransactionDetailBody({
 }: {
   transaction: TransactionDetail;
   /**
-   * §5.4 `CheckoutResult` carries `outlet_id` but no outlet name — only
-   * `GET /receipts/:id` does. Passed in when the caller has it, blank otherwise.
+   * §5.4 `CheckoutResult` carries `outlet_id` but no outlet name — only `GET /receipts/:id` does.
    */
   outletName?: string;
   onPrint: () => void;

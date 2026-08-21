@@ -1,14 +1,4 @@
-/**
- * The required outlet choice for S-15.
- *
- * `GET /inventory` takes `outlet_id` as a required query param — there is no
- * all-outlets inventory list — so this is not a filter tucked into the top bar
- * but the control that decides whether there is a table at all. It sits at the
- * top of the content area and says so.
- *
- * Up to four outlets it is a segmented pill row, where every choice is visible
- * and one tap away. Beyond that the row stops fitting and it becomes a select.
- */
+/** The required outlet choice for S-15. */
 
 import { Store } from 'lucide-react';
 

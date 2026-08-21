@@ -1,13 +1,4 @@
-/**
- * API configuration.
- *
- * VITE_* variables are inlined by Vite at build time, so they must be
- * referenced as full literal member expressions — never `import.meta.env[key]`.
- *
- * Switching VITE_API_MODE between "mock" and "live" swaps the transport
- * only. Schemas, domain clients, query hooks and error handling are identical
- * in both modes; live mode points the same requests at VITE_API_URL.
- */
+/** API configuration. */
 
 export type ApiMode = 'mock' | 'live';
 

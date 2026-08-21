@@ -1,12 +1,4 @@
-/**
- * The Owner's till gate keeps a header.
- *
- * `/pos` is chromeless — the shell deliberately gives it no top bar, because the
- * till is a workstation rather than a page. The screen supplies its own instead,
- * and for a while the gate in front of it did not: an Owner who opened the till
- * by accident landed on the only screen in the app with no header, and no
- * "Kembali" to leave by.
- */
+/** The Owner's till gate keeps a header. */
 
 import '@/api';
 
@@ -57,9 +49,8 @@ describe('the POS outlet gate', () => {
     // The till's own bar, the same one the picked-outlet screen carries.
     expect(screen.getByRole('link', { name: 'Kembali' })).toHaveAttribute('href', '/dashboard');
 
-    // Transactions are reachable from the sidebar rather than from the bar,
-    // which no longer repeats a destination the navigation already offers. The
-    // Owner's nav calls it "Transaksi"; only the Cashier's says "Riwayat".
+    // Transactions are reachable from the sidebar rather than from the bar, which no longer repeats
+    // a destination the navigation already offers.
     expect(screen.getByRole('link', { name: 'Transaksi' })).toHaveAttribute(
       'href',
       '/transactions'

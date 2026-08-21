@@ -1,13 +1,6 @@
 /**
- * The tile's count circle, and the one thing that makes it a count circle
- * rather than a stray badge: it is anchored to the tile.
- *
- * The circle is absolutely positioned. Nothing between the tile and the page
- * root is positioned, so if the tile itself is not, the circle resolves against
- * the viewport and renders in the top-right corner of the *screen* — one per
- * product in the cart, stacked on top of each other beside the account avatar.
- * That shipped once and read as a broken notification badge, which is why the
- * anchor is asserted here rather than left to a visual check.
+ * The tile's count circle, and the one thing that makes it a count circle rather than a stray
+ * badge: it is anchored to the tile.
  */
 
 import { render, screen, within } from '@testing-library/react';

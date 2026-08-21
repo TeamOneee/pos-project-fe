@@ -1,12 +1,4 @@
-/**
- * S-11's filter bar.
- *
- * Search, category and status all narrow the query server-side — `GET /products`
- * takes all three — so the filter state is also the query key, and changing any
- * of them resets to page 1. The view toggle is the one control here that is
- * purely local: it changes how the same page is drawn, nothing about what was
- * asked for.
- */
+/** S-11's filter bar. */
 
 import { LayoutGrid, Search, Table2, X } from 'lucide-react';
 

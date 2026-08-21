@@ -1,21 +1,4 @@
-/**
- * The body behind `/transactions/:id`, in both its containers.
- *
- * The receipt comes from `GET /receipts/:transaction_id` (§5.2) rather than
- * being assembled from the transaction plus whatever the screen happens to
- * know. That endpoint is the only one carrying `merchant_name`, `outlet_name`
- * and `outlet_address`, and it renders from the sale's own snapshot — so a
- * reprint of a year-old sale shows the prices and the product names as they
- * were, not as they are (§5.2 note).
- *
- * It is also the only way a cashier can name their own outlet: `GET /outlets`
- * is Owner and Admin only.
- *
- * Scope is left entirely to the server. §5.2 forces `operator_user_id` for a
- * cashier and disguises anything out of scope as a 404 — a client-side check
- * could not reproduce the operator rule from a summary row anyway, and saying
- * "this belongs to another outlet" would leak that the sale exists.
- */
+/** The body behind `/transactions/:id`, in both its containers. */
 
 import * as React from 'react';
 

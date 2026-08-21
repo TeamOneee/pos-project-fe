@@ -1,15 +1,4 @@
-/**
- * Sharing on web.
- *
- * Uses the Web Share API when the browser offers it and reports back honestly
- * when it does not — the caller disables the button rather than showing one
- * that does nothing.
- *
- * A PDF is not generated here: producing one in the browser would mean pulling
- * in a renderer for a path that Chrome on desktop cannot use anyway. The text
- * summary carries the transaction number, which is what a shared receipt is
- * actually for.
- */
+/** Sharing on web. */
 
 export type ShareOutcome = 'shared' | 'unsupported' | 'failed';
 

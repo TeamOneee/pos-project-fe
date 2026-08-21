@@ -1,11 +1,4 @@
-/**
- * The Owner's till gate.
- *
- * A Cashier's outlet is fixed by the JWT, but an Owner has none — §4.2 lets
- * them pick any active outlet in the merchant when opening the POS. Until one
- * is chosen there is no till to render, so this screen is that choice, and
- * nothing on it can be done before a valid selection exists.
- */
+/** The Owner's till gate. */
 
 import { Store } from 'lucide-react';
 

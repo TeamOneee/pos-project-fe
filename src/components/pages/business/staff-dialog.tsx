@@ -1,20 +1,4 @@
-/**
- * S-09 · Tambah / Edit Staf.
- *
- * The form mirrors §1.2's two rules in both directions: a CASHIER needs an
- * outlet, an ADMIN must have none. The Role select drives the Outlet field —
- * Kasir keeps it enabled and required, Admin clears and greys it — so the API's
- * 400s on a wrong pairing never fire from this screen in normal use.
- *
- * Two deliberate departures from the brief, both because the contract does not
- * carry the field where it would need to:
- *
- *   • Password appears only on create. `PATCH /staff/:user_id` has no
- *     `password`; it has `new_password`, which is a different action — Reset
- *     Password, off the row menu.
- *   • Email is read-only when editing. `PATCH` has no `email` field either, so
- *     an editable box would be a promise the API cannot keep.
- */
+/** S-09 · Tambah / Edit Staf. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
@@ -134,8 +118,8 @@ function StaffForm({
   const update = useUpdateStaff();
   const { toast } = useToast();
 
-  // §2.2: an INACTIVE outlet cannot take new staff assignments, so only active
-  // outlets are selectable — the brief's "listing only active outlets".
+  // §2.2: an INACTIVE outlet cannot take new staff assignments, so only active outlets are
+  // selectable — the brief's "listing only active outlets".
   const activeOutlets = outlets.filter((outlet) => outlet.status === 'ACTIVE');
 
   const pending = create.isPending || update.isPending;
@@ -148,8 +132,8 @@ function StaffForm({
       email: staff?.email ?? '',
       password: '',
       role: staff ? (staff.role === 'OWNER' ? 'CASHIER' : staff.role) : 'CASHIER',
-      // A cashier whose outlet was deactivated starts empty, like an edited
-      // product in a deactivated category — saving forces a valid choice.
+      // A cashier whose outlet was deactivated starts empty, like an edited product in a
+      // deactivated category — saving forces a valid choice.
       outletId:
         staff?.role === 'CASHIER' &&
         activeOutlets.some((outlet) => outlet.outletId === staff.outletId)

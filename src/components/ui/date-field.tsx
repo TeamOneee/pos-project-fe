@@ -1,15 +1,4 @@
-/**
- * A labelled day input.
- *
- * Native `<input type="date">` rather than a calendar component: it is a real
- * picker on every platform, its value is the `YYYY-MM-DD` the API takes
- * verbatim, and it costs no dependency — the same reasoning the transactions
- * and analytics filters already follow.
- *
- * (Those two screens still carry their own near-identical copies of this. They
- * are prop-compatible and worth folding in here, but not as a side effect of an
- * unrelated change.)
- */
+/** A labelled day input. */
 
 import * as React from 'react';
 
@@ -48,9 +37,9 @@ export function DateField({
       <Input
         id={inputId}
         type="date"
-        // Duplicated on the control itself rather than left to the <label for>:
-        // the accessible-name audit in src/test resolves names from ARIA and
-        // text content only, and does not follow the label association.
+        // Duplicated on the control itself rather than left to the <label for>: the accessible-name
+        // audit in src/test resolves names from ARIA and text content only, and does not follow the
+        // label association.
         aria-label={label}
         value={value}
         min={min}

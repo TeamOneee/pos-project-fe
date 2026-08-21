@@ -1,12 +1,4 @@
-/**
- * S-06's filter bar.
- *
- * `GET /outlets` takes a status but no search term (§2.2), so the status goes
- * into the query key while the search stays local: outlets are few enough that
- * the page asks for the whole list and narrows it client-side. The search is
- * the only purely local control here, and it is the reason the bar is split
- * that way rather than handing both to the server.
- */
+/** S-06's filter bar. */
 
 import { Search, X } from 'lucide-react';
 

@@ -1,14 +1,4 @@
-/**
- * S-14 row 2 — "Stok Per Outlet".
- *
- * The bridge from the dashboard to the work: every row ends in a link that
- * opens S-15 already scoped to that outlet.
- *
- * Each row is one `GET /dashboard/operations?outlet_id=` read (§6.2). That
- * endpoint reports how many product/outlet rows exist and how many are low or
- * out — but no total unit count, so the old "Total Stok" column is gone rather
- * than filled with a number the API does not produce.
- */
+/** S-14 row 2 — "Stok Per Outlet". */
 
 import { ArrowRight } from 'lucide-react';
 import * as React from 'react';

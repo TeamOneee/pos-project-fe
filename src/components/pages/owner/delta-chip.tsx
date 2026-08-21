@@ -1,10 +1,4 @@
-/**
- * A period-over-period change, as a chip.
- *
- * The sign is carried by the text itself (from formatPercentDelta), so
- * direction is never carried by colour alone — a reader who cannot distinguish
- * the green from the red still sees the sign.
- */
+/** A period-over-period change, as a chip. */
 
 import { Text } from '@/components/ui/text';
 import { formatPercentDelta } from '@/lib/number';

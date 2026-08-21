@@ -1,12 +1,6 @@
 /**
- * Revenue by hour of day. Peak hours are singled out in accent so the busy
- * window reads before the shape does. Every other bar falls back to the quiet
- * border colour so it sits back and doesn't compete with the peaks.
- *
- * Pointing at a bar moves the accent to it, so the hour being read is the hour
- * being highlighted rather than the tooltip describing one bar while another
- * stays blue. Clicking pins that, and clicking it again releases it back to the
- * peaks.
+ * Revenue by hour of day. Peak hours are singled out in accent so the busy window reads before the
+ * shape does.
  */
 
 import * as React from 'react';
@@ -122,8 +116,8 @@ export function HourlyBarChart({
         }}
       >
         {data.map((entry) => (
-          // The key is stable, so the fill lands on the same node and the
-          // transition runs instead of the bar being replaced outright.
+          // The key is stable, so the fill lands on the same node and the transition runs instead
+          // of the bar being replaced outright.
           <Cell key={entry.hour} fill={entry.fill} className="transition-colors duration-200" />
         ))}
       </Bar>

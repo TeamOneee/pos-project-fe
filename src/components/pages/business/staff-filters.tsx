@@ -1,17 +1,4 @@
-/**
- * S-08's filter bar.
- *
- * `GET /staff` filters on role and status only — §1.2 has no search term — so
- * those two go to the server and page there.
- *
- * The name search is client-side, which is only honest because the page asks
- * for the whole staff list at once (`size` = PAGE_SIZE_MAX) and pages it here.
- * Searching one page of a server-paged list would hide matches on the pages it
- * had not fetched, which reads as "results missing" rather than as a filter.
- * A merchant's staff is its Admins and Cashiers; if one ever exceeds the 100
- * the contract allows per page, the page says so rather than quietly filtering
- * a subset.
- */
+/** S-08's filter bar. */
 
 import { Search } from 'lucide-react';
 
@@ -46,8 +33,8 @@ export function isFiltered(query: StaffQuery): boolean {
 }
 
 /**
- * Matches on name and on email: both are columns on the table, and an Owner
- * who can see an address on screen will type it.
+ * Matches on name and on email: both are columns on the table, and an Owner who can see an address
+ * on screen will type it.
  */
 export function matchesStaffSearch(member: { name: string; email: string }, search: string) {
   const needle = search.trim().toLowerCase();

@@ -1,26 +1,4 @@
-/**
- * Who is signed in, and the way out — both in the top bar, both always visible.
- *
- * This used to be a chip at the foot of the sidebar that opened a menu, and it
- * had a hole in it: the desktop sidebar collapses, and when it did the chip went
- * with it. The header carried only a title and the screen's own controls, so a
- * collapsed sidebar left the app with no way to sign out at all. Moving the pair
- * into the header fixes that by construction — the header is on every screen at
- * every breakpoint that has one, and it does not fold away.
- *
- * "Keluar" is a button rather than a menu item because a person looking for the
- * way out should be able to see it, not remember where it was filed.
- *
- * It does ask first. Signing out clears the token and the entire query cache,
- * and the cart is not persisted, so a mis-click next to the outlet filter would
- * cost a cashier the basket they were halfway through. The old menu bought that
- * safety accidentally, by being two clicks; the dialog buys it deliberately,
- * without hiding anything. The dialog names what *this* role loses — see
- * SIGN_OUT_WARNING.
- *
- * Below tablet there is no header — the mobile tab bar carries its own "Keluar"
- * inside the overflow sheet.
- */
+/** Who is signed in, and the way out — both in the top bar, both always visible. */
 
 import { LogOut } from 'lucide-react';
 import * as React from 'react';
@@ -41,14 +19,7 @@ import { Text } from '@/components/ui/text';
 import { ROLE_LABEL, type Role } from '@/lib/permissions';
 
 /**
- * What each role actually stands to lose, rather than one warning aimed at
- * whoever it fits best.
- *
- * A Cashier is the only one holding something unrecoverable: the cart lives in
- * memory and is not persisted, so signing out mid-basket loses it outright. An
- * Admin's exposure is a half-filled stock adjustment, an Owner's a half-filled
- * form on any screen. Telling all three about "transaksi yang belum disimpan"
- * warned two of them about something they were not doing.
+ * What each role actually stands to lose, rather than one warning aimed at whoever it fits best.
  */
 const SIGN_OUT_WARNING: Record<Role, string> = {
   OWNER: 'Anda perlu masuk lagi untuk melanjutkan. Perubahan yang belum disimpan akan hilang.',
@@ -69,10 +40,9 @@ export function AccountControls({
 
   if (!session || !role) return null;
 
-  /*
-   * The identity is an email, not a name: §1.2 returns no user object from
-   * login, no `GET /auth/me`, and no name in the claims. After a cold reload
-   * even the email is gone and the role is all that is left to show.
+  /**
+   * The identity is an email, not a name: §1.2 returns no user object from login, no `GET
+   * /auth/me`, and no name in the claims.
    */
   const identity = session.email || ROLE_LABEL[role];
 

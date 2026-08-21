@@ -1,17 +1,6 @@
 /**
- * The 64px header: a sidebar toggle on the left, the page title, and the
- * contextual controls on the right.
- *
- * The sidebar toggle knows its own state and its own breakpoint (SidebarToggle),
- * so it renders on desktop and nowhere else. Collapsing the sidebar is how a
- * screen (the dashboard, say) gets the full width; the same button restores it
- * so navigation stays reachable. The till's bar carries the same component.
- *
- * The controls slot is filled by screens through the shell context.
- *
- * The account sits at the far right, past a divider, and stays there whatever a
- * screen puts in the slot beside it: it belongs to the session rather than to
- * the page, and it is the one control a user must never have to hunt for.
+ * The 64px header: a sidebar toggle on the left, the page title, and the contextual controls on the
+ * right.
  */
 
 import { AccountControls } from '@/components/layouts/account-controls';

@@ -3,10 +3,7 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-/**
- * The track is 44×24 — already at the minimum touch width from CLAUDE.md
- * rule 6.
- */
+/** The track is 44×24 — already at the minimum touch width from CLAUDE.md rule 6. */
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>

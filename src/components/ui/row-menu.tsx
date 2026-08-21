@@ -1,16 +1,4 @@
-/**
- * The `⋯` menu at the end of a table row.
- *
- * Written by hand rather than pulled from a primitive library: the app has no
- * menu dependency, and the requirement here is small and fixed — a labelled
- * trigger, a list of actions, dismissal on Escape or an outside click, and a
- * touch target on every item.
- *
- * The trigger is labelled with the row it belongs to ("Menu untuk Coca-Cola"),
- * because a table of twelve identical "Aksi" buttons is unusable with a screen
- * reader. Items render as buttons, so an empty `items` array renders nothing at
- * all — which is how a read-only variant omits the menu instead of disabling it.
- */
+/** The `⋯` menu at the end of a table row. */
 
 import { MoreHorizontal } from 'lucide-react';
 import * as React from 'react';

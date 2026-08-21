@@ -1,10 +1,4 @@
-/**
- * Navigation, declared per role.
- *
- * The shape and wording of the nav are a design decision, so they live in a
- * config object rather than being inferred from permissions. Access stays
- * centralized in the role matrix (shared/permissions).
- */
+/** Navigation, declared per role. */
 
 import {
   Boxes,
@@ -79,8 +73,8 @@ const NAV: Record<Role, NavSection[]> = {
     },
   ],
 
-  // No Analitik, no AI Insight and no Riwayat: the matrix closes all three to
-  // the Admin, and the stock dashboard is where they land instead.
+  // No Analitik, no AI Insight and no Riwayat: the matrix closes all three to the Admin, and the
+  // stock dashboard is where they land instead.
   ADMIN: [
     {
       title: 'Operasional',
@@ -125,12 +119,7 @@ export function navItemsFor(role: Role): NavItem[] {
   return navFor(role).flatMap((section) => section.items);
 }
 
-/**
- * Which item owns the current route.
- *
- * Longest match wins, so `/inventory/low-stock` highlights its own item rather
- * than the `/inventory` one above it.
- */
+/** Which item owns the current route. */
 export function activeHref(items: NavItem[], pathname: string): string | null {
   const matches = items.filter((item) =>
     item.exact

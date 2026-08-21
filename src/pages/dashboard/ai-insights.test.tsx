@@ -1,11 +1,4 @@
-/**
- * S-05 · AI Insight, against contract §7.
- *
- * The states worth proving are the ones the contract dictates: the 404
- * "never analysed" empty state is not an error, a triggered analysis flips the
- * screen to the polling/progress state, and the results render with the
- * contract's type labels rather than the brief's older ones.
- */
+/** S-05 · AI Insight, against contract §7. */
 
 import '@/api';
 

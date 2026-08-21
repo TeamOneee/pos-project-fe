@@ -1,27 +1,11 @@
-/**
- * Category module — contract §3.2.
- *
- * Categories are soft-deactivated and never deleted: §3.2 states there is no
- * `DELETE /categories/:id` in the contract at all (BR-019). Retiring one is
- * `PATCH` with `is_active: false`.
- *
- * Deactivating a category does not touch the products inside it, but those
- * products drop out of the cashier catalogue and checkout rejects them with
- * `CATEGORY_INACTIVE` until the category is active again.
- */
+/** Category module — contract §3.2. */
 
 import { z } from 'zod';
 
 import { request } from '@/api/client';
 import { id, paginated, type Page } from '@/api/schema';
 
-/**
- * §3.4 `CategoryDto`.
- *
- * Activation is the boolean `is_active`, not the `ACTIVE`/`INACTIVE` enum that
- * merchant, outlet and staff use — the contract is not uniform here, and this
- * is the catalog module's spelling.
- */
+/** §3.4 `CategoryDto`. */
 export const categorySchema = z
   .object({
     id,

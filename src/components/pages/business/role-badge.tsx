@@ -1,10 +1,5 @@
 /**
- * The role chip shared by the staff screen and any future screen that has to
- * say who someone is.
- *
- * S-08 specifies the trio: OWNER accent, ADMIN info, KASIR neutral. The badge
- * carries the Bahasa label rather than the code — UI copy rule 5 — and the
- * colour only reinforces the word (CLAUDE.md rule 6).
+ * The role chip shared by the staff screen and any future screen that has to say who someone is.
  */
 
 import { Badge } from '@/components/ui/badge';

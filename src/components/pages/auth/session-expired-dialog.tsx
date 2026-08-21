@@ -1,10 +1,4 @@
-/**
- * The expired-session modal (design brief §7.2).
- *
- * Raised by any 401 on a session that was previously working — see
- * api/unauthorized.ts. One button, no dismiss: there is nothing useful the
- * user can do on the page behind it.
- */
+/** The expired-session modal (design brief §7.2). */
 
 import { TriangleAlert } from 'lucide-react';
 

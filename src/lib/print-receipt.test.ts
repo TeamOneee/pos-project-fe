@@ -1,6 +1,6 @@
 /**
- * The sandbox is one attribute a refactor could drop with no visible symptom —
- * the receipt would still print. Hence this test.
+ * The sandbox is one attribute a refactor could drop with no visible symptom — the receipt would
+ * still print.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,9 +15,8 @@ afterEach(() => {
 });
 
 /**
- * Hands back the frame as it is appended. jsdom implements neither focus() nor
- * print() on the frame's window, so both are stubbed before printReceipt
- * awaits load and reaches them.
+ * Hands back the frame as it is appended. jsdom implements neither focus() nor print() on the
+ * frame's window, so both are stubbed before printReceipt awaits load and reaches them.
  */
 function frameOnAppend(): Promise<HTMLIFrameElement> {
   return new Promise((resolve) => {

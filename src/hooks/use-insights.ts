@@ -1,13 +1,4 @@
-/**
- * AI Insight (BI) — §7.2. Owner only.
- *
- * The read is polled while a job is running, because generation is asynchronous:
- * `POST /insights/trigger` queues work for the worker and returns immediately,
- * and `GET /insights` is how the screen learns it finished.
- *
- * A 404 is not an error state here — it is "this merchant has never run an
- * analysis", which is the empty state.
- */
+/** AI Insight (BI) — §7.2. Owner only. */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -35,8 +26,8 @@ export function useInsights(options: { enabled?: boolean } = {}) {
     queryKey: queryKeys.insights,
     queryFn: () => insightsApi.get(),
     enabled: options.enabled ?? true,
-    // 404 means "never triggered", which the screen renders as an empty state
-    // rather than a failure. Retrying it would only delay that.
+    // 404 means "never triggered", which the screen renders as an empty state rather than a
+    // failure.
     retry: (failureCount, error) =>
       !isApiErrorOfKind(error, 'not_found') &&
       !isApiErrorOfKind(error, 'forbidden') &&
@@ -48,13 +39,7 @@ export function useInsights(options: { enabled?: boolean } = {}) {
   });
 }
 
-/**
- * Queue today's analysis.
- *
- * §7.1 rule 2 allows one per merchant per local day, so a second press the same
- * day returns the existing job (200) instead of starting another (202). The
- * screen reads `isNewJob` to word its confirmation honestly.
- */
+/** Queue today's analysis. */
 export function useTriggerInsights() {
   const { toast } = useToast();
   const queryClient = useQueryClient();

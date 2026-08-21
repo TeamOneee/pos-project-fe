@@ -1,11 +1,4 @@
-/**
- * S-08 · Staf.
- *
- * Owner only, for reading and writing alike (§1.2) — the route demands `staff`
- * manage, so every control below exists unconditionally and the mutation hooks
- * behind them carry the same guard. The Owner's own row has no menu: the
- * endpoint 403s on it, and a row of actions that cannot work reads as noise.
- */
+/** S-08 · Staf. */
 
 import * as React from 'react';
 
@@ -48,10 +41,10 @@ export default function UsersPage() {
   const [resetting, setResetting] = React.useState<Staff | null>(null);
   const [deactivating, setDeactivating] = React.useState<Staff | null>(null);
 
-  // §1.2 filters on role and status, so those go to the server. There is no
-  // search parameter, so the whole (already role/status-filtered) list is
-  // fetched in one page and the name search runs here — searching a single
-  // server page would silently miss matches on the pages it had not fetched.
+  // §1.2 filters on role and status, so those go to the server. There is no search parameter, so
+  // the whole (already role/status-filtered) list is fetched in one page and the name search runs
+  // here — searching a single server page would silently miss matches on the pages it had not
+  // fetched.
   const staff = useStaff({
     ...(query.role ? { role: query.role } : {}),
     ...(query.status ? { status: query.status } : {}),
@@ -59,9 +52,9 @@ export default function UsersPage() {
     size: PAGE_SIZE_MAX,
   });
 
-  // The Outlet column needs names, and the dialog needs the active list, so the
-  // page carries one wide outlets query — `GET /staff` returns `outlet_id`, never
-  // a name (§1.2), and the Owner may read it (§2.2).
+  // The Outlet column needs names, and the dialog needs the active list, so the page carries one
+  // wide outlets query — `GET /staff` returns `outlet_id`, never a name (§1.2), and the Owner may
+  // read it (§2.2).
   const outlets = useOutlets({ size: PAGE_SIZE_MAX });
   const outletMap = React.useMemo(
     () => new Map((outlets.data?.items ?? []).map((outlet) => [outlet.outletId, outlet])),
@@ -70,8 +63,8 @@ export default function UsersPage() {
 
   const deactivate = useDeactivateStaff();
 
-  // A filter change invalidates the page number: page 4 of a narrower list is
-  // usually empty, which looks like "no results" for the wrong reason.
+  // A filter change invalidates the page number: page 4 of a narrower list is usually empty, which
+  // looks like "no results" for the wrong reason.
   const filterKey = `${query.role ?? ''}|${query.status ?? ''}|${query.search.trim()}`;
   React.useEffect(() => {
     setPage(1);
@@ -87,10 +80,9 @@ export default function UsersPage() {
   const totalPages = Math.max(1, Math.ceil(matched.length / PAGE_LIMIT));
   const rows = matched.slice((page - 1) * PAGE_LIMIT, page * PAGE_LIMIT);
 
-  /*
-   * The contract caps a page at 100 (§0), so a merchant with more staff than
-   * that has rows this screen never fetched. Saying so is better than a search
-   * that quietly covers part of the list.
+  /**
+   * The contract caps a page at 100 (§0), so a merchant with more staff than that has rows this
+   * screen never fetched.
    */
   const truncated = (staff.data?.total ?? 0) > loaded.length;
 
@@ -138,12 +130,10 @@ export default function UsersPage() {
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
-        <div className="flex flex-col gap-xs">
-          <Text variant="h1">Staf</Text>
-          <Text variant="body" tone="muted">
-            Kelola akun Admin dan Kasir merchant Anda.
-          </Text>
-        </div>
+        {/* The shell's top bar carries the title; this is its subtitle. */}
+        <Text variant="body" tone="muted">
+          Kelola akun Admin dan Kasir merchant Anda.
+        </Text>
 
         <Button className="shrink-0" onClick={() => openEditor(null)}>
           <Text>+ Tambah Staf</Text>

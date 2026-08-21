@@ -1,12 +1,6 @@
 /**
- * Dates, against the one format CLAUDE.md rule 5 specifies:
- * "13 Agu 2026, 14.30" — Indonesian short month, 24-hour clock, dot separator.
- *
- * These are built by hand rather than through Intl (Hermes ships a trimmed ICU),
- * so every month name and the padding are this file's responsibility to prove.
- * Constructed with the local-time `Date(y, m, d, h, min)` form deliberately: the
- * formatters read local components, and an ISO string with a Z would make the
- * expectations depend on the machine's timezone.
+ * Dates, against the one format CLAUDE.md rule 5 specifies: "13 Agu 2026, 14.30" — Indonesian short
+ * month, 24-hour clock, dot separator.
  */
 
 import { describe, expect, it } from 'vitest';

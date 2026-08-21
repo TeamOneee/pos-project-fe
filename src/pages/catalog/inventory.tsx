@@ -1,14 +1,4 @@
-/**
- * S-15 · Inventori.
- *
- * `GET /inventory` requires `outlet_id` and there is no all-outlets list
- * endpoint, so the outlet choice is not a filter tucked into the top bar — it
- * is the precondition for there being a table at all. It sits at the top of the
- * content area, and until one is chosen the table area says so.
- *
- * Both roles here manage stock (BR-011B), so the screen is a single variant:
- * every session may adjust stock from a row or from the stock drawer.
- */
+/** S-15 · Inventori. */
 
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -42,12 +32,15 @@ import {
 import { useInventory } from '@/hooks/use-inventory';
 import { useOutlets } from '@/hooks/use-outlets';
 
-/** One outlet rarely carries more rows than this; paging would add a control for nothing. §0 caps size at 100. */
+/**
+ * One outlet rarely carries more rows than this; paging would add a control for nothing. §0 caps
+ * size at 100.
+ */
 const PAGE_LIMIT = 100;
 
 export default function InventoryPage() {
-  // The Admin dashboard's "Kelola Stok →" link arrives with the outlet already
-  // decided, which is the whole point of that link.
+  // The Admin dashboard's "Kelola Stok →" link arrives with the outlet already decided, which is
+  // the whole point of that link.
   const [searchParams, setSearchParams] = useSearchParams();
   const outletId = searchParams.get('outlet');
 
@@ -83,8 +76,8 @@ export default function InventoryPage() {
       allRows.filter(
         (row) =>
           matchesQuery(row, query) &&
-          // Each row carries the threshold it was judged against (§4.1 rule 5),
-          // so the filter no longer needs one figure for the whole outlet.
+          // Each row carries the threshold it was judged against (§4.1 rule 5), so the filter no
+          // longer needs one figure for the whole outlet.
           matchesCondition(row.quantity, row.effectiveLowStockThreshold, condition)
       ),
     [allRows, query, condition]
@@ -176,8 +169,8 @@ export default function InventoryPage() {
                   onOpenStockPerOutlet={(row) =>
                     setDrawerProduct({ productId: row.productId, name: row.name })
                   }
-                  // Two different empty states: an outlet with no stock rows at
-                  // all, and a filter that matched none of the rows it has.
+                  // Two different empty states: an outlet with no stock rows at all, and a filter
+                  // that matched none of the rows it has.
                   emptyMessage={
                     allRows.length === 0
                       ? 'Belum ada produk berstok di outlet ini. Tambahkan produk lewat menu Produk, lalu sesuaikan stoknya di sini.'

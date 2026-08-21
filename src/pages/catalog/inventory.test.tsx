@@ -1,11 +1,4 @@
-/**
- * S-15, checked at the DOM.
- *
- * Both roles here manage stock (BR-011B), so the screen is one variant and the
- * tests query the whole document rather than what is visible — a CSS-hidden
- * control is still tabbable, still clickable from the accessibility tree, and
- * still a lie about what the screen does.
- */
+/** S-15, checked at the DOM. */
 
 import '@/api';
 
@@ -65,8 +58,8 @@ describe('S-15 · inventory', () => {
 
     await screen.findByRole('radiogroup', { name: 'Outlet' });
 
-    // Bulk update and transfer are gone with their endpoints (§4.2): stock is
-    // adjusted one product at a time, from the row.
+    // Bulk update and transfer are gone with their endpoints (§4.2): stock is adjusted one product
+    // at a time, from the row.
     expect(screen.queryByRole('button', { name: /update massal/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /transfer stok/i })).toBeNull();
   });
@@ -87,8 +80,8 @@ describe('S-15 · inventory', () => {
       expect(screen.getAllByRole('button', { name: /Sesuaikan/i }).length).toBeGreaterThan(0);
     });
 
-    // Bulk update and transfer are gone with their endpoints (§4.2): stock is
-    // adjusted one product at a time, from the row.
+    // Bulk update and transfer are gone with their endpoints (§4.2): stock is adjusted one product
+    // at a time, from the row.
     expect(screen.queryByRole('button', { name: /update massal/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /transfer stok/i })).toBeNull();
     expect(screen.queryByText('Tampilan hanya-baca')).toBeNull();

@@ -1,20 +1,4 @@
-/**
- * Sales module — contract §5.2.
- *
- * Checkout is `POST /checkout` and it is stateless: there is no server cart to
- * build up first (§5.2 — "Cart Iterasi 1 = client-side only… tidak ada endpoint
- * REST `/cart/*`"). The whole basket is sent inline, and the server reprices
- * every line from the outlet's effective price before it commits (BR-012), so
- * the prices the client sends are never trusted for arithmetic.
- *
- * Idempotency moved from a header to the body: `checkout_request_id` is a
- * client-minted UUID, unique per `(merchant_id, checkout_request_id)`. Resending
- * the identical payload with the same id returns the sale that already exists;
- * changing the payload under a reused id is a 409 `IDEMPOTENCY_CONFLICT`.
- *
- * Cancel, void and refund do not exist — `TransactionStatus` is `COMPLETED` and
- * nothing else (§5.1).
- */
+/** Sales module — contract §5.2. */
 
 import { z } from 'zod';
 
@@ -36,11 +20,7 @@ import {
 /* Schemas                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/**
- * §5.4 `PaymentInfo` — an attribute set on the transaction, not an entity.
- * There is no separate payment amount: the transaction total is the amount
- * (FR-PAY-003).
- */
+/** §5.4 `PaymentInfo` — an attribute set on the transaction, not an entity. */
 const paymentSchema = z
   .object({
     method: paymentMethodSchema,
@@ -80,8 +60,8 @@ const operatorSchema = z
   .transform((value) => ({ userId: value.user_id, role: value.role, name: value.name }));
 
 /**
- * §5.4 `CheckoutResult`. One shape serves three endpoints: the checkout
- * response, `GET /transactions/:id`, and `GET /transactions/search`.
+ * §5.4 `CheckoutResult`. One shape serves three endpoints: the checkout response, `GET
+ * /transactions/:id`, and `GET /transactions/search`.
  */
 export const transactionDetailSchema = z
   .object({
@@ -114,11 +94,7 @@ export const transactionDetailSchema = z
 
 export type TransactionDetail = z.infer<typeof transactionDetailSchema>;
 
-/**
- * §5.4 `ReceiptDto` — the detail shape plus the three header fields a printed
- * receipt needs. Rendered from the transaction's own snapshot, so reprinting an
- * old receipt never picks up today's prices (§5.2).
- */
+/** §5.4 `ReceiptDto` — the detail shape plus the three header fields a printed receipt needs. */
 export const receiptSchema = z
   .object({
     transaction_id: id,
@@ -153,13 +129,7 @@ export const receiptSchema = z
 
 export type Receipt = z.infer<typeof receiptSchema>;
 
-/**
- * §5.4 `TransactionSummaryDto` — the list row.
- *
- * Note what a row does *not* carry: no line count and no payment method. The
- * history table can only show what is here; anything else needs the detail
- * endpoint.
- */
+/** §5.4 `TransactionSummaryDto` — the list row. */
 export const transactionSummarySchema = z
   .object({
     transaction_id: id,
@@ -187,12 +157,7 @@ export type TransactionSummary = z.infer<typeof transactionSummarySchema>;
 /* Requests                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/**
- * §5.2: filters are the date range and the outlet, and that is all.
- *
- * There is no cashier filter — a CASHIER is restricted to their own sales by
- * the service itself (OD-003), and an OWNER cannot narrow by operator.
- */
+/** §5.2: filters are the date range and the outlet, and that is all. */
 export type TransactionFilters = {
   /** ISO-8601 datetime, not a plain date. */
   date_from?: string;
@@ -207,8 +172,8 @@ export type CheckoutItemInput = {
   product_id: string;
   quantity: number;
   /**
-   * What the cashier saw. Used only to detect drift — the server prices the
-   * line from its own data either way (§5.2). Omit it to accept any price.
+   * What the cashier saw. Used only to detect drift — the server prices the line from its own data
+   * either way (§5.2).
    */
   expected_unit_price?: string;
 };
@@ -254,13 +219,7 @@ export const transactionsApi = {
       schema: transactionDetailSchema,
     }),
 
-  /**
-   * Checkout.
-   *
-   * Always answers 200 — §5.2 gives the same status to a fresh sale and to an
-   * idempotent replay, so there is no way to tell them apart from the response
-   * alone. Callers must not claim "already processed" on their own initiative.
-   */
+  /** Checkout. */
   checkout: (input: CheckoutInput) =>
     request({
       method: 'POST',
@@ -269,13 +228,7 @@ export const transactionsApi = {
       schema: transactionDetailSchema,
     }),
 
-  /**
-   * §5.2 `GET /transactions/status`: did a checkout land?
-   *
-   * This is the recovery path after a dropped connection — 200 means the sale
-   * exists, 404 means it never happened and the same basket may be submitted
-   * again as a new checkout (FR-CHK-003/004).
-   */
+  /** §5.2 `GET /transactions/status`: did a checkout land? */
   statusFor: (checkoutRequestId: string) =>
     request({
       method: 'GET',
@@ -293,12 +246,8 @@ export const transactionsApi = {
 };
 
 /**
- * A checkout request id. §5.4 asks for a UUID, so this is a v4 built from
- * `crypto.randomUUID` where available and from `getRandomValues` otherwise.
- *
- * Deliberately not derived from the basket: two customers buying the same
- * single item are two sales, and a payload-derived id would collapse them into
- * one.
+ * A checkout request id. §5.4 asks for a UUID, so this is a v4 built from `crypto.randomUUID` where
+ * available and from `getRandomValues` otherwise.
  */
 export function mintCheckoutRequestId(): string {
   const globalCrypto = globalThis.crypto;

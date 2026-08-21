@@ -1,11 +1,4 @@
-/**
- * The split layout behind login and register (design brief S-01).
- *
- * Accent panel on the left at desktop carrying the wordmark and tagline, form
- * column on the right. Below desktop the panel is dropped entirely rather than
- * stacked — it is decoration, and on a phone it would push the form under the
- * fold.
- */
+/** The split layout behind login and register (design brief S-01). */
 
 import * as React from 'react';
 import { NavLink } from 'react-router-dom';

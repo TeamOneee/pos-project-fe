@@ -1,16 +1,6 @@
 /**
- * The restocking queue, and the thing that makes it trustworthy: an adjustment
- * made from a row has to move the counts on the same screen.
- *
- * Every figure here is derived server-side from current stock, so a write that
- * does not invalidate `['dashboard']` leaves an Admin looking at "Menipis 10"
- * after they have just refilled one of the ten. These drive the real modal
- * against the mock API and watch the chip, rather than asserting on the
- * invalidation call — the call is the mechanism, the moving number is the
- * requirement.
- *
- * The queue used to sit on the Admin dashboard as well. It lives here alone now,
- * so these moved with it.
+ * The restocking queue, and the thing that makes it trustworthy: an adjustment made from a row has
+ * to move the counts on the same screen.
  */
 
 import '@/api';
@@ -30,12 +20,7 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-/**
- * The queue's counters are its filter chips — `role="tab"`, labelled "Menipis 10".
- *
- * They replaced the KPI tiles, whose counts only scrolled to a table. A number
- * that filters the list it counts is worth more than one that points at it.
- */
+/** The queue's counters are its filter chips — `role="tab"`, labelled "Menipis 10". */
 function chipCount(name: 'Semua' | 'Habis' | 'Menipis'): number {
   const tab = screen.getByRole('tab', { name: new RegExp(`^${name}\\s`) });
   return Number((tab.textContent ?? '').replace(/\D/g, ''));
@@ -81,14 +66,7 @@ describe('the low-stock queue', () => {
 
     const before = chipCount('Menipis');
 
-    /*
-     * Narrow to the low-but-sellable rows first.
-     *
-     * The queue is severity-sorted and an empty shelf has urgency zero, so the
-     * unfiltered list always leads with a HABIS row. Restocking that one moves
-     * "Habis", not "Menipis", and the assertion below would fail against a
-     * perfectly correct screen.
-     */
+    /** Narrow to the low-but-sellable rows first. */
     await clickChip('Menipis');
 
     // Adjust the most urgent row well clear of the threshold.

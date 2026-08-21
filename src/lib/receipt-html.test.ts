@@ -1,16 +1,4 @@
-/**
- * The printed receipt, snapshotted.
- *
- * A receipt is the one output a customer keeps, and it is assembled by string
- * concatenation rather than by React, so a stray edit to the template has no
- * component test to stop it. The snapshot is the guard: change the layout, the
- * wording or the arithmetic and this fails, and the diff shows exactly what a
- * customer would now be handed.
- *
- * Both payment shapes are covered because they print different feet: a cash sale
- * shows what was handed over and the change, a non-cash sale names the method.
- * The reprint case (S-22) matters too — a stored sale has no cash figure to show.
- */
+/** The printed receipt, snapshotted. */
 
 import { describe, expect, it } from 'vitest';
 
@@ -48,9 +36,8 @@ describe('receipt output', () => {
   });
 
   it('prints a reprint, where the cash handed over is not recorded', () => {
-    // S-22 rebuilds the same receipt from the stored transaction. There is no
-    // Payment model yet, so `received` is unknown and the foot names the method
-    // instead of inventing a change figure.
+    // S-22 rebuilds the same receipt from the stored transaction. There is no Payment model yet, so
+    // `received` is unknown and the foot names the method instead of inventing a change figure.
     expect(receiptHtml({ ...BASE, received: null, change: null })).toMatchSnapshot();
   });
 
@@ -96,8 +83,8 @@ describe('receipt output', () => {
     expect(html).toContain('&lt;script&gt;');
   });
 
-  // The template escapes by construction now (lib/html.ts), so these guard the
-  // wiring rather than nine separate calls.
+  // The template escapes by construction now (lib/html.ts), so these guard the wiring rather than
+  // nine separate calls.
   it('escapes every header field, not only the product name', () => {
     const payload = '<img src=x onerror=alert(1)>';
     const html = receiptHtml({

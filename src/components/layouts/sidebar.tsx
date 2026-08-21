@@ -1,9 +1,4 @@
-/**
- * The 248px desktop sidebar.
- *
- * Nothing here decides what to show — `navFor(role)` does, and it has already
- * been filtered through the role matrix.
- */
+/** The 248px desktop sidebar. */
 
 import { NavLink } from 'react-router-dom';
 

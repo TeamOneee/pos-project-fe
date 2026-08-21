@@ -1,10 +1,4 @@
-/**
- * Development-only quick sign-in: one tap per role.
- *
- * Mock mode is gated by the API transport, so this never renders against a
- * real backend. Each button logs in with the seeded account for that role and
- * lands on the role's home screen.
- */
+/** Development-only quick sign-in: one tap per role. */
 
 import { useNavigate } from 'react-router-dom';
 

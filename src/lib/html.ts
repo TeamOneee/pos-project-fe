@@ -1,18 +1,15 @@
 /**
- * HTML escaped by construction, for the app's one markup-as-a-string: the
- * printed receipt (receipt-html.ts). `safeHtml` escapes every `${}`; `raw` is
- * the explicit, greppable way out. Nested fragments escape once, not twice.
- *
- * Not named `html`: Prettier reformats that tag as embedded HTML, rewriting the
- * receipt's whitespace and its snapshot on every save.
+ * HTML escaped by construction, for the app's one markup-as-a-string: the printed receipt
+ * (receipt-html.ts). Not named `html`: Prettier reformats that tag as embedded HTML and rewrites
+ * the receipt's whitespace.
  */
 
 /** Markup already escaped, or authored as a literal. */
 export type SafeHtml = { readonly kind: 'safe-html'; readonly value: string };
 
 /**
- * Text and *quoted* attribute contexts only — not unquoted attributes, not
- * `<script>`/`<style>` bodies, not URL positions (those need a scheme check).
+ * Text and *quoted* attribute contexts only — not unquoted attributes, not `<script>`/`<style>`
+ * bodies, not URL positions (those need a scheme check).
  */
 export function escapeHtml(value: string): string {
   return value

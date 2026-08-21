@@ -1,13 +1,4 @@
-/**
- * S-11's grid view — the same rows, laid out as cards.
- *
- * Table is the default because the catalog is read for facts (which SKU, what
- * price, active or not) and a table beats a grid at that. The grid exists for the
- * other pass: scanning the shape of the catalog, spotting the products nobody has
- * priced or the block of inactive ones. It carries the same fields, the same
- * badges and the same permission story as the table — `rowMenu` absent means no
- * menu anywhere in the card.
- */
+/** S-11's grid view — the same rows, laid out as cards. */
 
 import { RowMenu, type RowMenuItem } from '@/components/ui/row-menu';
 import { Card, CardContent } from '@/components/ui/card';

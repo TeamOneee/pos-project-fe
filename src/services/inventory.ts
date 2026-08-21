@@ -1,22 +1,4 @@
-/**
- * Inventory module — contract §4.2.
- *
- * Reads are OWNER and ADMIN; adjustments are ADMIN and OWNER (§4.1 rule 1 —
- * the Owner inherits the Admin's permissions under BR-011B). The cashier never
- * touches a stock endpoint.
- *
- * Stock is written one way only: `POST /inventory/adjustments` with a signed
- * `delta` and a reason. The client never sends a target quantity — the server
- * reads the current value, applies the delta, and refuses anything that would
- * land below zero (§4.6). Two operations the previous contract had are absent
- * from §4.2 and therefore absent here: **bulk adjustment** and **transfer
- * between outlets**.
- *
- * Thresholds are two-level (§4.1 rule 5): the product carries a base
- * `low_stock_threshold`, and an inventory row may override it for its outlet.
- * `effective_low_stock_threshold` is the one the server actually compares
- * against, and the only one a screen should render a verdict from.
- */
+/** Inventory module — contract §4.2. */
 
 import { z } from 'zod';
 
@@ -173,10 +155,7 @@ export const lowStockThresholdResultSchema = z
 
 export type LowStockThresholdResult = z.infer<typeof lowStockThresholdResultSchema>;
 
-/**
- * §4.4 `AdjustStockRequest`. `delta` is signed and may not be zero; `reason` is
- * mandatory. There is no target-quantity form of this call.
- */
+/** §4.4 `AdjustStockRequest`. `delta` is signed and may not be zero; `reason` is mandatory. */
 export type AdjustStockInput = {
   outlet_id: string;
   product_id: string;
@@ -206,9 +185,8 @@ export const inventoryApi = {
     }),
 
   /**
-   * 201 on success. 400 for a zero delta or an empty reason, 403 when the
-   * outlet is inactive, and 409 when the result would go negative — in which
-   * case nothing was written at all.
+   * 201 on success. 400 for a zero delta or an empty reason, 403 when the outlet is inactive, and
+   * 409 when the result would go negative — in which case nothing was written at all.
    */
   adjust: (input: AdjustStockInput) =>
     request({

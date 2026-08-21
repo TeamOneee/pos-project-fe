@@ -1,11 +1,6 @@
 /**
- * Row 2 left — revenue and transaction count over the period, with the four
- * figures that describe the series underneath.
- *
- * §6.2 reports the series and nothing else: `{ bucket, points[] }`, with no
- * precomputed totals. The four figures below the chart are therefore derived
- * from the points on screen — which is honest arithmetic over the server's own
- * aggregate, not a second opinion about it.
+ * Row 2 left — revenue and transaction count over the period, with the four figures that describe
+ * the series underneath.
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,13 +111,7 @@ function SummaryFigure({ label, value }: { label: string; value: string }) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-/**
- * An axis label for a bucket start.
- *
- * §6.4 sends `bucket_start` as a full ISO-8601 timestamp, and the two bucket
- * widths want different labels: a DAY bucket reads as "1 Agu", an HOUR bucket
- * as "14.00". Neither has room for a year.
- */
+/** An axis label for a bucket start. */
 export function bucketLabel(iso: string, bucket: 'HOUR' | 'DAY'): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;

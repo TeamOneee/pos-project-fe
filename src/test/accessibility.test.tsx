@@ -1,18 +1,4 @@
-/**
- * The accessibility rules that can be proved rather than reviewed.
- *
- * Two kinds of check live here, and it is worth being clear about which is which:
- *
- *   • Rendered-DOM checks. Every interactive element on the main screens has an
- *     accessible name, and every status badge carries words. Real assertions
- *     against the tree a screen reader would walk.
- *   • A source check on touch targets. jsdom has no layout — every element
- *     measures 0×0 — so a 44px assertion is impossible here. Instead the source
- *     is scanned for interactive elements that never opt into a touch size, which
- *     is the mistake worth catching. Actual sizing is a browser check.
- *
- * Contrast is asserted separately, from the tokens, in lib/contrast.test.ts.
- */
+/** The accessibility rules that can be proved rather than reviewed. */
 
 import '@/api';
 
@@ -113,8 +99,8 @@ describe('status is never colour alone', () => {
       await new Promise((resolve) => setTimeout(resolve, 400));
     });
 
-    // Badges are the app's status carrier; a coloured pill with no words would be
-    // invisible to a screen reader and to anyone who cannot tell the hues apart.
+    // Badges are the app's status carrier; a coloured pill with no words would be invisible to a
+    // screen reader and to anyone who cannot tell the hues apart.
     const badges = Array.from(document.querySelectorAll('.rounded-full')).filter((element) =>
       /bg-(success|warning|danger|accent)-subtle|bg-subtle/.test(element.className)
     );
@@ -150,9 +136,8 @@ function sourceFiles(dir = 'src', found: string[] = []): string[] {
 }
 
 /**
- * Finds each `<button` open tag and returns its attribute text, tracking brace
- * depth so a `>` inside a JSX expression or template literal does not end the tag
- * early. A naive regex reports false positives on half this codebase.
+ * Finds each `<button` open tag and returns its attribute text, tracking brace depth so a `>`
+ * inside a JSX expression or template literal does not end the tag early.
  */
 function buttonTags(source: string): { attrs: string; line: number }[] {
   const tags: { attrs: string; line: number }[] = [];
@@ -181,8 +166,8 @@ function buttonTags(source: string): { attrs: string; line: number }[] {
 
 describe('touch targets', () => {
   it('has every raw button opt into a touch size', () => {
-    // The Button primitive is already ≥44px in every size, so this only catches
-    // hand-rolled ones — icon triggers, table row actions, tiles.
+    // The Button primitive is already ≥44px in every size, so this only catches hand-rolled ones —
+    // icon triggers, table row actions, tiles.
     const offenders: string[] = [];
 
     for (const file of sourceFiles()) {
@@ -190,8 +175,8 @@ describe('touch targets', () => {
       for (const { attrs, line } of buttonTags(source)) {
         const sized =
           /min-h-touch|h-touch|min-h-\[|py-(md|lg|xl)|h-(9|10|11|12|14|16)\b/.test(attrs) ||
-          // A wrapper around a whole card, or a full-screen click-away catcher,
-          // is larger than 44px by construction.
+          // A wrapper around a whole card, or a full-screen click-away catcher, is larger than 44px
+          // by construction.
           /\bsizing\b|flex-1|w-full|inset-0/.test(attrs) ||
           // Sizing supplied by a shared class helper or the Button primitive.
           /buttonVariants|cnStepper/.test(attrs);
@@ -204,8 +189,7 @@ describe('touch targets', () => {
   });
 
   it('routes every focus ring through the single class', () => {
-    // One ring, defined once in tailwind.config.cjs: 2px accent at 40%, 2px
-    // offset. A hand-rolled ring utility means a second, different ring.
+    // One ring, defined once in tailwind.config.cjs: 2px accent at 40%, 2px offset.
     const offenders: string[] = [];
 
     for (const file of sourceFiles()) {

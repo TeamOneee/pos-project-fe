@@ -10,15 +10,7 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
-/**
- * Whether this dialog is rendering a close button in its top-right corner.
- *
- * The header keeps a touch target's worth of space clear on that side so a long
- * title does not run under the ✕. That reservation is only correct when the ✕ is
- * actually there: on a `hideClose` dialog it is 44px of dead space that pulls a
- * centred header off-centre. The decision belongs to DialogContent, which owns
- * the button, so it is passed down rather than guessed at.
- */
+/** Whether this dialog is rendering a close button in its top-right corner. */
 const DialogHasCloseContext = React.createContext(true);
 
 const DialogOverlay = React.forwardRef<
@@ -28,8 +20,8 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      // No padding below tablet: the panel is a full-screen sheet there, and a
-      // gutter would leave a strip of dimmed page around it for no reason.
+      // No padding below tablet: the panel is a full-screen sheet there, and a gutter would leave a
+      // strip of dimmed page around it for no reason.
       'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-0 tablet:p-lg',
       className
     )}
@@ -43,9 +35,9 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     hideClose?: boolean;
     /**
-     * Repositions the panel inside the overlay. A right-hand drawer is the same
-     * modal with the same focus trap, only pinned to an edge, so it overrides
-     * the centring here rather than reimplementing the primitive.
+     * Repositions the panel inside the overlay. A right-hand drawer is the same modal with the same
+     * focus trap, only pinned to an edge, so it overrides the centring here rather than
+     * reimplementing the primitive.
      */
     overlayClassName?: string;
   }
@@ -55,18 +47,13 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          /*
-           * Below tablet every modal is a full-screen sheet: the whole viewport,
-           * no radius, no border, and its own scroll. A centred 480px card on a
-           * 360px phone is a card with 12px of gutter and a cramped form in it.
-           * From tablet up the same component is the card it always was — the
-           * `max-w-*` a caller passes only applies there.
+          /**
+           * Below tablet every modal is a full-screen sheet: the whole viewport, no radius, no
+           * border, and its own scroll.
            */
-          // `relative` anchors the close button below. Without it the ✕ resolves
-          // against the overlay — which is `fixed inset-0`, so the viewport — and
-          // a centred panel gets its close button parked in the corner of the
-          // screen instead of its own. A full-height edge drawer hides the bug,
-          // because there the two corners coincide.
+          // `relative` anchors the close button below. Without it the ✕ resolves against the
+          // overlay — which is `fixed inset-0`, so the viewport — and a centred panel gets its
+          // close button parked in the corner of the screen instead of its own.
           'relative z-50 flex h-full w-full flex-col gap-lg overflow-y-auto rounded-none border-0 bg-surface-raised p-lg shadow-lg',
           'tablet:h-auto tablet:max-h-[90vh] tablet:max-w-[480px] tablet:rounded-lg tablet:border tablet:border-border tablet:p-xl',
           className
@@ -107,14 +94,7 @@ const DialogHeader = ({ className, ...props }: React.ComponentPropsWithoutRef<'d
 };
 DialogHeader.displayName = 'DialogHeader';
 
-/**
- * Sticky on a full-screen sheet, static in a card.
- *
- * On a phone the form scrolls under the actions, so "Simpan" is reachable
- * without scrolling to the bottom of a long body — and `mt-auto` pins it to the
- * end of the sheet when the body is short. The negative margins let the bar span
- * the sheet's full width while the panel keeps its padding.
- */
+/** Sticky on a full-screen sheet, static in a card. */
 const DialogFooter = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => (
   <div
     className={cn(

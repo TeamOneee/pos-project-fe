@@ -1,12 +1,4 @@
-/**
- * S-07 · Tambah / Edit Outlet.
- *
- * Two fields and a toggle. `POST /outlets` takes `{ name, address }` (§2.2) and
- * always returns ACTIVE, so the status toggle appears only when editing — on
- * create the outlet is born active and a toggle that says "Nonaktif" would be
- * a lie the API ignores. Address is optional: §2.4 lets the row carry none, so
- * the form does not demand one.
- */
+/** S-07 · Tambah / Edit Outlet. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
@@ -172,9 +164,8 @@ function OutletForm({ outlet, onDone }: { outlet: Outlet | null; onDone: () => v
                 placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
                 disabled={pending}
                 aria-invalid={Boolean(fieldState.error) || undefined}
-                // Same field styling as the other modals, keyed off the form's
-                // own error rather than native :invalid, so focus and error read
-                // identically everywhere.
+                // Same field styling as the other modals, keyed off the form's own error rather
+                // than native :invalid, so focus and error read identically everywhere.
                 className={cn(cnTextarea(Boolean(fieldState.error)), 'min-h-[90px] resize-none')}
               />
             </FormField>

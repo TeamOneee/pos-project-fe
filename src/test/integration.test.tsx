@@ -1,18 +1,4 @@
-/**
- * The flows the product is demoed on, driven through the real app.
- *
- * Everything here renders <App /> against the mock transport and clicks what a
- * user would click. No component is imported directly and no store is poked:
- * these pass only if the wiring between screen, hook, client and transport is
- * intact, which is the whole point of having them alongside the unit tests.
- *
- * Four flows, per the hardening brief:
- *   1. The cashier happy path — catalogue → cart → pay → receipt.
- *   2. Both checkout error recoveries — insufficient stock, and a price that
- *      moved under an open cart.
- *   3. An Admin stock adjustment, including the dashboard count that follows it.
- *   4. Role gating, at the route.
- */
+/** The flows the product is demoed on, driven through the real app. */
 
 import '@/api';
 
@@ -35,8 +21,8 @@ class MockResizeObserver {
 async function signInAs(email: string) {
   resetDb();
   clearMockScenario();
-  // The cart is Zustand, so it is module state that outlives a render: without
-  // this, the second POS test starts with the first one's line still in it.
+  // The cart is Zustand, so it is module state that outlives a render: without this, the second POS
+  // test starts with the first one's line still in it.
   useCartStore.getState().clear();
   const result = await authApi.login({ email, password: 'password123' });
   setToken(result.accessToken);
@@ -304,8 +290,8 @@ describe('out-of-scope features stay unreachable', () => {
     await click(adjustButtons[0] as HTMLElement);
 
     const dialog = await screen.findByRole('dialog');
-    // The reason field is optional in this form — the API may still reject an
-    // empty one — and says nothing about an audit trail (rule 4).
+    // The reason field is optional in this form — the API may still reject an empty one — and says
+    // nothing about an audit trail (rule 4).
     expect(within(dialog).getByText('Opsional.')).toBeInTheDocument();
     for (const label of [/audit/i, /riwayat perubahan/i, /pergerakan stok/i]) {
       expect(within(dialog).queryByText(label)).toBeNull();

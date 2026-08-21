@@ -1,30 +1,4 @@
-/**
- * S-15's data table.
- *
- * Two variants of one table. The Admin's has an action column; the Owner's does
- * not render one at all — the buttons are absent from the DOM rather than
- * hidden, because a read-only screen that merely looks read-only is not one.
- *
- * Below tablet the table becomes stacked cards (brief §7.3): the product stays
- * the identifier and everything else becomes a labelled line. A table that
- * scrolls sideways on a phone is not a table anyone reads.
- *
- * Two columns the previous contract fed are gone, because §4.4 `InventoryDto`
- * carries neither: the product's **SKU** (no such field exists anywhere in this
- * contract) and its **price** (a catalog concern — inventory reports quantity).
- * In their place is the row's effective threshold, which is worth showing now
- * that it is genuinely per-row: the same product can be "low" at 5 in one
- * outlet and at 20 in another (§4.1 rule 5).
- *
- * Outlet is not a column either. S-15 reads one outlet at a time — the screen
- * will not load a row until one is picked — so a column of it repeats the same
- * name down the page and takes the width the product name wants. The outlet is
- * named once, on the picker above.
- *
- * Every column but the product is a fixed width. The figures then line up as a
- * grid instead of each row negotiating its own proportions, which is what makes
- * a wide table scannable down a column rather than across a row.
- */
+/** S-15's data table. */
 
 import * as React from 'react';
 
@@ -75,8 +49,8 @@ type InventoryTableProps = {
   onOpenStockPerOutlet: (row: InventoryRow) => void;
   emptyMessage: string;
   /**
-   * Present when the empty table is the result of a filter rather than an empty
-   * outlet — the two states get different copy *and* different ways out.
+   * Present when the empty table is the result of a filter rather than an empty outlet — the two
+   * states get different copy *and* different ways out.
    */
   onClearFilters?: (() => void) | undefined;
 };
@@ -207,8 +181,8 @@ export function InventoryTable({
 }
 
 /**
- * The product name doubles as the entry point to the per-outlet drawer, which
- * is available to both roles — looking is not managing.
+ * The product name doubles as the entry point to the per-outlet drawer, which is available to both
+ * roles — looking is not managing.
  */
 function ProductCell({ row, onOpen }: { row: InventoryRow; onOpen: () => void }) {
   return (

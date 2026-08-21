@@ -5,9 +5,7 @@ import * as React from 'react';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 
-/**
- * The visual box is 20×20; interactive browsers get the same visual size.
- */
+/** The visual box is 20×20; interactive browsers get the same visual size. */
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>

@@ -1,10 +1,4 @@
-/**
- * Data layer entry point.
- *
- * Importing this module installs the transport that matches VITE_API_MODE.
- * Do that once, at app startup, before the first query runs — the root layout
- * imports it for exactly that reason.
- */
+/** Data layer entry point. */
 
 import { setTransport } from '@/api/client';
 import { API_CONFIG, isMockMode } from '@/api/config';
@@ -17,8 +11,8 @@ export function installApi(): void {
   if (installed) return;
   installed = true;
 
-  // Live mode leaves the default fetch transport in place; only the base URL
-  // changes between environments.
+  // Live mode leaves the default fetch transport in place; only the base URL changes between
+  // environments.
   setTransport(isMockMode() ? mockTransport : null);
 }
 

@@ -1,32 +1,4 @@
-/**
- * Turning the Owner's period controls into the date range the API wants.
- *
- * Contract §6.2 takes explicit `date_from` / `date_to` ISO-8601 datetimes on
- * every business endpoint — there is no `period=THIS_MONTH` parameter anywhere.
- * The chips are still the right control for the screen, so the mapping lives
- * here, in one place, rather than in each card.
- *
- * The presets are **rolling windows**, not calendar-aligned ones: "7 Hari
- * Terakhir" is the last seven days ending today, not Monday-to-now. That is how
- * a bank or e-wallet statement reads, and it means the range never collapses to
- * a single day just because it happens to be the 1st of the month.
- *
- * Anything the three presets do not cover is picked by hand, and a manual pick
- * is capped at `MAX_CUSTOM_RANGE_DAYS` — far tighter than the contract's own
- * ceiling. That is deliberate: the chips already cover every long window, so
- * the manual picker exists for narrow, specific ones, and a narrow cap keeps it
- * honest rather than turning it into a second, worse way to ask for a year.
- *
- * Two rules from §6.2 are enforced here rather than discovered as a 400:
- * the range is inclusive, and it may not exceed 366 days.
- *
- * On timezones: §6.1 rule 4 buckets by `merchant.timezone`, and the boundaries
- * below are computed in the browser's. For a single-timezone Indonesian
- * merchant those agree; for a merchant whose staff travel they can differ by a
- * few hours at the edges of a period. Sending an explicit offset the server
- * then reinterprets is the contract's own design, so this is as close as a
- * client can get without a timezone-aware date library.
- */
+/** Turning the Owner's period controls into the date range the API wants. */
 
 export const PERIOD_PRESETS = ['TODAY', 'LAST_7_DAYS', 'LAST_30_DAYS'] as const;
 
@@ -45,17 +17,7 @@ const PRESET_DAYS: Record<PeriodPreset, number> = {
   LAST_30_DAYS: 30,
 };
 
-/**
- * What the dashboard is currently showing.
- *
- * A discriminated union rather than a flat `Period` with a `'CUSTOM'` member:
- * "custom is selected but no dates were picked yet" is not a state the screen
- * can be in, so it should not be a state the type can express.
- *
- * `from` / `to` are `YYYY-MM-DD` inclusive local days — the shape
- * `<input type="date">` speaks, kept verbatim so nothing is lost in a round
- * trip through a Date.
- */
+/** What the dashboard is currently showing. */
 export type PeriodSelection =
   { kind: 'PRESET'; preset: PeriodPreset } | { kind: 'CUSTOM'; from: string; to: string };
 
@@ -82,8 +44,8 @@ export function rangeFor(selection: PeriodSelection, now: Date = new Date()): Da
     const from = parseLocalDay(selection.from);
     const to = parseLocalDay(selection.to);
 
-    // An unparseable pair can only arrive from a caller that skipped
-    // validateCustomRange; fall back rather than emit "Invalid Date" params.
+    // An unparseable pair can only arrive from a caller that skipped validateCustomRange; fall back
+    // rather than emit "Invalid Date" params.
     if (!from || !to) return rangeFor(DEFAULT_SELECTION, now);
 
     const end = endOfDay(to);
@@ -93,28 +55,14 @@ export function rangeFor(selection: PeriodSelection, now: Date = new Date()): Da
   return rollingRange(PRESET_DAYS[selection.preset], now);
 }
 
-/**
- * A stable string for one selection, for dependency arrays.
- *
- * `PeriodSelection` is an object, and a callback keyed on it would be rebuilt
- * whenever an equal-but-new one arrived. The Owner dashboard feeds such a
- * callback into the top bar through an effect that writes state, where an
- * unstable identity is not a wasted render but a loop.
- */
+/** A stable string for one selection, for dependency arrays. */
 export function periodKey(selection: PeriodSelection): string {
   return selection.kind === 'PRESET'
     ? `PRESET:${selection.preset}`
     : `CUSTOM:${selection.from}:${selection.to}`;
 }
 
-/**
- * The period immediately before this one, of the same length.
- *
- * §6.2 has no comparison endpoint and `/dashboard/summary` reports one period
- * at a time, so period-over-period deltas are two reads and a subtraction on
- * the client. This produces the second range: same duration, ending the instant
- * before the current one starts.
- */
+/** The period immediately before this one, of the same length. */
 export function previousRange(range: DateRange): DateRange {
   const start = new Date(range.date_from);
   const end = new Date(range.date_to);
@@ -126,24 +74,13 @@ export function previousRange(range: DateRange): DateRange {
   return { date_from: toIso(previousStart), date_to: toIso(previousEnd) };
 }
 
-/**
- * Percentage change, or null when there is no baseline to compare against.
- *
- * Null rather than 100: a first month of trading has not grown by 100%, it has
- * nothing to be compared with, and the chip says "Baru" instead of a number.
- */
+/** Percentage change, or null when there is no baseline to compare against. */
 export function growthPercent(current: number, previous: number): number | null {
   if (previous === 0) return null;
   return ((current - previous) / previous) * 100;
 }
 
-/**
- * Which bucket width suits a range — hourly only makes sense within a day.
- *
- * Keyed off the span rather than the selection, so a one-day custom range gets
- * the hourly breakdown that picking a single specific day is asking for, and no
- * selection can ever ask for 168 hourly points across a week.
- */
+/** Which bucket width suits a range — hourly only makes sense within a day. */
 export function bucketFor(range: DateRange): 'HOUR' | 'DAY' {
   return spanDays(range) <= 1 ? 'HOUR' : 'DAY';
 }
@@ -154,8 +91,8 @@ export function daysBetween(from: string, to: string): number {
   const end = parseLocalDay(to);
   if (!start || !end) return Number.NaN;
 
-  // Rounded, not truncated: a DST transition inside the range makes the raw
-  // quotient 6.958 rather than 7, and a week would read as over the cap.
+  // Rounded, not truncated: a DST transition inside the range makes the raw quotient 6.958 rather
+  // than 7, and a week would read as over the cap.
   return Math.round((end.getTime() - start.getTime()) / DAY_MS) + 1;
 }
 
@@ -170,15 +107,7 @@ export function validateCustomRange(from: string, to: string): CustomRangeError 
   return null;
 }
 
-/**
- * `YYYY-MM-DD` → local midnight, or null if that is not a real day.
- *
- * Exported because it is the only safe way to turn a picked day into a Date:
- * `new Date('2026-08-15')` parses as *UTC* midnight per spec, which reads back
- * as the 14th at any negative offset — an off-by-one on exactly the dates a
- * user typed by hand. Anything formatting a `YYYY-MM-DD` should come through
- * here rather than construct its own Date.
- */
+/** `YYYY-MM-DD` → local midnight, or null if that is not a real day. */
 export function parseLocalDay(day: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
   if (!match) return null;
@@ -199,23 +128,14 @@ export function parseLocalDay(day: string): Date | null {
 function rollingRange(days: number, now: Date): DateRange {
   const end = endOfDay(now);
 
-  // Stepped on the date component rather than by subtracting milliseconds: a
-  // DST transition inside the window makes `now - n * DAY_MS` land an hour
-  // short and resolve to the wrong local day.
+  // Stepped on the date component rather than by subtracting milliseconds: a DST transition inside
+  // the window makes `now - n * DAY_MS` land an hour short and resolve to the wrong local day.
   const start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1)));
 
   return { date_from: toIso(clampStart(start, end)), date_to: toIso(end) };
 }
 
-/**
- * Inclusive day count a range covers, from its two ISO instants.
- *
- * Both ends are normalised to their local midnight before subtracting. A range
- * ends at 23:59:59.999, so measuring the raw instants makes a single day come
- * out as 0.99999 days — and rounding that up would call it two. Normalising
- * also absorbs a DST transition inside the range, which would otherwise shift
- * the quotient by an hour in either direction.
- */
+/** Inclusive day count a range covers, from its two ISO instants. */
 function spanDays(range: DateRange): number {
   const from = new Date(range.date_from);
   const to = new Date(range.date_to);
@@ -239,8 +159,8 @@ function endOfDay(date: Date): Date {
 }
 
 /**
- * ISO-8601 **with the local offset**, as §0 requires — not `toISOString`, which
- * would silently shift everything to UTC and move a period boundary by hours.
+ * ISO-8601 **with the local offset**, as §0 requires — not `toISOString`, which would silently
+ * shift everything to UTC and move a period boundary by hours.
  */
 function toIso(date: Date): string {
   const offset = -date.getTimezoneOffset();

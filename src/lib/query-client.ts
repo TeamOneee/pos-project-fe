@@ -1,30 +1,15 @@
 import { QueryClient } from '@tanstack/react-query';
 
 /**
- * TanStack Query owns all server state (CLAUDE.md § Stack). Zustand is for cart
- * state only, and never mirrors anything the API already knows.
- *
- * Cache strategy, per query, in the hook that owns it:
- *   • Reference data (merchant, categories, outlets, staff) — minutes, because
- *     it changes rarely and every write invalidates it.
- *   • Catalog and inventory lists — seconds to a minute, invalidated on write.
- *   • POS catalogue — short, because stock moves with every sale.
- *   • Dashboard reads — 30 minutes (see use-dashboard.ts); freshness after a
- *     change comes from mutation invalidation, not from time.
- *   • Completed-sale reads (transaction detail, receipt, exact search) —
- *     Infinity: a settled sale never changes.
- *
- * The global default below is the floor for everything not explicitly tuned,
- * and the invalidation web on the write hooks is what makes the longer
- * staleTimes safe: products/categories/outlets/staff/inventory/checkout all
- * invalidate every query derived from what they changed.
+ * TanStack Query owns all server state (CLAUDE.md § Stack). Zustand is for cart state only, and
+ * never mirrors anything the API already knows.
  */
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // POS data changes constantly; 30s keeps screens responsive without
-        // re-fetching on every focus change.
+        // POS data changes constantly; 30s keeps screens responsive without re-fetching on every
+        // focus change.
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         retry: (failureCount, error) => {
@@ -51,9 +36,9 @@ function isClientError(error: unknown): boolean {
 }
 
 /**
- * Query key factory. Every key starts with its domain, so a mutation can
- * invalidate a whole domain with the bare prefix — invalidating ['products']
- * clears every filtered list and every single-product query under it.
+ * Query key factory. Every key starts with its domain, so a mutation can invalidate a whole domain
+ * with the bare prefix — invalidating ['products'] clears every filtered list and every
+ * single-product query under it.
  */
 export const queryKeys = {
   /** Claims decoded from the access token — there is no `GET /auth/me` (§1.2). */
@@ -89,9 +74,8 @@ export const queryKeys = {
   receipt: (id: string) => ['transactions', 'receipt', id] as const,
 
   /**
-   * One key per `/dashboard/*` endpoint. The previous single fat owner/admin
-   * endpoints are gone (§6.2), so a screen composes several of these and each
-   * caches on its own period.
+   * One key per `/dashboard/*` endpoint. The previous single fat owner/admin endpoints are gone
+   * (§6.2), so a screen composes several of these and each caches on its own period.
    */
   dashboard: ['dashboard'] as const,
   dashboardSummary: (params: Record<string, unknown>) => ['dashboard', 'summary', params] as const,

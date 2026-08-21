@@ -1,12 +1,4 @@
-/**
- * The row-menu action that sets a new password for one staff member.
- *
- * §1.2 has no way to set an initial or new password except `new_password` on
- * `PATCH /staff/:user_id`, and it is deliberately separate from the edit dialog:
- * changing someone's password is not an edit to their details, it is a
- * credential reset — the confirmation wording below says what it does to their
- * current sessions.
- */
+/** The row-menu action that sets a new password for one staff member. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';

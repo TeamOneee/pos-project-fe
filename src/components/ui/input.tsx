@@ -19,14 +19,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           'min-h-touch rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg',
           'placeholder:text-fg-subtle',
-          // Exactly one line at a time. The resting border hides while the ring
-          // is up rather than sitting inside it — transparent, not removed, so
-          // the field does not resize on focus.
+          // Exactly one line at a time. The resting border hides while the ring is up rather than
+          // sitting inside it — transparent, not removed, so the field does not resize on focus.
           'transition-colors focus:border-transparent',
           numeric && 'type-mono tabular-nums text-right',
-          // Invalid shows red: as a border at rest, and as the ring itself once
-          // focused. Recolouring the single ring says "here" and "wrong" at once,
-          // where a red border inside an accent ring just says it twice.
+          // Invalid shows red: as a border at rest, and as the ring itself once focused.
           invalid ? 'border-danger focus-ring-danger' : 'focus-ring-always',
           disabled && 'bg-subtle text-fg-muted cursor-not-allowed',
           className

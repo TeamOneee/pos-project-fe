@@ -1,14 +1,4 @@
-/**
- * The one control that hides and restores the desktop sidebar.
- *
- * It reads the shell context itself rather than taking props, because it has to
- * sit in two different headers: the app header, and the till's own bar at /pos.
- * The till has no app header to inherit the button from, and without it a
- * Cashier — the one person who lives on that screen — was the only user who
- * could not reclaim the width.
- *
- * Renders nothing below desktop, where there is no sidebar to collapse.
- */
+/** The one control that hides and restores the desktop sidebar. */
 
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 

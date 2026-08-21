@@ -1,26 +1,6 @@
 /**
- * The Owner dashboard's period control: a dropdown of three rolling presets
- * with a manual range behind them.
- *
- * A dropdown rather than a chip row because it sits in a top bar next to the
- * outlet select, and two controls side by side should read as two controls of
- * the same kind. The trigger is styled to match `SelectTrigger` for that
- * reason, but the menu is written by hand — the same call `RowMenu` made, and
- * for the same reason: the app has no menu dependency, and Radix's Select
- * cannot carry an item that opens a dialog instead of choosing a value.
- *
- * The manual range is committed on "Terapkan", not as the fields are typed.
- * That is what keeps a half-typed or over-wide range from ever reaching a query
- * — the invalid state lives in this component's draft and never becomes the
- * selection the dashboard reads. It matters because not every hook the screen
- * fans out to can be disabled: `useTransactions` derives its own `enabled` and
- * takes no override, so "don't fetch that" is not something the data layer can
- * be asked for after the fact.
- *
- * The menu's open state and the dialog's draft stay in here deliberately. The
- * screen feeds its controls into the shell's top bar through an effect that
- * writes state, so anything that changes on every keystroke must not be visible
- * to that memo.
+ * The Owner dashboard's period control: a dropdown of three rolling presets with a manual range
+ * behind them.
  */
 
 import { Check, ChevronDown } from 'lucide-react';
@@ -51,13 +31,13 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * An empty pair is a form in progress, not a mistake — the user has opened the
- * dialog and not finished. Terapkan stays disabled, but nothing is said.
+ * An empty pair is a form in progress, not a mistake — the user has opened the dialog and not
+ * finished.
  */
 const ERROR_MESSAGES: Record<Exclude<CustomRangeError, 'INCOMPLETE'>, string> = {
   REVERSED: 'Tanggal mulai melebihi tanggal akhir.',
-  // Says why, not just no: a 30-day preset sits right above this, and a bare
-  // refusal at 7 days reads as a bug rather than a rule.
+  // Says why, not just no: a 30-day preset sits right above this, and a bare refusal at 7 days
+  // reads as a bug rather than a rule.
   TOO_WIDE: `Rentang maksimal ${MAX_CUSTOM_RANGE_DAYS} hari. Gunakan preset untuk rentang lebih panjang.`,
 };
 
@@ -79,8 +59,6 @@ export function PeriodControl({
   const error = validateCustomRange(draft.from, draft.to);
 
   // Dismissal, as RowMenu does it: an outside press or Escape closes the menu.
-  // Escape also returns focus to the trigger, so the keyboard is not stranded
-  // at the top of the document.
   React.useEffect(() => {
     if (!menuOpen) return;
 
@@ -106,17 +84,17 @@ export function PeriodControl({
 
   const selectPreset = (preset: PeriodPreset) => {
     setMenuOpen(false);
-    // A click on the active option is not a change. Emitting a fresh-but-equal
-    // selection would churn every identity derived from it, including the node
-    // the top bar re-reads through an effect.
+    // A click on the active option is not a change. Emitting a fresh-but-equal selection would
+    // churn every identity derived from it, including the node the top bar re-reads through an
+    // effect.
     if (value.kind === 'PRESET' && value.preset === preset) return;
     onChange({ kind: 'PRESET', preset });
   };
 
   const openPicker = () => {
     setMenuOpen(false);
-    // Seeded from the applied range, or from the last week when a preset is
-    // active, so the dialog opens on something legal rather than empty.
+    // Seeded from the applied range, or from the last week when a preset is active, so the dialog
+    // opens on something legal rather than empty.
     setDraft(
       value.kind === 'CUSTOM' ? { from: value.from, to: value.to } : { from: lastWeek(), to: today }
     );
@@ -214,13 +192,7 @@ export function PeriodControl({
   );
 }
 
-/**
- * One row of the menu.
- *
- * `aria-checked` rather than `aria-selected`: this is a menu of mutually
- * exclusive choices, so the items are `menuitemradio`. The tick is doubled by
- * that state rather than being the only thing carrying it.
- */
+/** One row of the menu. */
 function MenuItem({
   checked,
   onSelect,

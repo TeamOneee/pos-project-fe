@@ -1,11 +1,4 @@
-/**
- * The POS search filter.
- *
- * A pure function so the grid can memoise it and so it can be tested against
- * a realistic catalogue without rendering anything. It runs on every keystroke
- * over the whole catalogue, so it does the cheap checks first and allocates
- * nothing per candidate beyond the lowercased query.
- */
+/** The POS search filter. */
 
 import type { PosProduct } from '@/lib/pos-catalog';
 
@@ -34,8 +27,8 @@ export function filterProducts(products: PosProduct[], filter: CatalogFilter): P
 }
 
 /**
- * Which empty state to show. "No results at all" and "nothing matched the
- * filter" are different problems with different ways out (design brief §7.1).
+ * Which empty state to show. "No results at all" and "nothing matched the filter" are different
+ * problems with different ways out (design brief §7.1).
  */
 export type CatalogEmptyKind = 'none' | 'empty-catalog' | 'no-results';
 

@@ -1,22 +1,4 @@
-/**
- * Session state for the whole app: who is signed in, in what role, at which
- * outlet.
- *
- * The token itself lives in api/token.ts, because the transport needs it
- * synchronously on every request. This provider owns everything around it —
- * restoring it on boot, reading the session out of it, and tearing it down when
- * the server says it is no longer good.
- *
- * There is no round trip to resolve a session. Contract §1.2 has no
- * `GET /auth/me`, and §0 puts `sub`, `merchant_id`, `role` and `outlet_id` in
- * the JWT precisely so a client does not need one. That makes boot synchronous
- * once storage has been read, and it removes the old "restoring the user"
- * state entirely.
- *
- * What the claims do **not** carry is a name. Nothing in this contract can tell
- * the client who the signed-in person is, so `email` below is the local echo of
- * the login form rather than anything the API said.
- */
+/** Session state for the whole app: who is signed in, in what role, at which outlet. */
 
 import * as React from 'react';
 
@@ -72,8 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRestored(true);
     });
 
-    // Login and sign-out both go through setToken, so this keeps the provider
-    // in step without either of them having to call into it.
+    // Login and sign-out both go through setToken, so this keeps the provider in step without
+    // either of them having to call into it.
     const unsubscribe = onTokenChange((token) => setClaims(readClaims(token)));
 
     return () => {
@@ -100,8 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ? 'authenticated'
       : 'unauthenticated';
 
-  // Held in a ref so the 401 listener does not need re-subscribing on every
-  // status change, and so it can tell a live session from one that never was.
+  // Held in a ref so the 401 listener does not need re-subscribing on every status change, and so
+  // it can tell a live session from one that never was.
   const statusRef = React.useRef(status);
   React.useEffect(() => {
     statusRef.current = status;
@@ -117,8 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const acknowledgeSessionExpired = React.useCallback(() => {
     setSessionExpired(false);
-    // Drop the dead token and every cached query with it; the guard sees an
-    // unauthenticated app on the next render and routes to login.
+    // Drop the dead token and every cached query with it; the guard sees an unauthenticated app on
+    // the next render and routes to login.
     signOutLocally();
   }, [signOutLocally]);
 
@@ -143,13 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * A stored token that has already expired is not a session.
- *
- * Checking `exp` here saves a guaranteed 401 on boot. It is not a security
- * measure — the server validates the signature, the expiry and the account
- * status on every protected request regardless (FR-AUTH-009).
- */
+/** A stored token that has already expired is not a session. */
 function readClaims(token: string | null): TokenClaims | null {
   const claims = decodeToken(token);
   return claims && !isTokenExpired(claims) ? claims : null;
@@ -162,8 +138,8 @@ export function useAuth(): AuthContextValue {
 }
 
 /**
- * The signed-in session, for screens that already sit behind the guard and so
- * cannot be rendered without one.
+ * The signed-in session, for screens that already sit behind the guard and so cannot be rendered
+ * without one.
  */
 export function useCurrentSession(): Session {
   const { session } = useAuth();

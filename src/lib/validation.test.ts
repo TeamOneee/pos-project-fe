@@ -1,7 +1,7 @@
 /**
- * As much about what is *kept* as what is stripped: a product really can be
- * called "Kopi & Susu <Spesial>", and mangling it to dodge an XSS these
- * primitives cannot reach would corrupt the catalogue for nothing.
+ * As much about what is *kept* as what is stripped: a product really can be called "Kopi & Susu
+ * <Spesial>", and mangling it to dodge an XSS these primitives cannot reach would corrupt the
+ * catalogue for nothing.
  */
 
 import { describe, expect, it } from 'vitest';

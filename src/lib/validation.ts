@@ -3,20 +3,14 @@ import { z } from 'zod';
 import { parseMoney } from '@/lib/money';
 
 /**
- * Shared zod pieces. Each form owns its own schema, colocated with the form
- * (CLAUDE.md § Stack) — these are only the primitives those schemas build on.
- *
- * Messages are Bahasa Indonesia because they are UI copy (rule 5).
+ * Shared zod pieces. Each form owns its own schema, colocated with the form (CLAUDE.md § Stack) —
+ * these are only the primitives those schemas build on.
  */
 
 /**
- * Invisible characters that arrive by paste and survive a round trip: two names
- * that look identical stop matching in search, and a bidi override reorders how
- * one prints on a receipt. Stripped, because a user cannot see them to fix them.
- *
- * *Not* an XSS defence, and must not become one: `<`, `>` and `&` are legitimate
- * in "Kopi & Susu", and are made safe where they render, not where they are
- * typed. See docs/security.md.
+ * Invisible characters that arrive by paste and survive a round trip: two names that look identical
+ * stop matching in search, and a bidi override reorders how one prints on a receipt. Not an XSS
+ * defence — `<` and `&` are legitimate here, and are made safe where they render.
  */
 /* eslint-disable no-control-regex -- stripping the control range is the point */
 const CONTROL = /[\0-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g;
@@ -65,9 +59,9 @@ export const passwordSchema = z
   .min(8, 'Kata sandi minimal 8 karakter');
 
 /**
- * A money field the user types into. Accepts "15.750.000" or "15750000",
- * rejects anything with a decimal separator — there are no sen in this product
- * (CLAUDE.md rule 1) — and yields an integer number of rupiah.
+ * A money field the user types into. Accepts "15.750.000" or "15750000", rejects anything with a
+ * decimal separator — there are no sen in this product (CLAUDE.md rule 1) — and yields an integer
+ * number of rupiah.
  */
 export const rupiahInput = (label = 'Harga') =>
   z

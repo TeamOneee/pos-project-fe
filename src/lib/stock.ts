@@ -1,26 +1,8 @@
-/**
- * How stock reads on screen.
- *
- * The guesswork this file used to carry is gone. There is no merchant-level
- * threshold in this contract — §0 says so in as many words — and every payload
- * that reports stock now also reports the threshold it was judged against:
- * `effective_low_stock_threshold`, resolved server-side from the outlet
- * override or the product's base value (§4.1 rule 5).
- *
- * So nothing here invents a threshold or recovers one from a sample row. The
- * caller passes the threshold the server used, and these functions only decide
- * how to say it.
- */
+/** How stock reads on screen. */
 
 export type StockLevel = 'out' | 'low' | 'ok';
 
-/**
- * Where a quantity sits against its own effective threshold.
- *
- * Prefer the server's `is_low_stock` where a payload carries one — this exists
- * for the rows that do not, and for the POS tile, whose ceiling is the outlet's
- * stock rather than a threshold.
- */
+/** Where a quantity sits against its own effective threshold. */
 export function stockLevel(stock: number, threshold: number): StockLevel {
   if (stock <= 0) return 'out';
   // "At or below" — a product sitting exactly on the threshold is already low.
@@ -32,9 +14,8 @@ export function stockLevel(stock: number, threshold: number): StockLevel {
 export type StockRow = { quantity: number; effectiveLowStockThreshold: number };
 
 /**
- * How urgent a low-stock row is: the smaller the share of its threshold that
- * remains, the closer it is to running out. Sorting on this puts a product at
- * 1 of 20 above one at 9 of 10 (S-14 row 3, S-15c).
+ * How urgent a low-stock row is: the smaller the share of its threshold that remains, the closer it
+ * is to running out.
  */
 export function stockUrgency(row: StockRow): number {
   if (row.effectiveLowStockThreshold <= 0) return row.quantity;
@@ -46,14 +27,7 @@ export function byUrgency<T extends StockRow>(a: T, b: T): number {
   return stockUrgency(a) - stockUrgency(b) || a.quantity - b.quantity;
 }
 
-/**
- * Most urgent first.
- *
- * Out-of-stock rows lead by construction rather than by a special case: their
- * quantity is zero, so their urgency is zero, so they sort ahead of everything
- * still on the shelf. That is what lets one merged queue read as a severity
- * order without a second comparator.
- */
+/** Most urgent first. */
 export function sortByUrgency<T extends StockRow>(rows: readonly T[]): T[] {
   return [...rows].sort(byUrgency);
 }

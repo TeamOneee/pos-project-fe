@@ -1,12 +1,4 @@
-/**
- * The Owner's headline figures.
- *
- * This used to serve the Admin's operational tiles too, with an alarm `tone` and
- * a pressable variant that scrolled to a table. The Admin dashboard is a work
- * queue now: its counts are the queue's filter chips, and its severity lives on
- * the rows themselves. Both props went with that screen rather than being kept
- * against a caller that no longer exists.
- */
+/** The Owner's headline figures. */
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -27,8 +19,8 @@ export function KpiTile({
   /** A caption under the figure. */
   hint?: string;
   /**
-   * A client-side growth delta against the preceding period. Passed by the
-   * Owner's dashboard; a null delta reads as "Baru", not a fabricated +100%.
+   * A client-side growth delta against the preceding period. Passed by the Owner's dashboard; a
+   * null delta reads as "Baru", not a fabricated +100%.
    */
   delta?: number | null;
   /** Accessible name for the delta chip when it differs from the tile label. */

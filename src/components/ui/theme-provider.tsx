@@ -19,9 +19,8 @@ function readPreference(): ThemePreference {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
-    // The system-following feature is disabled for now: the product is
-    // light-first, so a stored 'system' falls through to light. The branch is
-    // kept so re-enabling is a one-line change.
+    // The system-following feature is disabled for now: the product is light-first, so a stored
+    // 'system' falls through to light.
     if (stored === 'system') return 'light';
   } catch {
     // Storage unavailable; fall through to light.
@@ -55,8 +54,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(theme);
   }, [theme]);
 
-  // Dormant while the system-following feature is disabled: nothing sets the
-  // preference to 'system' today, but this stays for the one-line re-enable.
+  // Dormant while the system-following feature is disabled: nothing sets the preference to 'system'
+  // today, but this stays for the one-line re-enable.
   React.useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (!media || preference !== 'system') return;

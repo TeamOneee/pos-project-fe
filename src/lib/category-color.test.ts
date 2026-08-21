@@ -1,7 +1,6 @@
 /**
- * The promise this helper makes is stability: a category keeps its colour
- * between renders, pages and sessions. Nothing else about it is worth testing,
- * and everything about that is.
+ * The promise this helper makes is stability: a category keeps its colour between renders, pages
+ * and sessions.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -64,9 +63,9 @@ describe('categoryHue', () => {
   });
 
   it('spreads the seeded categories over more than one hue', () => {
-    // Not a guarantee the function can make for arbitrary input, but if the
-    // five categories this product ships with all collided, the hashing would
-    // be pointless and this is where we would find out.
+    // Not a guarantee the function can make for arbitrary input, but if the five categories this
+    // product ships with all collided, the hashing would be pointless and this is where we would
+    // find out.
     const hues = new Set(
       ['Minuman', 'Makanan Ringan', 'Kopi', 'Perawatan Diri', 'Roti'].map(categoryHue)
     );

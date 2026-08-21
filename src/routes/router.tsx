@@ -1,9 +1,4 @@
-/**
- * The application's routes, mapped to layouts and pages.
- *
- * The root index redirects to the signed-in role's landing route; the guard
- * decides that once the session is known.
- */
+/** The application's routes, mapped to layouts and pages. */
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 

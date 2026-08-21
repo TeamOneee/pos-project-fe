@@ -1,16 +1,4 @@
-/**
- * The catalog screen's "invisible to the cashier" rule.
- *
- * S-11 badges an active product whose category has been deactivated, because
- * that product silently vanishes from the till while looking perfectly fine on
- * the catalog screen. These cases pin down which products earn the badge.
- *
- * What this file used to also assert — that the POS grid and the badge agree —
- * is gone, and deliberately. Contract §4.2 moved sellability server-side into
- * `GET /products/catalog`, so the till no longer derives it and there is no
- * second implementation left to drift. `buildCatalog` is now a join, and the
- * tests below say exactly that.
- */
+/** The catalog screen's "invisible to the cashier" rule. */
 
 import { describe, expect, it } from 'vitest';
 
@@ -48,8 +36,8 @@ const CATEGORIES = [category('drinks', true), category('retired', false)];
 const PRODUCTS = [
   product('sellable', 'drinks', true),
   product('orphaned', 'retired', true),
-  // §3.4 makes `category_id` non-nullable, so "no category" is not a state a
-  // product can be in any more — only an empty id could produce it.
+  // §3.4 makes `category_id` non-nullable, so "no category" is not a state a product can be in any
+  // more — only an empty id could produce it.
   product('uncategorised', '', true),
   product('withdrawn', 'drinks', false),
 ];
@@ -65,8 +53,8 @@ describe('cashier visibility', () => {
   });
 
   it('badges exactly the active products a cashier will never see', () => {
-    // The badge is for the surprising case: the product is active, so nobody
-    // deactivated it, yet it is gone from the POS.
+    // The badge is for the surprising case: the product is active, so nobody deactivated it, yet it
+    // is gone from the POS.
     const badged = PRODUCTS.filter(
       (entry) => entry.isActive && isHiddenByCategory(entry, index)
     ).map((entry) => entry.productId);
@@ -87,8 +75,8 @@ describe('POS catalogue', () => {
   }
 
   it('renders whatever the server said is sellable, without re-judging it', () => {
-    // The server has already excluded the inactive product and the orphan; the
-    // client's job is to show what arrived, not to filter it again.
+    // The server has already excluded the inactive product and the orphan; the client's job is to
+    // show what arrived, not to filter it again.
     const catalog = buildCatalog([row('sellable', 'drinks')], CATEGORIES);
 
     expect(catalog.products.map((entry) => entry.productId)).toEqual(['sellable']);
@@ -102,8 +90,7 @@ describe('POS catalogue', () => {
   });
 
   it('still shows a row whose category is missing from the list', () => {
-    // Not a filter: the server said it is sellable, so it sells — it just has
-    // no label to print.
+    // Not a filter: the server said it is sellable, so it sells — it just has no label to print.
     const catalog = buildCatalog([row('mystery', 'unknown-cat')], CATEGORIES);
 
     expect(catalog.products.map((entry) => entry.productId)).toEqual(['mystery']);

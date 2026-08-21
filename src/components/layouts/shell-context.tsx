@@ -1,14 +1,4 @@
-/**
- * The top bar's two slots: a page title and a place for contextual controls.
- *
- * The title defaults to the active nav item's label, so most screens set
- * nothing. A screen whose heading is not its nav label overrides it with
- * `useTopBarTitle`. A screen that wants controls on the desktop top bar
- * renders them through `useTopBarActions`.
- *
- * The sidebar's collapsed state also lives here — above the router, so it
- * survives navigation between pages but not a reload.
- */
+/** The top bar's two slots: a page title and a place for contextual controls. */
 
 import * as React from 'react';
 

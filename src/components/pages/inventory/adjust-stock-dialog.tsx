@@ -1,21 +1,4 @@
-/**
- * S-15a · Sesuaikan Stok.
- *
- * The reason is optional in this form. §4.2 still rejects an adjustment without
- * one (400), so leaving it blank saves the delta and surfaces the server's
- * error rather than pre-empting it with a field error.
- *
- * The cashier-facing shape of this form is "what should the stock be", but the
- * API takes "how much should it change by": `POST /inventory/adjustments` sends
- * a signed `delta` and the server computes the result itself (§4.2). So the
- * form collects a target quantity and submits the difference, which also makes
- * the contract's "delta must not be zero" rule a natural piece of validation —
- * saving a row without changing it is not an adjustment.
- *
- * Addressing is by `(outlet_id, product_id)`, so unlike the previous contract
- * there is no inventory-row id to look up first, and a product with no stock
- * row at the outlet can be adjusted straight into existence.
- */
+/** S-15a · Sesuaikan Stok. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
@@ -54,8 +37,7 @@ function adjustSchema(currentStock: number) {
       .number({ required_error: 'Stok baru wajib diisi' })
       .int('Stok harus berupa angka bulat')
       .min(0, 'Stok tidak boleh bernilai negatif')
-      // §4.2: `delta` may not be zero, so an unchanged quantity is not a
-      // submittable adjustment. Caught here rather than as a 400.
+      // §4.2: `delta` may not be zero, so an unchanged quantity is not a submittable adjustment.
       .refine((value) => value !== currentStock, 'Stok baru harus berbeda dari stok saat ini'),
     reason: optionalText('Alasan').optional(),
   });
@@ -221,8 +203,8 @@ function AdjustStockForm({ target, onDone }: { target: AdjustTarget; onDone: () 
 export function cnTextarea(invalid: boolean): string {
   return [
     'rounded-md border bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle',
-    // One line at a time: the resting border hides under the ring, and an
-    // invalid field recolours the ring rather than keeping a second border.
+    // One line at a time: the resting border hides under the ring, and an invalid field recolours
+    // the ring rather than keeping a second border.
     'transition-colors focus:border-transparent',
     invalid ? 'border-danger focus-ring-danger' : 'border-border-interactive focus-ring-always',
     'disabled:bg-subtle disabled:text-fg-muted disabled:cursor-not-allowed',

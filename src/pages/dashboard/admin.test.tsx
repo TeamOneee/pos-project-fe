@@ -1,14 +1,6 @@
 /**
- * S-14 · the Admin's landing screen, which is now a reference screen: a
- * per-outlet stock table and the catalogue figures, and no work queue.
- *
- * The queue and the adjustment it opens moved to `/inventory/low-stock`, and
- * the tests that cover them went with it (low-stock.test.tsx) — including the
- * one that proves a write moves the counts, since the counts it moves are the
- * queue's own chips.
- *
- * What is left here is the screen's arithmetic, which has its own history of
- * being wrong: `inventory_item_count` counts empty shelves too.
+ * S-14 · the Admin's landing screen, which is now a reference screen: a per-outlet stock table and
+ * the catalogue figures, and no work queue.
  */
 
 import '@/api';
@@ -56,10 +48,9 @@ describe('S-14 · admin stock dashboard', () => {
     // If the fixture has no empty shelves this test proves nothing, so say so.
     expect(inStock).toBeLessThan(rows.length);
 
-    /*
-     * `/dashboard/operations` reports `inventory_item_count` as every row it
-     * holds, empties included. The screen used to print that under an "in stock"
-     * label, counting the same shelves as both stocked and out of stock.
+    /**
+     * `/dashboard/operations` reports `inventory_item_count` as every row it holds, empties
+     * included.
      */
     expect(
       await screen.findByRole('group', { name: `Produk Berstok: ${inStock}` })

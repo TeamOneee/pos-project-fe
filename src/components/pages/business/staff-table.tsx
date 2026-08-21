@@ -1,17 +1,4 @@
-/**
- * S-08's staff table, and its stacked-card reading below tablet.
- *
- * The table spells out who works where. The Owner's own row carries no menu —
- * the Owner cannot be edited or deactivated through `PATCH /staff/:user_id`
- * (§1.2), so it reads as it is rather than offering actions that 403.
- *
- * The outlet column is resolved from the outlet list the page already fetched,
- * because `GET /staff` returns `outlet_id`, never a name.
- *
- * Name and email take the space that is left; every other column is a fixed
- * width, so the badges line up down the page and each header sits over its own
- * column rather than each row negotiating its own proportions.
- */
+/** S-08's staff table, and its stacked-card reading below tablet. */
 
 import * as React from 'react';
 

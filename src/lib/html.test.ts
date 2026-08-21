@@ -1,6 +1,6 @@
 /**
- * Every interpolation is escaped unless something explicitly said otherwise,
- * and a nested fragment is escaped once — twice prints "&amp;" on a receipt.
+ * Every interpolation is escaped unless something explicitly said otherwise, and a nested fragment
+ * is escaped once — twice prints "&amp;" on a receipt.
  */
 
 import { describe, expect, it } from 'vitest';

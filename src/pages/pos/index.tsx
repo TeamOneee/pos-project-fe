@@ -1,15 +1,4 @@
-/**
- * S-16 · Cashier POS, and the checkout flow on top of it (S-17 … S-19).
- *
- * Chromeless at every breakpoint — no sidebar, no icon rail, no bottom tabs.
- * It is the screen the product exists for, it needs the whole viewport, and it
- * carries its own top bar. AppShell knows this route by name.
- *
- * Everything the cashier touches reads from the Zustand cart, which updates
- * synchronously. The server is caught up afterwards on a debounce — see
- * use-cart-sync.ts. Checkout is a separate machine with its own lock, in
- * use-checkout.ts.
- */
+/** S-16 · Cashier POS, and the checkout flow on top of it (S-17 … S-19). */
 
 import { Link } from 'react-router-dom';
 import * as React from 'react';
@@ -50,8 +39,8 @@ export default function PosScreen() {
   const breakpoint = useBreakpoint();
   const { toast } = useToast();
 
-  // A Cashier's outlet is fixed by the JWT; an Owner picks an active one when
-  // opening the till (§4.2). Until that choice exists there is no till to show.
+  // A Cashier's outlet is fixed by the JWT; an Owner picks an active one when opening the till
+  // (§4.2).
   const [ownerOutletId, setOwnerOutletId] = React.useState<string | null>(null);
   const outletId = role === 'CASHIER' ? sessionOutletId : ownerOutletId;
   const needsOutletPick = role === 'OWNER' && !ownerOutletId;
@@ -83,8 +72,8 @@ export default function PosScreen() {
 
   const stockByProduct = React.useMemo(() => stockMap(catalog.products), [catalog.products]);
 
-  // §5.2: the cart is client-side only. There is no server cart to sync with,
-  // so clearing it is a local action and nothing is reconciled on load.
+  // §5.2: the cart is client-side only. There is no server cart to sync with, so clearing it is a
+  // local action and nothing is reconciled on load.
   const clear = useCartStore((state) => state.clear);
 
   const checkout = useCheckout({ outletId, lines, total: subtotal });
@@ -106,8 +95,8 @@ export default function PosScreen() {
 
   /* --- checkout ---------------------------------------------------------- */
 
-  // The receipt has to be built from the cart that produced the sale, before
-  // "Transaksi Baru" empties it.
+  // The receipt has to be built from the cart that produced the sale, before "Transaksi Baru"
+  // empties it.
   const snapshot = React.useRef({ lines, identity });
   React.useEffect(() => {
     snapshot.current = { lines, identity };
@@ -144,8 +133,8 @@ export default function PosScreen() {
     (productIds: string[]) => {
       setFlagged(productIds);
       setPaymentOpen(false);
-      // The cart is about to change, so this attempt is over — a later submit
-      // gets a fresh idempotency key.
+      // The cart is about to change, so this attempt is over — a later submit gets a fresh
+      // idempotency key.
       checkout.reset();
     },
     [checkout]
@@ -155,8 +144,8 @@ export default function PosScreen() {
     const failure = checkout.state.failure;
     if (failure?.kind !== 'price_changed') return;
 
-    // §5.2 reports drift by position in the request we sent, so the index is
-    // resolved back through the very array that was submitted.
+    // §5.2 reports drift by position in the request we sent, so the index is resolved back through
+    // the very array that was submitted.
     applyPrices(
       Object.fromEntries(
         failure.items.flatMap((item) => {
@@ -190,9 +179,8 @@ export default function PosScreen() {
   /* --- cart -------------------------------------------------------------- */
 
   /**
-   * Stable across renders: it reads the cart through getState rather than
-   * closing over it, so adding an item does not invalidate every tile's
-   * press handler.
+   * Stable across renders: it reads the cart through getState rather than closing over it, so
+   * adding an item does not invalidate every tile's press handler.
    */
   const handleSelect = React.useCallback(
     (product: PosProduct) => {
@@ -280,12 +268,6 @@ export default function PosScreen() {
   );
 
   // An Owner has no till until they choose which active outlet to work (§4.2).
-  //
-  // The gate keeps the till's own top bar. `/pos` is chromeless — the shell
-  // gives it no header — so without this the picker is the one screen in the
-  // app with no header at all, and an Owner who opened the till by accident has
-  // no "Kembali" to leave by. There is no outlet to name yet and nothing to
-  // switch from, so the bar carries only the way out.
   if (needsOutletPick) {
     return (
       <div className="flex h-full flex-col bg-canvas">
@@ -373,10 +355,7 @@ function PosTopBar({
   hasOutletName: boolean;
   /** Present for an Owner, who chose this outlet and may choose another. */
   onSwitchOutlet?: () => void;
-  /**
-   * Owner only, and never on mobile — there the tab bar is the way out of the
-   * till. On desktop the till is chromeless, so this is the back button.
-   */
+  /** Owner only, and never on mobile — there the tab bar is the way out of the till. */
   showBack?: boolean;
 }) {
   const time = useClock();

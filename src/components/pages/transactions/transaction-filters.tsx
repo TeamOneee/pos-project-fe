@@ -1,13 +1,4 @@
-/**
- * S-21's filter bar.
- *
- * The outlet select is not rendered at all for a Cashier — not disabled, not
- * preset — because their scope is not a choice they are making. Their subtitle
- * names the outlet instead, and the query layer pins it (lib/transaction-scope).
- *
- * Dates are native date inputs: a picker on every platform, a YYYY-MM-DD value
- * the API takes verbatim, and no dependency.
- */
+/** S-21's filter bar. */
 
 import { Search, X } from 'lucide-react';
 
@@ -27,9 +18,9 @@ export const ALL = 'ALL';
 
 export type TransactionQuery = {
   /**
-   * A transaction number. §5.2's only search endpoint is an **exact** match on
-   * `transaction_number` — there is no partial or fuzzy search in the contract —
-   * so this is a lookup rather than a filter.
+   * A transaction number. §5.2's only search endpoint is an **exact** match on `transaction_number`
+   * — there is no partial or fuzzy search in the contract — so this is a lookup rather than a
+   * filter.
    */
   search: string;
   /** YYYY-MM-DD, or empty for "no bound". */
@@ -191,14 +182,7 @@ function SelectField({
 }
 
 /** Shown under the title for a Cashier, in place of the outlet filter. */
-/**
- * The Cashier's scope line.
- *
- * `outletName` is usually empty, and that is a contract limit rather than an
- * oversight: §2.2 makes `GET /outlets` Owner and Admin only, so a cashier has
- * no endpoint that names the outlet they are standing in. The unnamed wording
- * still says what the scope is.
- */
+/** The Cashier's scope line. */
 export function ScopeSubtitle({ outletName }: { outletName: string }) {
   return (
     <Text variant="body" tone="muted">

@@ -1,13 +1,4 @@
-/**
- * The two states the dashboard has besides "populated".
- *
- * The skeleton mirrors the real layout rather than being a generic block, so
- * nothing jumps when the data lands.
- *
- * The empty state keeps the KPI tiles — at Rp 0 and 0 — because a new merchant
- * needs to see that the figures exist and are simply zero, not that the screen
- * is broken. Rows 2 to 6 collapse into one card pointing at outlet setup.
- */
+/** The two states the dashboard has besides "populated". */
 
 import { ChartColumn } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -137,17 +128,11 @@ function ListSkeleton({ className }: { className?: string }) {
 }
 
 /**
- * The Admin stock dashboard's loading state. Same building blocks as the
- * Owner's skeleton (KPI tiles plus list cards) so the two dashboards share one
- * visual language — only the absence of chart rows differs.
+ * The Admin stock dashboard's loading state. Same building blocks as the Owner's skeleton (KPI
+ * tiles plus list cards) so the two dashboards share one visual language — only the absence of
+ * chart rows differs.
  */
-/**
- * S-14 while it loads: the queue, the per-outlet table, the catalogue strip.
- *
- * Shaped like what replaces it, in that order. It carries no tile row — the
- * Admin screen has no KPI tiles any more, and a skeleton that shows four would
- * paint them for a moment and then throw them away.
- */
+/** S-14 while it loads: the queue, the per-outlet table, the catalogue strip. */
 export function StockDashboardSkeleton() {
   return (
     <div className="flex flex-col gap-lg">

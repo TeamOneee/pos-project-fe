@@ -1,11 +1,4 @@
-/**
- * S-13, and the one piece of copy on it that carries a consequence.
- *
- * The deactivate dialog has to say what breaks: no new products can use the
- * category, and the products already using it stay put while disappearing from
- * the cashier's catalog. That second half is the part a user cannot infer, so it
- * is asserted rather than left to review.
- */
+/** S-13, and the one piece of copy on it that carries a consequence. */
 
 import '@/api';
 

@@ -1,30 +1,4 @@
-/**
- * The printable receipt: 80mm thermal width, monospaced, black on white.
- *
- * Plain HTML rather than a rendered component, because both consumers want a
- * document — the print path writes it into a frame, the PDF path renders it.
- *
- * Nothing here reads a design token: a thermal printer has one colour and no
- * webfont, and a receipt that depends on the app's theme would print wrong.
- *
- * **On sizing.** Two papers, one document. `thermal` is a fixed 80mm column
- * that fills an 80mm roll exactly. `a4` restyles the same markup for a full
- * sheet — "Simpan sebagai PDF" was landing an 80mm strip in the middle of A4,
- * which is legible only if the user hunts for the scale control.
- *
- * Only the stylesheet differs; the markup is identical, so there is one place
- * where receipt data becomes HTML and one set of escaping guarantees.
- *
- * It deliberately does *not* declare `size: 80mm auto`. That is invalid CSS —
- * `size` takes one or two lengths, or the single keyword `auto`, never a mix —
- * so the whole declaration was dropped, the page fell back to A4, and the
- * receipt printed as a small block in the top-left. Naming a length instead
- * would force every short receipt to feed and waste most of a page of thermal
- * paper, so the width is expressed in the body and the page is left `auto`.
- *
- * Widths are in millimetres, not pixels: a print job is not rendered at 96dpi,
- * so 302px is only accidentally 80mm.
- */
+/** The printable receipt: 80mm thermal width, monospaced, black on white. */
 
 import type { ReceiptData } from '@/lib/receipt-data';
 import { formatDateTime } from '@/lib/date';
@@ -39,8 +13,8 @@ export const RECEIPT_WIDTH_MM = 80;
 export type ReceiptPaper = 'thermal' | 'a4';
 
 /**
- * Overrides appended to the thermal rules, so `size: A4` also makes A4 the
- * paper the print dialog opens on.
+ * Overrides appended to the thermal rules, so `size: A4` also makes A4 the paper the print dialog
+ * opens on.
  */
 const A4_STYLES = `
   @page { size: A4; margin: 18mm 20mm; }
@@ -86,10 +60,8 @@ export function receiptHtml(receipt: ReceiptData, paper: ReceiptPaper = 'thermal
       </div>`
   );
 
-  // A reprint from S-22 knows the method but not what was handed over — cash
-  // received is not persisted — so it names the method instead of claiming the
-  // sale was non-cash. At checkout, where `received` is always known for a cash
-  // sale, this renders exactly as it did before.
+  // A reprint from S-22 knows the method but not what was handed over — cash received is not
+  // persisted — so it names the method instead of claiming the sale was non-cash.
   const cashRows =
     receipt.method === 'CASH'
       ? receipt.received !== null
@@ -111,9 +83,7 @@ export function receiptHtml(receipt: ReceiptData, paper: ReceiptPaper = 'thermal
 
   html {
     background: #fff;
-    /* Pure black throughout. A thermal head has one dot and no grey, so a
-       "muted" tone dithers into a smudge rather than reading as secondary —
-       hierarchy here is size and weight only. */
+    /** "muted" tone dithers into a smudge rather than reading as secondary — */
     color: #000;
   }
 
@@ -140,8 +110,6 @@ export function receiptHtml(receipt: ReceiptData, paper: ReceiptPaper = 'thermal
 
   .outlet { font-size: 10.5pt; }
 
-  /* Dashed between sections, solid where the eye should stop: around the
-     figures a customer checks. */
   .rule { border-top: 1px dashed #000; margin: 3mm 0; }
   .rule-strong { border-top: 2px solid #000; margin: 3mm 0; }
 

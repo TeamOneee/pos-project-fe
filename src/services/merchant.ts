@@ -1,15 +1,4 @@
-/**
- * Merchant profile — contract §2.2.
- *
- * One merchant per account, so there is no list endpoint and no id parameter:
- * `merchant_id` always comes from the JWT and never from a body (§2.1 rule 1).
- *
- * `GET` is readable by every role — the receipt header and the app shell both
- * need the merchant name. `PATCH` is Owner only, and `name` is the only
- * editable field. In particular there is **no `low_stock_threshold` on the
- * merchant**; §0 calls that out explicitly. Thresholds live on the product
- * (`low_stock_threshold`) with an optional per-outlet override (§4.4).
- */
+/** Merchant profile — contract §2.2. */
 
 import { z } from 'zod';
 

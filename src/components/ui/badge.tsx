@@ -5,13 +5,8 @@ import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
 /**
- * Status badge. CLAUDE.md rule 6: status is never signalled by colour alone,
- * so a Badge always carries a text label — the colour only reinforces it.
- *
- * Each tint carries a hairline of its own colour. Without it a badge sitting on
- * a surface tinted the same way — a MENIPIS badge on a low-stock row — loses
- * its shape entirely and reads as loose coloured text beside neighbours that
- * still look like pills.
+ * Status badge. CLAUDE.md rule 6: status is never signalled by colour alone, so a Badge always
+ * carries a text label — the colour only reinforces it.
  */
 const badgeVariants = cva(
   'inline-flex items-center gap-xs self-start rounded-full border px-md py-xs',

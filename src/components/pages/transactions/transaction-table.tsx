@@ -1,13 +1,4 @@
-/**
- * S-21's table, and its stacked-card form below tablet.
- *
- * There is no row menu and no action beyond "Lihat", because there is nothing
- * else a completed sale supports: no edit, no void, no refund. A transaction in
- * this MVP is a fact that already happened.
- *
- * The transaction number is the row's identity and its link — mono so digits line
- * up, accent so it reads as tappable.
- */
+/** S-21's table, and its stacked-card form below tablet. */
 
 import * as React from 'react';
 
@@ -22,13 +13,8 @@ import { formatIDR } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 /**
- * §5.4 `TransactionSummaryDto` is the whole list row, and it is deliberately
- * thin: number, outlet id, operator name, total, status, timestamp.
- *
- * Two columns are therefore gone. **Item** had no source — the list endpoint
- * does not count lines, and inventing a count would be worse than omitting one.
- * **Outlet** survives only as a name looked up from the outlet list the screen
- * already holds, because the row carries an id rather than a name.
+ * §5.4 `TransactionSummaryDto` is the whole list row, and it is deliberately thin: number, outlet
+ * id, operator name, total, status, timestamp.
  */
 export function TransactionTable({
   rows,
@@ -158,11 +144,7 @@ export function TransactionTable({
   );
 }
 
-/**
- * §5.1: `COMPLETED` is the only status a transaction can hold. A failed
- * checkout writes no row at all, so there is nothing else to label — the badge
- * stays because the design shows one, not because the value can vary.
- */
+/** §5.1: `COMPLETED` is the only status a transaction can hold. */
 const STATUS_LABEL: Record<TransactionStatus, string> = {
   COMPLETED: 'SELESAI',
 };

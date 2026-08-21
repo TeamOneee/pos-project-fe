@@ -1,9 +1,4 @@
-/**
- * The 72px tablet icon rail.
- *
- * Same nav, same source of truth, no labels. Each icon carries a tooltip for
- * pointer users and an aria-label for everyone else.
- */
+/** The 72px tablet icon rail. */
 
 import { NavLink } from 'react-router-dom';
 

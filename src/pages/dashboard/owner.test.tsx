@@ -1,12 +1,6 @@
 /**
- * S-03's period control, which is the one part of the Owner dashboard a user
- * can put into an illegal state.
- *
- * The rule under test is not "the range is capped" — `period.test.ts` covers
- * the arithmetic. It is that an over-wide range cannot be *applied*: the cap
- * has to stop it at the dialog, because once a range is committed it fans out
- * to seven queries, and one of them (`useTransactions`) has no way to be told
- * not to run.
+ * S-03's period control, which is the one part of the Owner dashboard a user can put into an
+ * illegal state.
  */
 
 import '@/api';
@@ -39,9 +33,9 @@ function trigger(): HTMLElement {
 }
 
 async function openMenu(): Promise<HTMLElement> {
-  // The element is resolved before act() rather than inside it: findByRole
-  // polls, and awaiting a polling query within act stalls the effects it is
-  // waiting on — the screen never gets past its loading spinner.
+  // The element is resolved before act() rather than inside it: findByRole polls, and awaiting a
+  // polling query within act stalls the effects it is waiting on — the screen never gets past its
+  // loading spinner.
   const button = await screen.findByRole('button', { name: 'Pilih periode' });
   await act(async () => {
     fireEvent.click(button);
@@ -123,8 +117,8 @@ describe('S-03 · the period control', () => {
     render(<App />);
 
     const dialog = await openPicker();
-    // Ten days: over the seven-day cap, but a range the API itself would accept,
-    // so nothing but this control stands between it and seven queries.
+    // Ten days: over the seven-day cap, but a range the API itself would accept, so nothing but
+    // this control stands between it and seven queries.
     await draft(dialog, day(-9), day(0));
 
     expect(within(dialog).getByRole('button', { name: 'Terapkan' })).toBeDisabled();
@@ -157,8 +151,8 @@ describe('S-03 · the period control', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    // The trigger now names the applied range rather than a preset, and
-    // reopening the menu shows the custom row ticked instead of any preset.
+    // The trigger now names the applied range rather than a preset, and reopening the menu shows
+    // the custom row ticked instead of any preset.
     expect(trigger()).not.toHaveTextContent('30 Hari Terakhir');
 
     const menu = await openMenu();

@@ -1,24 +1,4 @@
-/**
- * Row 4 — what sells and what does not.
- *
- * Both cards come from one read: §6.2 `GET /dashboard/top-products` returns
- * `top_selling` and `least_selling` together, each row carrying
- * `{ product_id, name, units_sold, omzet }`.
- *
- * That list is deliberately short of what this row used to show, and the
- * missing pieces are not reconstructible:
- *
- *   • **No category name** — the ranking is over transaction items, which
- *     snapshot the product name and nothing else.
- *   • **No stock level and no "days without sale"** — reporting reads the sales
- *     aggregate, not the inventory table.
- *   • **No recommendation enum.** There was never an API for it; suggesting
- *     "turunkan harga" from the client would be inventing advice.
- *
- * The sort toggle survives because both orderings are derivable from the rows
- * themselves: the server ranks by omzet, and quantity is a re-sort of the same
- * five products rather than a different query.
- */
+/** Row 4 — what sells and what does not. */
 
 import * as React from 'react';
 
@@ -97,8 +77,8 @@ export function UnderperformingCard({
   products: ProductRank[];
   className?: string;
 }) {
-  // Weakest first: this card is read from the top like the other one, so the
-  // worst seller has to be the first row rather than the last.
+  // Weakest first: this card is read from the top like the other one, so the worst seller has to be
+  // the first row rather than the last.
   const rows = React.useMemo(() => [...products].sort((a, b) => a.omzet - b.omzet), [products]);
 
   return (

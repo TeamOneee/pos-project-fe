@@ -1,17 +1,4 @@
-/**
- * Forced error scenarios for mock mode.
- *
- * Most failures the UI has to handle can be produced naturally against the
- * dataset — sign in with the wrong password for a 401, reuse an email for a
- * 409, order more units than an outlet holds for a 400. These overrides exist
- * for the ones that are awkward to stage on demand, and so a screen's error
- * state can be opened deliberately while building it.
- *
- *   setMockScenario('timeout');            // every request hangs past the deadline
- *   setMockScenario('forbidden', { once: true });
- *   setMockScenario('server_error', { path: /^\/products/ });
- *   clearMockScenario();
- */
+/** Forced error scenarios for mock mode. */
 
 export type MockScenario =
   | 'unauthorized'
@@ -46,9 +33,7 @@ export function currentMockScenario(): MockScenario | null {
   return active?.scenario ?? null;
 }
 
-/**
- * The scenario that applies to this path, consuming it when it is one-shot.
- */
+/** The scenario that applies to this path, consuming it when it is one-shot. */
 export function takeScenarioFor(path: string): MockScenario | null {
   if (!active) return null;
 

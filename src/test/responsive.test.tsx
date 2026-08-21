@@ -1,12 +1,6 @@
 /**
- * The breakpoint contract, exercised at the three widths the product targets:
- * mobile <768, tablet 768–1279, desktop ≥1280.
- *
- * `useBreakpoint` reads `window.innerWidth`, so jsdom can drive it honestly —
- * these tests resize the window and assert the tree actually changes shape. What
- * they cannot do is measure pixels: jsdom has no layout engine, so where the rule
- * is expressed as a Tailwind variant (`tablet:` classes) the class is asserted
- * instead, and the visual result is a browser check.
+ * The breakpoint contract, exercised at the three widths the product targets: mobile <768, tablet
+ * 768–1279, desktop ≥1280.
  */
 
 import '@/api';
@@ -62,9 +56,8 @@ describe('tables become stacked cards below 768px', () => {
 
     // The product is still there…
     expect(await screen.findByText('Coca Cola 1.5L')).toBeInTheDocument();
-    // …but the table header row is gone: Kategori, Harga and Status demote to a
-    // caption line inside each card. ("Kategori" is not a usable probe — the
-    // mobile tab bar has a nav item by that name.)
+    // …but the table header row is gone: Kategori, Harga and Status demote to a caption line inside
+    // each card.
     expect(screen.queryByText('Batas Stok')).toBeNull();
     expect(screen.queryByText('Aksi')).toBeNull();
   });
@@ -91,8 +84,8 @@ describe('tables become stacked cards below 768px', () => {
     await openAt('/transactions', MOBILE);
 
     expect(await screen.findByText('TRX-20260813-001')).toBeInTheDocument();
-    // "No. Transaksi" is also the search field's label, so the probe is a header
-    // that exists nowhere else on the screen.
+    // "No. Transaksi" is also the search field's label, so the probe is a header that exists
+    // nowhere else on the screen.
     expect(screen.queryByText('Tanggal & Waktu')).toBeNull();
   });
 });
@@ -116,8 +109,8 @@ describe('modals below 768px', () => {
     });
 
     const dialog = await screen.findByRole('dialog');
-    // The panel carries both halves of the contract: a sheet by default, a
-    // centred card from tablet up.
+    // The panel carries both halves of the contract: a sheet by default, a centred card from tablet
+    // up.
     expect(dialog.className).toContain('h-full');
     expect(dialog.className).toContain('tablet:h-auto');
     expect(dialog.className).toContain('tablet:rounded-lg');
@@ -131,12 +124,8 @@ describe('modals below 768px', () => {
 
 describe('dashboard grids collapse to one column', () => {
   /**
-   * Queried by class rather than by label: the tile labels are also column
-   * headings elsewhere on the page, so a text lookup finds both.
-   *
-   * The Owner is the subject here because KpiTile is now the Owner's alone. The
-   * Admin's tiles became the stock queue's filter chips, which are a control
-   * rather than a row of figures and carry no tile basis.
+   * Queried by class rather than by label: the tile labels are also column headings elsewhere on
+   * the page, so a text lookup finds both.
    */
   const kpiTiles = () => Array.from(document.querySelectorAll('.basis-full'));
 
@@ -158,8 +147,8 @@ describe('dashboard grids collapse to one column', () => {
 
     await screen.findAllByText('Total Omzet');
 
-    // Document order is the reading order, so the stacked column follows the row
-    // the tiles were specified in.
+    // Document order is the reading order, so the stacked column follows the row the tiles were
+    // specified in.
     const order = kpiTiles()
       .slice(0, 3)
       .map((tile) => tile.textContent ?? '');
@@ -175,11 +164,9 @@ describe('dashboard grids collapse to one column', () => {
 
     await screen.findByText('Stok Per Outlet');
 
-    /*
-     * The Admin's four tiles are gone on purpose: their counts became the
-     * per-outlet table and the catalogue strip. Nothing on this screen may
-     * claim a tile basis — a stray one would be picked up by the Owner's
-     * tile-order test above and fail there, on markup from another screen.
+    /**
+     * The Admin's four tiles are gone on purpose: their counts became the per-outlet table and the
+     * catalogue strip.
      */
     expect(document.querySelectorAll('.basis-full')).toHaveLength(0);
 
@@ -205,8 +192,8 @@ describe('the POS is the exception', () => {
     const bar = await screen.findByRole('button', { name: 'Lihat keranjang' });
     expect(bar).toBeInTheDocument();
 
-    // The sheet stays mounted and translated off-screen so both directions
-    // animate, so "closed" is `aria-hidden` plus a transform — not absence.
+    // The sheet stays mounted and translated off-screen so both directions animate, so "closed" is
+    // `aria-hidden` plus a transform — not absence.
     const heading = screen.getByText('Keranjang');
     const sheet = heading.closest('[aria-hidden]');
     expect(sheet?.getAttribute('aria-hidden')).toBe('true');
@@ -241,9 +228,8 @@ describe('the POS is the exception', () => {
     // …but the Owner's tab bar is still there, so leaving the till is one tap.
     const dashboardTab = screen.getByRole('link', { name: 'Dashboard' });
 
-    // And it is pinned to the bottom of the screen, not pushed below the fold:
-    // the region above it cannot grow past its flexed height and the bar
-    // itself cannot shrink (shrink-0).
+    // And it is pinned to the bottom of the screen, not pushed below the fold: the region above it
+    // cannot grow past its flexed height and the bar itself cannot shrink (shrink-0).
     const bar = dashboardTab.closest('nav');
     expect(bar?.className).toContain('shrink-0');
     expect(bar?.previousElementSibling?.querySelector('main')?.className).toContain(
@@ -258,8 +244,8 @@ describe('the POS is the exception', () => {
 
     await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
 
-    // Scoped to the nav landmark: the till's own header carries a Riwayat link
-    // of its own, which is the only way out at mobile and stays there.
+    // Scoped to the nav landmark: the till's own header carries a Riwayat link of its own, which is
+    // the only way out at mobile and stays there.
     const nav = within(screen.getByRole('navigation'));
     expect(nav.getByRole('link', { name: 'Kasir' })).toBeInTheDocument();
     expect(nav.getByRole('link', { name: 'Riwayat' })).toBeInTheDocument();
@@ -293,8 +279,8 @@ describe('the POS is the exception', () => {
     await openAt('/pos', MOBILE);
 
     await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
-    // The till's own "Kasir" label is text, not a link; a link by that name
-    // exists only in a footer tab bar, and there is none for a cashier.
+    // The till's own "Kasir" label is text, not a link; a link by that name exists only in a footer
+    // tab bar, and there is none for a cashier.
     expect(screen.queryByRole('link', { name: 'Kasir' })).toBeNull();
   });
 
@@ -302,8 +288,7 @@ describe('the POS is the exception', () => {
     await signInAs('owner@indomart.com');
     await openAt('/pos', MOBILE);
 
-    // The Owner must pick an outlet before there is a till to tap into. The
-    // button's name carries the address too, so the probe is a substring.
+    // The Owner must pick an outlet before there is a till to tap into.
     await act(async () => {
       (await screen.findByRole('button', { name: /Outlet A - Mall Central/ })).click();
     });
@@ -342,9 +327,8 @@ describe('one shell, whatever the screen', () => {
     const header = screen.getByRole('banner');
     const nav = screen.getByRole('navigation');
 
-    // The header shares a column with the page, and the rail sits outside that
-    // column — which is what makes it full height. A header spanning above the
-    // rail would contain it here.
+    // The header shares a column with the page, and the rail sits outside that column — which is
+    // what makes it full height.
     expect(header.parentElement?.querySelector('main')).not.toBeNull();
     expect(header.parentElement?.contains(nav)).toBe(false);
   });
@@ -370,8 +354,8 @@ describe('the desktop sidebar collapses and comes back', () => {
     await signInAs('owner@indomart.com');
     await openAt('/dashboard', DESKTOP);
 
-    // "Analitik" is a sidebar-only label — nothing else on the dashboard is a
-    // link by that name, so it is an honest probe for the sidebar being alive.
+    // "Analitik" is a sidebar-only label — nothing else on the dashboard is a link by that name, so
+    // it is an honest probe for the sidebar being alive.
     expect(await screen.findByRole('link', { name: 'Analitik' })).toBeInTheDocument();
 
     // Collapse it, to give the dashboard the full width.

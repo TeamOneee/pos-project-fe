@@ -1,19 +1,4 @@
-/**
- * The form-level error banner: danger-subtle, at the top of the form body.
- *
- * The split with FormField is deliberate and worth stating, because getting it
- * wrong is what makes forms feel broken:
- *
- *   • A failure that belongs to a field is shown at that field — red border plus
- *     a caption underneath (FormField). Never a bare border: a red outline with
- *     no words tells the user something is wrong and nothing about what.
- *   • A failure that belongs to the whole submission — the server refused, the
- *     network died, three fields disagree with each other — has no field to sit
- *     under, so it goes here, at the top of the body where the eye starts, not in
- *     a toast that disappears while the user is still reading the form.
- *
- * `role="alert"` so a screen reader announces it when it appears mid-submit.
- */
+/** The form-level error banner: danger-subtle, at the top of the form body. */
 
 import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
@@ -53,13 +38,7 @@ export function FormBanner({
   );
 }
 
-/**
- * The banner for a rejected mutation, or null when there is nothing to report.
- *
- * Every form that submits to the API renders this instead of hand-writing the
- * "if error, show a caption" branch — that is how three forms end up reporting
- * failure three different ways.
- */
+/** The banner for a rejected mutation, or null when there is nothing to report. */
 export function MutationErrorBanner({
   error,
   fallback = 'Perubahan gagal disimpan.',

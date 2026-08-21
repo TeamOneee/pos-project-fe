@@ -1,12 +1,4 @@
-/**
- * The way out, and the fact that it cannot be hidden.
- *
- * The account chip used to live at the foot of the sidebar. The desktop sidebar
- * collapses, and when it did the chip went with it — leaving the app with no
- * sign-out at all until you expanded the sidebar again. The first test is that
- * bug; the rest guard the confirmation that came with moving it into the header,
- * where a mis-click sits next to the controls people use all day.
- */
+/** The way out, and the fact that it cannot be hidden. */
 
 import '@/api';
 
@@ -83,10 +75,10 @@ describe('signing out', () => {
     await click(signOutButton() as HTMLElement);
 
     expect(await screen.findByText('Keluar dari akun?')).toBeInTheDocument();
-    /*
-     * Still signed in: the dialog is a question, not a countdown. Asserted on
-     * the route rather than on the header button, which Radix correctly drops
-     * out of the accessibility tree while a modal is open.
+    /**
+     * Still signed in: the dialog is a question, not a countdown. Asserted on the route rather than
+     * on the header button, which Radix correctly drops out of the accessibility tree while a modal
+     * is open.
      */
     expect(window.location.pathname).toBe('/categories');
   });

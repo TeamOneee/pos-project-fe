@@ -1,25 +1,4 @@
-/**
- * S-05 · AI Insight, against contract §7.
- *
- * The page is a trigger plus a read, and the two map onto two different things
- * the contract is careful to keep apart: the **job** is the process
- * (`PENDING → PROCESSING → READY | RETRY_SCHEDULED → FAILED`), and the
- * **insights** are only ever completed results. The screen polls the job while
- * it runs and renders the results when it is done; it never infers one from the
- * other.
- *
- * A merchant that has never triggered an analysis gets 404 — that is the empty
- * state, not an error. There is no history list: the API holds one result per
- * type and overwrites it (OD-007), so the page renders exactly what it returns.
- *
- * Two contract points shape the affordances:
- *
- *   • One analysis per merchant per local day (§7.1 rule 2). Triggering again
- *     the same day returns 200 with the existing job, so the screen does not
- *     block a second press — it just tells the truth about what came back.
- *   • `evidence_summary` is structured data the LLM was given, not user-facing
- *     copy, so the cards show `title` + `content` and leave the evidence alone.
- */
+/** S-05 · AI Insight, against contract §7. */
 
 import { Copy, Sparkles } from 'lucide-react';
 
@@ -134,12 +113,10 @@ export default function AiInsightsPage() {
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[960px]">
-      <div className="flex flex-col gap-xs">
-        <Text variant="h1">AI Insight</Text>
-        <Text variant="body" tone="muted">
-          Analisis dan rekomendasi bisnis berbasis data Anda.
-        </Text>
-      </div>
+      {/* The shell's top bar carries the title; this is its subtitle. */}
+      <Text variant="body" tone="muted">
+        Analisis dan rekomendasi bisnis berbasis data Anda.
+      </Text>
 
       {jobFailed && (
         <FormBanner title="Analisis terakhir gagal diproses">
@@ -355,8 +332,8 @@ function ResultSkeleton() {
 }
 
 /**
- * Copy with a `navigator.clipboard`-first, `execCommand` fallback, because
- * some embedded webviews refuse the async clipboard API without a permission.
+ * Copy with a `navigator.clipboard`-first, `execCommand` fallback, because some embedded webviews
+ * refuse the async clipboard API without a permission.
  */
 async function copyText(text: string): Promise<boolean> {
   try {

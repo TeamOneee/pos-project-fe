@@ -1,15 +1,4 @@
-/**
- * The controls shared by the Owner's dashboard and analytics screens.
- *
- * The freshness caption is not decoration. §6.1 rule 3 builds the Owner's
- * aggregates cache-aside with a 30-minute TTL, and every response reports both
- * `data_updated_at` and a `FRESH`/`STALE` flag. The figures on screen are
- * genuinely minutes old, and a screen that looks live while being stale is the
- * kind of thing a business decision gets made on. So the caption reads the
- * server's own timestamp — not the moment we fetched it — and surfaces STALE
- * explicitly, since §6.2 deliberately returns stale aggregates as 200s rather
- * than failing.
- */
+/** The controls shared by the Owner's dashboard and analytics screens. */
 
 import { RefreshCw } from 'lucide-react';
 import * as React from 'react';
@@ -67,11 +56,7 @@ export function OutletSelect({
 /* Segmented                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/**
- * A segmented control that scrolls horizontally when it has to. That is the
- * same component the brief asks for at desktop and the chip row it asks for on
- * mobile — the only difference is whether the content overflows.
- */
+/** A segmented control that scrolls horizontally when it has to. */
 export function Segmented<T extends string>({
   options,
   value,
@@ -126,8 +111,8 @@ export function FreshnessCaption({
   onRefresh,
 }: {
   /**
-   * Epoch millis of the server's `data_updated_at` — when the aggregate was
-   * built, not when we fetched it. 0 while nothing has loaded.
+   * Epoch millis of the server's `data_updated_at` — when the aggregate was built, not when we
+   * fetched it.
    */
   updatedAt: number;
   /** The server flagged this read `STALE` (§6.1); say so rather than hide it. */
@@ -135,27 +120,15 @@ export function FreshnessCaption({
   refreshing: boolean;
   onRefresh: () => void;
 }) {
-  // Re-renders on a timer so "2 menit lalu" does not sit there saying "baru
-  // saja" ten minutes after the fact.
+  // Re-renders on a timer so "2 menit lalu" does not sit there saying "baru saja" ten minutes after
+  // the fact.
   const [, tick] = React.useState(0);
   React.useEffect(() => {
     const timer = setInterval(() => tick((value) => value + 1), 30_000);
     return () => clearInterval(timer);
   }, []);
 
-  /*
-   * The age, said once.
-   *
-   * This used to print the absolute time and then repeat it in brackets —
-   * "13 Agu 2026, 21.30 (13 Agu 2026, 21.30)" — because `formatTimeAgo` falls
-   * back to the full timestamp past a day, so the two halves collapsed into the
-   * same string on any aggregate older than that. The relative form already
-   * degrades to an absolute one when it has to, which is exactly the behaviour
-   * the caption wanted; printing both was the redundancy.
-   *
-   * The exact timestamp and the cache window stay in the tooltip. On screen the
-   * caption answers one question — how old is this — as the brief asks.
-   */
+  /** The age, said once. */
   const absolute = updatedAt === 0 ? '' : formatDateTime(updatedAt);
   const age = updatedAt === 0 ? '' : formatTimeAgo(updatedAt);
   return (

@@ -1,9 +1,4 @@
-/**
- * The sticky sub-header above the product grid: search, then category chips.
- *
- * The search input is 48px rather than the usual 44px minimum — it is the most
- * frequently hit target on the busiest screen in the product.
- */
+/** The sticky sub-header above the product grid: search, then category chips. */
 
 import { Search } from 'lucide-react';
 import * as React from 'react';

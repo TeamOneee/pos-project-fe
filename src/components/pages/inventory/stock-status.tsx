@@ -1,15 +1,4 @@
-/**
- * How a stock level reads on screen: AMAN / MENIPIS / HABIS.
- *
- * The badge always carries its word — the colour only reinforces it
- * (CLAUDE.md rule 6).
- *
- * Rows are not tinted. A whole tinted row puts colour behind the product name,
- * the threshold and the timestamp, none of which are the problem, and at a
- * dozen alarms it turns into wallpaper — it stops discriminating precisely
- * where discrimination is the point. The colour goes on the quantity instead,
- * which is the datum that is actually wrong, and the badge keeps the word.
- */
+/** How a stock level reads on screen: AMAN / MENIPIS / HABIS. */
 
 import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
@@ -29,8 +18,7 @@ const STOCK_VARIANT: Record<StockLevel, NonNullable<BadgeProps['variant']>> = {
 };
 
 /**
- * The tone for the quantity itself. `*-text` tokens, so it clears 4.5:1 —
- * see lib/contrast.test.ts.
+ * The tone for the quantity itself. `*-text` tokens, so it clears 4.5:1 — see lib/contrast.test.ts.
  */
 const QUANTITY_TONE = {
   ok: 'default',
@@ -55,10 +43,7 @@ export function StockBadgeFor({ quantity, threshold }: { quantity: number; thres
   return <StockBadge level={stockLevel(quantity, threshold)} />;
 }
 
-/**
- * A count chip for the two alert columns of S-14's outlet table. Zero is not an
- * alarm, so it renders as a plain grey dash-chip rather than a coloured zero.
- */
+/** A count chip for the two alert columns of S-14's outlet table. */
 export function AlertCountChip({
   count,
   tone,

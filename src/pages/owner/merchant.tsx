@@ -1,15 +1,4 @@
-/**
- * S-10 · Pengaturan Merchant.
- *
- * A narrow single-column page (§7.3). `name` is the only editable field —
- * §2.4 `MerchantDto` carries no low-stock threshold, so the brief's second card
- * ("Konfigurasi Stok") has nothing to configure and is left out rather than
- * faking a setting that would have to be persisted somewhere the contract does
- * not have.
- *
- * The route demands `merchant` read, which the matrix grants only to the Owner,
- * so the form is the whole screen — there is no read-only variant to render.
- */
+/** S-10 · Pengaturan Merchant. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
@@ -17,7 +6,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { MutationErrorBanner } from '@/components/ui/form-banner';
 import { Input } from '@/components/ui/input';
@@ -41,8 +30,8 @@ export default function MerchantPage() {
     defaultValues: { name: '' },
   });
 
-  // The query is the source of truth; a refetch (or the PATCH response) moves
-  // the field, and "Batal" restores it.
+  // The query is the source of truth; a refetch (or the PATCH response) moves the field, and
+  // "Batal" restores it.
   React.useEffect(() => {
     if (merchant.data) reset({ name: merchant.data.name });
   }, [merchant.data, reset]);
@@ -67,8 +56,6 @@ export default function MerchantPage() {
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[720px]">
-      <Text variant="h1">Pengaturan Merchant</Text>
-
       {merchant.isPending ? (
         <Skeleton className="h-[280px] w-full" />
       ) : merchant.isError ? (
@@ -79,14 +66,14 @@ export default function MerchantPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="flex flex-col gap-lg pt-lg">
-            <div className="flex flex-col gap-xs">
-              <Text variant="h2">Informasi Merchant</Text>
-              <Text variant="body" tone="muted">
-                Nama ini tampil di header aplikasi dan di struk.
-              </Text>
-            </div>
+          <CardHeader>
+            <CardTitle>Informasi Merchant</CardTitle>
+            <Text variant="body" tone="muted">
+              Nama ini tampil di header aplikasi dan di struk.
+            </Text>
+          </CardHeader>
 
+          <CardContent className="flex flex-col gap-lg">
             <MutationErrorBanner
               error={update.error}
               fallback="Profil merchant gagal disimpan."

@@ -1,17 +1,4 @@
-/**
- * WCAG contrast, asserted against the tokens themselves.
- *
- * A screenshot review catches this once; a test catches it every time someone
- * nudges a token. Every pair below is computed from design-tokens.cjs — the same
- * file Tailwind reads — so a colour cannot pass here and fail in the app.
- *
- * The three bars, from WCAG 2.1 AA:
- *   • 4.5:1 — body text and anything smaller than 18.66px bold / 24px regular.
- *     Every type-scale step in this product except `display` is under that, so
- *     4.5:1 is the bar for text generally.
- *   • 3:1 — large text, and the boundary of an operable control (1.4.11).
- *   • Two documented exceptions at the bottom, with their mitigations.
- */
+/** WCAG contrast, asserted against the tokens themselves. */
 
 import { describe, expect, it } from 'vitest';
 
@@ -126,8 +113,8 @@ describe.each(['light', 'dark'] as const)('%s theme', (theme) => {
   });
 
   it('keeps the focus ring visible against every surface', () => {
-    // The ring is accent at 40% over the surface behind it; the composite is what
-    // the eye sees, so that is what is measured.
+    // The ring is accent at 40% over the surface behind it; the composite is what the eye sees, so
+    // that is what is measured.
     const [ar, ag, ab] = channels(color('accent', theme));
     for (const surface of SURFACES) {
       const [sr, sg, sb] = channels(color(surface, theme));
@@ -145,29 +132,18 @@ describe.each(['light', 'dark'] as const)('%s theme', (theme) => {
   });
 });
 
-/**
- * The two places this product knowingly sits below the bar, and why.
- *
- * Both are locked in as tests so the exception stays deliberate: if someone later
- * makes them compliant, these fail and the reasoning gets revisited rather than
- * quietly rotting.
- */
+/** The two places this product knowingly sits below the bar, and why. */
 describe('documented exceptions', () => {
   it('keeps decorative hairlines subtle rather than 3:1', () => {
-    // `border` and `border-strong` separate rows and cards. WCAG 1.4.11 covers
-    // the boundary of a *control*, not a divider, and a 3:1 table rule reads as a
-    // heavy black grid. Controls use `border-interactive`, which is asserted
-    // above; these two stay quiet on purpose.
+    // `border` and `border-strong` separate rows and cards. WCAG 1.4.11 covers the boundary of a
+    // *control*, not a divider, and a 3:1 table rule reads as a heavy black grid.
     const ratio = contrastRatio(color('border', 'light'), color('surface', 'light'));
     expect(ratio).toBeLessThan(UI_BOUNDARY_MIN);
   });
 
   it('keeps the specified chart palette, mitigated by labels and a table', () => {
-    // CLAUDE.md fixes the chart palette and its order, and three series fall
-    // below 3:1 against a light surface (sky 2.77, teal 2.49, amber 2.15).
-    // Charts are therefore never the only carrier: every chart ships a labelled
-    // legend and a text alternative listing the same figures — see
-    // components/pages/charts/chart-figure.tsx.
+    // CLAUDE.md fixes the chart palette and its order, and three series fall below 3:1 against a
+    // light surface (sky 2.77, teal 2.49, amber 2.15).
     const belowBar = tokens.CHART_PALETTE.filter(
       (hex) => contrastRatio(hex, color('surface', 'light')) < LARGE_TEXT_MIN
     );

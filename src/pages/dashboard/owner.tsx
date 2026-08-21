@@ -1,14 +1,4 @@
-/**
- * S-03 · Owner business dashboard.
- *
- * One of the two surfaces behind `/dashboard`; the Admin's operational stock
- * dashboard is the other. The role picks between them in `pages/dashboard`,
- * and the route guard keeps a Cashier out of both.
- *
- * The screen is composed from seven `/dashboard/*` reads plus a few supporting
- * ones — see use-owner-dashboard.ts, which does the fan-out. What is left here
- * is layout, the period and outlet controls, and the three states.
- */
+/** S-03 · Owner business dashboard. */
 
 import * as React from 'react';
 
@@ -46,8 +36,8 @@ export default function OwnerDashboardPage() {
   const chartHeight = mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.default;
   const { outletOptions, refetch, isFetching, dataUpdatedAt, freshness } = dashboard;
 
-  // Memoized so useTopBarActions sees a stable node: the top bar slot is fed
-  // through an effect, and a fresh element each render would loop the update.
+  // Memoized so useTopBarActions sees a stable node: the top bar slot is fed through an effect, and
+  // a fresh element each render would loop the update.
   const controls = React.useMemo(
     () => (
       <div className="flex flex-row items-center gap-md">

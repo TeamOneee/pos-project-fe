@@ -1,15 +1,4 @@
-/**
- * S-15c · Stok Menipis.
- *
- * The fuller version of the Admin dashboard's alert card: the same rows, but
- * filterable by outlet and with a bulk path out of them. `GET
- * /inventory/low-stock` takes an optional `outlet_id`, so unlike S-15 this
- * screen works across every outlet by default — the filter narrows, it does not
- * unlock.
- *
- * "Update Massal" carries exactly what the filter is showing into S-15d, which
- * is the point: the list on screen is the work list.
- */
+/** S-15c · Stok Menipis. */
 
 import * as React from 'react';
 
@@ -94,8 +83,8 @@ export default function LowStockPage() {
           </CardContent>
         </Card>
       ) : counts.all === 0 && outletId ? (
-        // Filtered to one outlet with no matches is a different state from
-        // nothing being low anywhere: different copy, and a way back out.
+        // Filtered to one outlet with no matches is a different state from nothing being low
+        // anywhere: different copy, and a way back out.
         <Card>
           <CardContent className="flex flex-col items-center gap-md py-3xl">
             <Text variant="body" tone="muted" className="text-center">

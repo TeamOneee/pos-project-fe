@@ -1,11 +1,4 @@
-/**
- * The three badges the catalog screens share.
- *
- * All of them carry words. Status is never colour alone (CLAUDE.md rule 6), and
- * the deactivated-category warning is the one badge on the screen that reports a
- * consequence rather than a state, so it says what the consequence is in text
- * the tooltip only repeats — a touch user cannot hover.
- */
+/** The three badges the catalog screens share. */
 
 import { EyeOff, TriangleAlert } from 'lucide-react';
 
@@ -28,13 +21,7 @@ export function StatusBadge({ status }: { status: Status }) {
   return <ActiveBadge active={status === 'ACTIVE'} />;
 }
 
-/**
- * The catalog spelling of the same thing.
- *
- * §3.4 gives Category and Product a boolean `is_active` rather than the
- * `ACTIVE`/`INACTIVE` enum that staff, outlets and the merchant use. The badge
- * reads identically either way; only the input differs.
- */
+/** The catalog spelling of the same thing. */
 export function ActiveBadge({ active }: { active: boolean }) {
   return active ? (
     <Badge variant="success">
@@ -47,22 +34,7 @@ export function ActiveBadge({ active }: { active: boolean }) {
   );
 }
 
-/**
- * The product's category: a neutral pill, marked with the category's own hue.
- *
- * The pill stays neutral because a category is a label, not a state — tinting
- * the whole badge would put it in the same visual register as AKTIF and
- * MENIPIS. The dot is enough to group a long list by eye, and it is decoration:
- * the name is right beside it (rule 6), so it is `aria-hidden`.
- *
- * `hue` comes from the merchant's category list where the caller has it, so
- * every category gets its own; without it the name is hashed, which is stable
- * but may repeat a colour.
- *
- * The colour is an inline style rather than a class because it is chosen at
- * runtime from the palette — the same reason charts read tokens directly
- * (lib/chart-colors.ts). The hexes stay in lib/tokens.ts.
- */
+/** The product's category: a neutral pill, marked with the category's own hue. */
 export function CategoryBadge({ name, hue }: { name: string | null; hue?: string | undefined }) {
   if (!name) {
     return (
@@ -84,15 +56,7 @@ export function CategoryBadge({ name, hue }: { name: string | null; hue?: string
   );
 }
 
-/**
- * A deactivated product that still holds stock, as the stock queue sees it.
- *
- * Neutral and spelled NONAKTIF so it reads as the same state the product list
- * already shows with `ActiveBadge` — the queue and the catalog must not invent
- * two vocabularies for one flag. It stays in the queue because the stock is
- * real; what it loses is the adjust action, since restocking something nobody
- * can sell is not work.
- */
+/** A deactivated product that still holds stock, as the stock queue sees it. */
 export function InactiveProductBadge() {
   return (
     <Tooltip>
@@ -110,9 +74,9 @@ export function InactiveProductBadge() {
 }
 
 /**
- * An active product whose category has been deactivated. It is deliberately not
- * auto-deactivated and not filtered out of this list — the Admin has to be able
- * to find it and fix it, which they cannot do if it silently disappears.
+ * An active product whose category has been deactivated. It is deliberately not auto-deactivated
+ * and not filtered out of this list — the Admin has to be able to find it and fix it, which they
+ * cannot do if it silently disappears.
  */
 export function InactiveCategoryBadge() {
   return (

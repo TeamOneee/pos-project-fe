@@ -1,26 +1,4 @@
-/**
- * The stock work queue, shared by the Admin dashboard (S-14) and S-15c.
- *
- * This replaces the pair of tables that used to split one payload in two.
- * §6.2 reports a single `items[]` of everything at or below its effective
- * threshold, and zero is at or below every threshold — so "menipis" and "habis"
- * were never two datasets, only two filters over one. Rendering them as two
- * tables put the more urgent half second, below a fold, and duplicated a table
- * implementation to do it.
- *
- * One queue, severity first. `sortByUrgency` needs no special case to lead with
- * the empty shelves: their quantity is zero, so their urgency is zero.
- *
- * On colour: every row here is an alarm, so tinting whole rows would be
- * wallpaper — it would stop discriminating precisely where discrimination is
- * the point. Severity is carried by the Stok cell alone: HABIS in a danger
- * badge, the remaining quantity in a warning one. A severity rail down the
- * left edge said the same thing a second time and drew the eye before the
- * product name did.
- *
- * The threshold shown is the **effective** one: an outlet's override where it
- * has set one, the product's base value otherwise (§4.1 rule 5).
- */
+/** The stock work queue (S-15c), severity first. */
 
 import { CheckCircle2 } from 'lucide-react';
 import * as React from 'react';
@@ -45,12 +23,7 @@ export type StockFilter = (typeof STOCK_FILTERS)[number];
 
 type QueueProduct = { productId: string; name: string };
 
-/**
- * A payload row plus the one thing §6.4's row cannot tell us.
- *
- * `inactive` is joined in by the page from a separate products read — see
- * use-inactive-products.ts for why it cannot come from the queue's own payload.
- */
+/** A payload row plus the one thing §6.4's row cannot tell us. */
 export type QueueRow = LowStockItem & { inactive: boolean };
 
 export type QueueCounts = { all: number; out: number; low: number };
@@ -82,14 +55,7 @@ export function filterQueue<T extends { quantity: number }>(rows: T[], filter: S
 /* Filter                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * The queue's counters and its filter, in one control.
- *
- * The counts live inside the chip labels rather than in tiles above, because a
- * number that filters the list it counts is worth more than a number that only
- * scrolls to it. Labels carry no colon, and the chips are `role="tab"`, so they
- * cannot be mistaken for a KPI tile by name.
- */
+/** The queue's counters and its filter, in one control. */
 export function StockQueueFilter({
   counts,
   value,
@@ -294,14 +260,7 @@ export function StockQueueCard({
   );
 }
 
-/**
- * Said when the product-status join could only answer for part of the catalogue.
- *
- * The alternative — staying quiet — would let an unbadged row imply the product
- * is active when we simply never looked it up. Rows we could not check keep
- * their adjust button: we cannot prove they are retired, and withholding the
- * action on suspicion blocks real work.
- */
+/** Said when the product-status join could only answer for part of the catalogue. */
 export function PartialStatusNotice({
   complete,
   pending,
@@ -309,8 +268,8 @@ export function PartialStatusNotice({
   complete: boolean;
   pending: boolean;
 }) {
-  // Pending is not partial: the index is simply empty, which looks exactly like
-  // a merchant with nothing deactivated.
+  // Pending is not partial: the index is simply empty, which looks exactly like a merchant with
+  // nothing deactivated.
   if (complete || pending) return null;
 
   return (
@@ -337,10 +296,7 @@ function rowKey(row: QueueRow): string {
   return `${row.outletId}-${row.productId}`;
 }
 
-/**
- * Names the row for a screen reader, and gives a test something stable to hold.
- * A stacked card is otherwise five unlabelled lines in a div.
- */
+/** Names the row for a screen reader, and gives a test something stable to hold. */
 function rowLabel(row: QueueRow): string {
   return `${row.productName} · ${row.outletName}`;
 }
@@ -363,8 +319,8 @@ function StockCell({ row }: { row: QueueRow }) {
 }
 
 /**
- * Withheld on a deactivated product: its stock is real, but adjusting it is not
- * work anyone needs done. The column itself stays so the grid does not shift.
+ * Withheld on a deactivated product: its stock is real, but adjusting it is not work anyone needs
+ * done.
  */
 function AdjustButton({
   row,
@@ -387,9 +343,9 @@ function toProduct(row: QueueRow): QueueProduct {
 }
 
 /**
- * The threshold this row was actually judged against, marked when it is an
- * outlet override rather than the product's own — otherwise an Admin comparing
- * two outlets sees two different limits with no explanation.
+ * The threshold this row was actually judged against, marked when it is an outlet override rather
+ * than the product's own — otherwise an Admin comparing two outlets sees two different limits with
+ * no explanation.
  */
 function ThresholdText({ alert }: { alert: LowStockItem }) {
   const overridden = alert.lowStockThresholdOverride !== null;

@@ -1,25 +1,4 @@
-/**
- * S-14 · Admin stock dashboard — the Admin's landing screen.
- *
- * Contract §6.2 replaced the single `/dashboard/admin` payload with granular
- * endpoints, so this screen composes two reads:
- *
- *   • `GET /dashboard/operations?outlet_id=` per outlet — the per-outlet table.
- *   • `GET /dashboard/operations` — the catalogue reference figures.
- *
- * It reads as a reference screen, not a work queue. The restocking queue and
- * the actions that go with it live on `/inventory/low-stock`, which carries its
- * own nav item; running the same queue here split one job across two screens
- * and gave the Admin two places to check.
- *
- * Everything on the screen is therefore merchant-wide, which is why there is no
- * outlet filter: the per-outlet table spans every active outlet by design, and
- * the catalogue strip counts the whole catalogue. Row-level action stays with
- * the row — "Kelola Stok" opens that outlet in Inventory.
- *
- * The Admin has no analytics, no AI insight and no transaction history: the
- * role matrix closes all three, and nothing on this screen links to them.
- */
+/** S-14 · Admin stock dashboard — the Admin's landing screen. */
 
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -68,9 +47,9 @@ export default function AdminDashboardPage() {
         return {
           outletId: outlet.outletId,
           outletName: outlet.name,
-          // Same correction the catalogue strip makes: `inventoryItemCount` is
-          // every row this outlet holds, empties included, so the empty ones
-          // have to come back off before it can be called "berstok".
+          // Same correction the catalogue strip makes: `inventoryItemCount` is every row this
+          // outlet holds, empties included, so the empty ones have to come back off before it can
+          // be called "berstok".
           stockedProducts: Math.max(0, (stats?.inventoryItemCount ?? 0) - outOfStock),
           lowStockCount: stats?.lowStockItemCount ?? 0,
           outOfStockCount: outOfStock,

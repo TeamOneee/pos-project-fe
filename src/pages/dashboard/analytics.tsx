@@ -1,10 +1,4 @@
-/**
- * S-04 · Analitik — the Owner's deep dive.
- *
- * Four tabs over the same reporting endpoints the dashboard uses (§6.2); the
- * difference is the controls, not the data source. Owner only: §6.1 rule 1
- * keeps revenue, AOV and business analytics away from the Admin entirely.
- */
+/** S-04 · Analitik — the Owner's deep dive. */
 
 import * as React from 'react';
 
@@ -34,12 +28,10 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
-      <div className="flex flex-col gap-xs">
-        <Text variant="h1">Analitik</Text>
-        <Text variant="body" tone="muted">
-          Analisis mendalam performa bisnis Anda.
-        </Text>
-      </div>
+      {/* The shell's top bar carries the title; this is its subtitle. */}
+      <Text variant="body" tone="muted">
+        Analisis mendalam performa bisnis Anda.
+      </Text>
 
       <Segmented
         options={ANALYTICS_TABS}

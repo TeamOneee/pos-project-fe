@@ -1,16 +1,4 @@
-/**
- * The three tiles above S-21's table.
- *
- * They describe the filtered set, not the visible page: filter to one outlet and
- * one day and the strip answers "how many, how much, how much on average" for
- * that day.
- *
- * Count is exact — it is the server's `total_elements`. Revenue is not: §6.2's
- * aggregates answer for a period and are Owner-only, so there is no endpoint
- * that totals an arbitrarily filtered list of transactions. It is summed over
- * the rows one wide request returns, and the strip says so when that was a
- * subset rather than presenting a number that is quietly too small.
- */
+/** The three tiles above S-21's table. */
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';

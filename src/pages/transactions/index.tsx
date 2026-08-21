@@ -1,23 +1,4 @@
-/**
- * S-21 · Riwayat Transaksi, with S-22 hanging off the same route.
- *
- * `/transactions/:id` renders this screen too, so a transaction is a URL that can
- * be shared and reopened: on desktop and tablet the list stays behind a 480px
- * drawer, on mobile the detail replaces the list as a full page. Closing it is a
- * navigation, which is what makes the browser's back button do the obvious thing.
- *
- * Access is Owner and Cashier. Admin is 403'd by the route guard, not by anything
- * here — §5.2 states plainly that ADMIN has no access to transactions.
- *
- * A Cashier's scope is not a filter they can change: no outlet select is rendered
- * and, more to the point, `useTransactions` rewrites the outlet on every request
- * (lib/transaction-scope). The server additionally forces `operator_user_id` for
- * a cashier (OD-003), so a cashier sees only their own sales.
- *
- * Two filters the previous contract had are gone, because §5.2 has no parameter
- * for either: **cashier**, and any form of partial search. The number field is
- * now a lookup against `GET /transactions/search`, which is an exact match.
- */
+/** S-21 · Riwayat Transaksi, with S-22 hanging off the same route. */
 
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -51,13 +32,7 @@ import { searchTerm, summariseTransactions } from '@/lib/transaction-scope';
 /** §0 pages from zero; the footer counts from one, so the two differ by one. */
 const PAGE_SIZE = 10;
 
-/**
- * How many matching rows the summary tiles are computed over.
- *
- * §6.2's aggregates are Owner-only and answer for a period, not for a filtered
- * list, so the strip sums one wide request instead. §0 caps `size` at 100, and
- * the strip says when the real set was larger than what it summed.
- */
+/** How many matching rows the summary tiles are computed over. */
 const WINDOW_SIZE = 100;
 
 export default function TransactionsPage() {
@@ -76,9 +51,9 @@ export default function TransactionsPage() {
   const searching = search !== '';
 
   /**
-   * Server-side filters. §5.2 takes ISO-8601 datetimes, so the two date inputs
-   * are widened to cover their whole day; the outlet is only ever asked for by
-   * an Owner, and the query layer overwrites it for a Cashier regardless.
+   * Server-side filters. §5.2 takes ISO-8601 datetimes, so the two date inputs are widened to cover
+   * their whole day; the outlet is only ever asked for by an Owner, and the query layer overwrites
+   * it for a Cashier regardless.
    */
   const serverFilters: TransactionFilters = {
     ...(query.startDate ? { date_from: `${query.startDate}T00:00:00` } : {}),
@@ -111,8 +86,8 @@ export default function TransactionsPage() {
   );
 
   /**
-   * An exact lookup returns one sale or a 404, so it replaces the list entirely
-   * rather than filtering it. A 404 here is "no such number", not an error.
+   * An exact lookup returns one sale or a 404, so it replaces the list entirely rather than
+   * filtering it.
    */
   const visible = React.useMemo<TransactionSummary[]>(() => {
     if (!searching) return listQuery.data?.items ?? [];

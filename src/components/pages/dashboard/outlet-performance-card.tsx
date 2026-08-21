@@ -1,17 +1,4 @@
-/**
- * Row 3 left — revenue per outlet, sorted descending.
- *
- * Plain divs rather than a charting library: this is one bar per outlet with a
- * label, a figure and a share on the same line. A chart component would have to
- * be fought into that shape, and the bar is only there to make the ranking
- * scannable — the numbers beside it are the data.
- *
- * §6.4 `OutletComparisonItem` carries omzet and transaction count only. The
- * share of total is arithmetic over the items on screen, so it stays; the
- * period-over-period growth chip is gone, because comparing an outlet with its
- * own past would need a second comparison read the contract does not shape for
- * it.
- */
+/** Row 3 left — revenue per outlet, sorted descending. */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';

@@ -1,14 +1,4 @@
-/**
- * S-11's data table, and its stacked-card form below tablet.
- *
- * `rowMenu` is the whole read-only story: a session that may not manage the
- * catalog is given no menu builder, so there is no Aksi column and no `⋯`
- * trigger in the tree — not a disabled one. The page decides that once, from the
- * role matrix; this component only honours it.
- *
- * An inactive product renders at 60% opacity with a NONAKTIF badge. The opacity
- * is decoration; the badge is the information.
- */
+/** S-11's data table, and its stacked-card form below tablet. */
 
 import * as React from 'react';
 

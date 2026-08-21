@@ -1,9 +1,4 @@
-/**
- * The 403 screen (design brief §7.2).
- *
- * A full page, not a toast or an empty table: the user asked for a route they
- * cannot have, and the honest answer is a dead end with a way back.
- */
+/** The 403 screen (design brief §7.2). */
 
 import { useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';

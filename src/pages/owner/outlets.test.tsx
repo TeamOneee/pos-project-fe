@@ -1,11 +1,4 @@
-/**
- * S-06 · Outlet.
- *
- * The screen is Owner-only by route, so the interesting assertions are the ones
- * about the writes: a created outlet actually lands ACTIVE in the store, and a
- * deactivation goes through the confirmation dialog and retires the row —
- * without deleting it (§2.2 has no DELETE).
- */
+/** S-06 · Outlet. */
 
 import '@/api';
 
