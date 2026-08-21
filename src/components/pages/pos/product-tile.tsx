@@ -48,7 +48,10 @@ function ProductTileComponent({ product, inCart, onPress }: ProductTileProps) {
       onClick={() => onPress(product)}
       style={{ height: TILE_HEIGHT }}
       className={cn(
-        'flex w-full flex-col justify-between rounded-lg border border-border bg-surface p-md text-left',
+        // `relative` anchors the count circle below. Without it the circle is
+        // positioned against the viewport instead of the tile and lands in the
+        // top-right corner of the screen, one per product in the cart.
+        'relative flex w-full flex-col justify-between rounded-lg border border-border bg-surface p-md text-left',
         'transition-transform focus-ring active:scale-[0.97]',
         soldOut
           ? // Inert, not just dimmed: no press state at all.
