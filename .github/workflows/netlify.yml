@@ -36,9 +36,14 @@ jobs:
 
       - name: Build project
         env:
-          VITE_API_MODE: ${{ secrets.VITE_API_MODE }}
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-        run: npm run build
+          VITE_API_MODE: ${{ (github.event.workflow_run.head_branch == 'dev' || github.ref_name == 'dev') && secrets.VITE_API_MODE_STAGING != '' && secrets.VITE_API_MODE_STAGING || secrets.VITE_API_MODE }}
+          VITE_API_URL: ${{ (github.event.workflow_run.head_branch == 'dev' || github.ref_name == 'dev') && secrets.VITE_API_URL_STAGING != '' && secrets.VITE_API_URL_STAGING || secrets.VITE_API_URL }}
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Building for branch: $BRANCH"
+          echo "VITE_API_MODE=$VITE_API_MODE"
+          echo "VITE_API_URL is set: $([ -n "$VITE_API_URL" ] && echo yes || echo no)"
+          npm run build
 
       - name: Resolve deploy target
         id: target
