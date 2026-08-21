@@ -170,7 +170,7 @@ function OutletForm({ outlet, onDone }: { outlet: Outlet | null; onDone: () => v
                 placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
                 disabled={pending}
                 aria-invalid={Boolean(fieldState.error) || undefined}
-                className="min-h-[90px] resize-none rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle transition-colors focus:border-accent focus-ring-always invalid:border-danger"
+                className="min-h-[90px] resize-none rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle transition-colors focus-ring-always invalid:border-danger"
               />
             </FormField>
           )}

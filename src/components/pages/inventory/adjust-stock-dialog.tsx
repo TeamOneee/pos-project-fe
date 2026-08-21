@@ -221,7 +221,7 @@ export function cnTextarea(invalid: boolean): string {
   return [
     'rounded-md border bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle',
     'transition-colors focus-ring-always',
-    invalid ? 'border-danger focus:border-danger' : 'border-border-interactive focus:border-accent',
+    invalid ? 'border-danger' : 'border-border-interactive',
     'disabled:bg-subtle disabled:text-fg-muted disabled:cursor-not-allowed',
   ].join(' ');
 }

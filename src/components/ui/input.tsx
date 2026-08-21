@@ -19,12 +19,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           'min-h-touch rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg',
           'placeholder:text-fg-subtle',
-          // The accent border says "focused"; the ring is the shared focus ring
-          // (2px accent at 40%, 2px offset) so keyboard focus reads identically
-          // here and on every button.
-          'transition-colors focus:border-accent focus-ring-always',
+          // One focus indicator, not two: the shared ring (2px accent at 40%,
+          // 2px offset), so focus reads identically here and on every button.
+          // The border deliberately does not also change — a 1px recolour adds
+          // a second ring's worth of noise while carrying almost no signal.
+          'transition-colors focus-ring-always',
           numeric && 'type-mono tabular-nums text-right',
-          invalid && 'border-danger focus:border-danger',
+          invalid && 'border-danger',
           disabled && 'bg-subtle text-fg-muted cursor-not-allowed',
           className
         )}
