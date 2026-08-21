@@ -1,14 +1,4 @@
-/**
- * The request pipeline every domain client goes through.
- *
- * Responsibilities, in order: apply the timeout, hand the request to whichever
- * transport is installed, turn any non-success envelope into an ApiError, then
- * validate `data` against the caller's schema.
- *
- * That last step is the point of the whole file. A payload that does not match
- * the contract throws here, at the boundary, instead of reaching a screen and
- * rendering "undefined" three components deep.
- */
+/** The request pipeline every domain client goes through. */
 
 import type { z } from 'zod';
 
@@ -43,11 +33,7 @@ export type ApiResult<T> = {
   message: string;
 };
 
-/**
- * Perform a request and return the validated payload along with its status.
- * Most callers want `request` below; this exists for the handful of endpoints
- * whose meaning depends on the status code.
- */
+/** Perform a request and return the validated payload along with its status. */
 export async function requestWithStatus<TSchema extends z.ZodTypeAny>(
   spec: RequestSpec<TSchema>
 ): Promise<ApiResult<z.infer<TSchema>>> {
@@ -80,8 +66,8 @@ export async function requestWithStatus<TSchema extends z.ZodTypeAny>(
   const envelope = asEnvelope(raw.body);
 
   if (raw.status >= 400 || envelope?.success === false) {
-    // An authenticated request that came back unauthorized means the session is
-    // gone; the auth provider turns this into the expired-session modal.
+    // An authenticated request that came back unauthorized means the session is gone; the auth
+    // provider turns this into the expired-session modal.
     if (raw.status === 401) reportUnauthorized(request.path);
 
     throw ApiError.fromEnvelope(
@@ -97,9 +83,7 @@ export async function requestWithStatus<TSchema extends z.ZodTypeAny>(
     );
   }
 
-  // Contract §0: `204 No Content` is the one success that carries neither a
-  // body nor an envelope. The override deletes in §3.2 and §4.2 answer this
-  // way, so it is a success to be parsed as null, not a malformed response.
+  // Contract §0: `204 No Content` is the one success that carries neither a body nor an envelope.
   if (raw.status === 204) {
     const empty = schema.safeParse(null);
     if (!empty.success) throw ApiError.parse(request.path, empty.error);

@@ -1,10 +1,4 @@
-/**
- * Merchant profile.
- *
- * `GET /merchant` is readable by every role (§2.2), so this needs no `enabled`
- * guard — the app shell, the POS header and the receipt all rely on it.
- * `PATCH` is Owner only and goes through the role guard.
- */
+/** Merchant profile. */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -23,13 +17,7 @@ export function useMerchant() {
   });
 }
 
-/**
- * `name` is the only editable field (§2.2).
- *
- * Nothing derived needs invalidating as a result — unlike the old contract,
- * the merchant carries no low-stock threshold, so changing it cannot move a
- * single stock verdict.
- */
+/** `name` is the only editable field (§2.2). */
 export function useUpdateMerchant() {
   const queryClient = useQueryClient();
 

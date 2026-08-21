@@ -1,11 +1,4 @@
-/**
- * A small table for the analytics screens.
- *
- * Below tablet it stops being a table and becomes stacked cards, per §7.3 of
- * the brief: the first column stays the identifier, everything else becomes a
- * labelled line. A table that scrolls sideways on a phone is not a table
- * anyone reads.
- */
+/** A small table for the analytics screens. */
 
 import * as React from 'react';
 

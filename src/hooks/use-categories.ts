@@ -1,11 +1,4 @@
-/**
- * Categories. Admin and Owner manage, every role reads (§3.2).
- *
- * The writes go through `useGuardedMutation`, so the role matrix decides whether
- * a request leaves the client at all — see use-guarded-mutation.ts. Products and
- * categories are the same `catalog` resource in the matrix: there is no role that
- * manages one and reads the other.
- */
+/** Categories. Admin and Owner manage, every role reads (§3.2). */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -99,11 +92,8 @@ export function useUpdateCategory() {
 }
 
 /**
- * Deactivating a category is not a delete and never can be: §3.2 states the
- * contract has no `DELETE /categories/:id` at all. The products inside keep
- * their category and their own `is_active`, but they drop out of the cashier
- * catalogue and checkout refuses them with `CATEGORY_INACTIVE` until it is
- * active again.
+ * Deactivating a category is not a delete and never can be: §3.2 states the contract has no `DELETE
+ * /categories/:id` at all.
  */
 export function useDeactivateCategory() {
   const invalidate = useCategoryInvalidation();

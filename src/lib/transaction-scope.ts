@@ -1,18 +1,4 @@
-/**
- * What a session is allowed to ask /transactions for, and what the answer adds
- * up to.
- *
- * The scoping is the security-relevant part. A Cashier may only see their own
- * outlet, and the way to guarantee that is not to hide the outlet filter — a
- * hidden control is still a query someone can craft. Instead the filter is
- * rewritten here, on the way into the query, so the outlet a Cashier asks for is
- * always the outlet they are assigned to regardless of what the caller passed.
- * The backend enforces the same rule; this is the client agreeing with it.
- *
- * "Own outlet" means the outlet, not the till: a cashier sees every transaction
- * rung up at their outlet, including their colleagues'. That is what makes the
- * screen useful for an end-of-shift check.
- */
+/** What a session is allowed to ask /transactions for, and what the answer adds up to. */
 
 import type { TransactionFilters, TransactionSummary } from '@/services/transactions';
 import { dataScope, type Role } from '@/lib/permissions';
@@ -20,10 +6,7 @@ import { sumRupiah, type Rupiah } from '@/lib/money';
 
 export type ScopedQuery = {
   filters: TransactionFilters;
-  /**
-   * False when the session is confined to an outlet we do not know yet. The
-   * query must not run: an unscoped request would return every outlet.
-   */
+  /** False when the session is confined to an outlet we do not know yet. */
   enabled: boolean;
 };
 
@@ -71,17 +54,7 @@ export type TransactionTotals = {
   capped: boolean;
 };
 
-/**
- * The three tiles above the table.
- *
- * There is no aggregate endpoint for a filtered set of transactions —
- * `/dashboard/summary` is Owner-only and answers for a period, not for a
- * filtered list — so revenue is summed client-side over as many matching rows
- * as one request returns. The count still comes from the server's
- * `total_elements`, which is exact, and `capped` tells the strip to say so when
- * the sum is over a subset rather than quietly reporting a number that is too
- * small.
- */
+/** The three tiles above the table. */
 export function summariseTransactions(
   rows: TransactionSummary[],
   total: number,
@@ -101,15 +74,7 @@ export function summariseTransactions(
 /* Number search                                                               */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Whether a typed query is a transaction-number lookup at all.
- *
- * §5.2 gives one search endpoint, `GET /transactions/search`, and it is an
- * **exact** match on `transaction_number` — there is no partial or fuzzy search
- * anywhere in the contract. So the screen sends the trimmed input straight to
- * that endpoint and shows the one sale or nothing, rather than filtering the
- * page it happens to be holding and calling that a search.
- */
+/** Whether a typed query is a transaction-number lookup at all. */
 export function isSearchable(query: string): boolean {
   return query.trim().length > 0;
 }

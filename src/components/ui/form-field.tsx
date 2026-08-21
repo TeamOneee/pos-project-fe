@@ -16,12 +16,7 @@ type FormFieldProps = {
   children: React.ReactNode;
 };
 
-/**
- * Wraps one control with its label, hint and validation message. Pair with
- * react-hook-form's Controller; the zod schema owns the message text.
- *
- * The error is text, never a colour alone (CLAUDE.md rule 6).
- */
+/** Wraps one control with its label, hint and validation message. */
 function FormField({
   label,
   error,

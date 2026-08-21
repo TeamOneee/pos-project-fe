@@ -10,6 +10,9 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
+/** Whether this dialog is rendering a close button in its top-right corner. */
+const DialogHasCloseContext = React.createContext(true);
+
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -17,8 +20,8 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      // No padding below tablet: the panel is a full-screen sheet there, and a
-      // gutter would leave a strip of dimmed page around it for no reason.
+      // No padding below tablet: the panel is a full-screen sheet there, and a gutter would leave a
+      // strip of dimmed page around it for no reason.
       'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-0 tablet:p-lg',
       className
     )}
@@ -32,9 +35,9 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     hideClose?: boolean;
     /**
-     * Repositions the panel inside the overlay. A right-hand drawer is the same
-     * modal with the same focus trap, only pinned to an edge, so it overrides
-     * the centring here rather than reimplementing the primitive.
+     * Repositions the panel inside the overlay. A right-hand drawer is the same modal with the same
+     * focus trap, only pinned to an edge, so it overrides the centring here rather than
+     * reimplementing the primitive.
      */
     overlayClassName?: string;
   }
@@ -44,26 +47,36 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          /*
-           * Below tablet every modal is a full-screen sheet: the whole viewport,
-           * no radius, no border, and its own scroll. A centred 480px card on a
-           * 360px phone is a card with 12px of gutter and a cramped form in it.
-           * From tablet up the same component is the card it always was — the
-           * `max-w-*` a caller passes only applies there.
+          /**
+           * Below tablet every modal is a full-screen sheet: the whole viewport, no radius, no
+           * border, and its own scroll.
            */
-          'z-50 flex h-full w-full flex-col gap-lg overflow-y-auto rounded-none border-0 bg-surface-raised p-lg shadow-lg',
+          // `relative` anchors the close button below. Without it the ✕ resolves against the
+          // overlay — which is `fixed inset-0`, so the viewport — and a centred panel gets its
+          // close button parked in the corner of the screen instead of its own.
+          'relative z-50 flex h-full w-full flex-col gap-lg overflow-y-auto rounded-none border-0 bg-surface-raised p-lg shadow-lg',
           'tablet:h-auto tablet:max-h-[90vh] tablet:max-w-[480px] tablet:rounded-lg tablet:border tablet:border-border tablet:p-xl',
           className
         )}
         {...props}
       >
-        {children}
+        <DialogHasCloseContext.Provider value={!hideClose}>
+          {children}
+        </DialogHasCloseContext.Provider>
+        {/*
+          A 44px target that does not look like a 44px button: the hit area stays
+          full size for a thumb, while the ink is a 32px circle that only fills in
+          on hover. A square slab of grey in the corner competes with the panel's
+          own content, which is the thing being read.
+        */}
         {!hideClose && (
           <DialogPrimitive.Close
             aria-label="Tutup"
-            className="absolute right-md top-md flex h-touch w-touch items-center justify-center rounded-md transition-colors hover:bg-subtle"
+            className="group absolute right-md top-md flex h-touch w-touch items-center justify-center rounded-full text-fg-muted outline-none transition-colors hover:text-fg focus-ring"
           >
-            <Icon as={X} size={20} className="text-fg-muted" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-subtle group-active:bg-border">
+              <Icon as={X} size={18} />
+            </span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
@@ -72,19 +85,16 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = 'DialogContent';
 
-const DialogHeader = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => (
-  <div className={cn('flex flex-col gap-xs pr-touch', className)} {...props} />
-);
+const DialogHeader = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => {
+  // Room for the ✕, but only when there is one — see DialogHasCloseContext.
+  const hasClose = React.useContext(DialogHasCloseContext);
+  return (
+    <div className={cn('flex flex-col gap-xs', hasClose && 'pr-touch', className)} {...props} />
+  );
+};
 DialogHeader.displayName = 'DialogHeader';
 
-/**
- * Sticky on a full-screen sheet, static in a card.
- *
- * On a phone the form scrolls under the actions, so "Simpan" is reachable
- * without scrolling to the bottom of a long body — and `mt-auto` pins it to the
- * end of the sheet when the body is short. The negative margins let the bar span
- * the sheet's full width while the panel keeps its padding.
- */
+/** Sticky on a full-screen sheet, static in a card. */
 const DialogFooter = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => (
   <div
     className={cn(

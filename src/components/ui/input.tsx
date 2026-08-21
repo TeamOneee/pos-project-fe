@@ -19,12 +19,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           'min-h-touch rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg',
           'placeholder:text-fg-subtle',
-          // The accent border says "focused"; the ring is the shared focus ring
-          // (2px accent at 40%, 2px offset) so keyboard focus reads identically
-          // here and on every button.
-          'transition-colors focus:border-accent focus-ring-always',
+          // Exactly one line at a time. The resting border hides while the ring is up rather than
+          // sitting inside it — transparent, not removed, so the field does not resize on focus.
+          'transition-colors focus:border-transparent',
           numeric && 'type-mono tabular-nums text-right',
-          invalid && 'border-danger focus:border-danger',
+          // Invalid shows red: as a border at rest, and as the ring itself once focused.
+          invalid ? 'border-danger focus-ring-danger' : 'focus-ring-always',
           disabled && 'bg-subtle text-fg-muted cursor-not-allowed',
           className
         )}

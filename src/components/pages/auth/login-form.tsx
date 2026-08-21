@@ -1,11 +1,4 @@
-/**
- * S-01 · Login.
- *
- * The security-relevant detail: a rejected sign-in never says which field was
- * wrong. The API answers 401 for both "no such email" and "wrong password", and
- * this form keeps it that way — one banner, both inputs in the error state, no
- * field-level message.
- */
+/** S-01 · Login. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff } from 'lucide-react';

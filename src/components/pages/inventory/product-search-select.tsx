@@ -1,15 +1,4 @@
-/**
- * A searchable product picker for the transfer and bulk-update modals.
- *
- * A plain select is wrong here: a merchant with a few hundred SKUs cannot scan
- * a dropdown, and both modals are opened with a product already in mind. So it
- * is a search field over the active catalogue, matching name or SKU, with the
- * chosen product shown as a summary the user can clear.
- *
- * The catalogue is fetched once and filtered in memory rather than issuing a
- * request per keystroke — the list is small enough, and the results have to
- * keep up with typing.
- */
+/** A searchable product picker for the transfer and bulk-update modals. */
 
 import { Search, X } from 'lucide-react';
 import * as React from 'react';

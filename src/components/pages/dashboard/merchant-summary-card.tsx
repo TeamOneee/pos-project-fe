@@ -1,17 +1,4 @@
-/**
- * Row 2 right — what the merchant is made of, ending in the AI block.
- *
- * The AI block is a link, not a trigger. Running an analysis is a deliberate
- * act with its own screen (S-05); firing it from a dashboard tile would make it
- * too easy to start one by accident.
- *
- * Nothing here comes from a single endpoint — the contract has no "merchant
- * overview". The name is `GET /merchant` (§2.2), the counts are the
- * `total_elements` of the lists the Owner may read plus
- * `GET /dashboard/operations`, and the last analysis timestamp is the job on
- * `GET /insights` (§7.2). Composed in use-owner-dashboard.ts so this stays a
- * presentational card.
- */
+/** Row 2 right — what the merchant is made of, ending in the AI block. */
 
 import { Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';

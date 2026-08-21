@@ -1,14 +1,4 @@
-/**
- * Turning a failed sign-in into one sentence.
- *
- * The rule this file exists to hold: a 401 says "Email atau password salah."
- * and nothing more specific, whether the email is unknown or the password is
- * wrong. Distinguishing them would let anyone enumerate which emails have
- * accounts on a merchant.
- *
- * The API cooperates — it answers 401 for both — but it can also return an
- * `errors[]` array, and this deliberately ignores it for the credential case.
- */
+/** Turning a failed sign-in into one sentence. */
 
 import { isApiError } from '@/api/errors';
 
@@ -30,8 +20,7 @@ export function presentLoginError(error: unknown): LoginErrorPresentation {
       return { banner: GENERIC_CREDENTIALS, markFieldsInvalid: true };
 
     case 'forbidden':
-      // Not a credential failure: the password was right and the account is
-      // disabled. Saying so tells the user what to do about it.
+      // Not a credential failure: the password was right and the account is disabled.
       return {
         banner: 'Akun Anda dinonaktifkan. Hubungi Owner merchant Anda.',
         markFieldsInvalid: false,

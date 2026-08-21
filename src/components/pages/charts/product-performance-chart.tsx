@@ -1,8 +1,4 @@
-/**
- * Product performance bars, always the top 8 by the selected metric. Bar fills
- * are quiet so labels stay the figure; the tooltip carries the product's full
- * name since the axis tick is truncated to fit.
- */
+/** Product performance bars, always the top 8 by the selected metric. */
 
 import { Bar, BarChart, CartesianGrid, Cell, Tooltip, XAxis, YAxis } from 'recharts';
 import { GRID_OPACITY, useChartColors } from '@/lib/chart-colors';

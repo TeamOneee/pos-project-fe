@@ -1,23 +1,4 @@
-/**
- * Dashboards — one hook per `/dashboard/*` endpoint (§6.2).
- *
- * The single fat `/dashboard/owner` and `/dashboard/admin` payloads are gone.
- * A screen now composes the panels it wants, and each panel has its own loading
- * and error state. That is more states to render, but it is also why the Owner
- * dashboard no longer blanks out entirely when one aggregate is slow.
- *
- * Everything Owner-facing needs a period, and §6.2 caps the range at 366 days.
- * The two current-state endpoints — operations and low-stock — take no period
- * at all and are readable by the Admin as well.
- *
- * Caching: the whole dashboard surface is kept for 30 minutes before a query
- * hits the API again, because a dashboard is read for a status check, not for
- * live numbers — and §6.1 rule 3 already caches the aggregates server-side for
- * the same 30 minutes. Freshness after a change is not a matter of time but of
- * invalidation: every stock, product, outlet and checkout write invalidates
- * `['dashboard']` (see use-inventory.ts, use-products.ts, use-checkout.ts), so
- * the screen does hit the API the moment the underlying data actually moved.
- */
+/** Dashboards — one hook per `/dashboard/*` endpoint (§6.2). */
 
 import { useQueries, useQuery } from '@tanstack/react-query';
 
@@ -52,13 +33,7 @@ export function useDashboardOperations(query: OutletQuery = {}) {
 }
 
 /**
- * Operational counts for several outlets at once, for the "Stok Per Outlet"
- * table (S-14 row 2).
- *
- * §6.2 has no per-outlet breakdown endpoint — `operations` answers for one
- * outlet at a time — so this fans out over the outlets the caller names. That
- * is a handful of small current-state reads, not an aggregation, and each is
- * cached under its own key alongside the single-outlet view.
+ * Operational counts for several outlets at once, for the "Stok Per Outlet" table (S-14 row 2).
  */
 export function useOperationsByOutlet(outletIds: readonly string[]) {
   return useQueries({

@@ -1,10 +1,6 @@
 /**
- * Non-money numbers, against CLAUDE.md rule 5: percentages use a comma decimal
- * ("12,5%") and thousands are grouped with dots.
- *
- * The separators are swapped relative to English, which is exactly why this is
- * tested: "1.234,56" and "1,234.56" differ by a factor of a thousand to a reader
- * who assumes the other convention.
+ * Non-money numbers, against CLAUDE.md rule 5: percentages use a comma decimal ("12,5%") and
+ * thousands are grouped with dots.
  */
 
 import { describe, expect, it } from 'vitest';

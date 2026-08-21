@@ -1,11 +1,4 @@
-/**
- * S-10 · Pengaturan Merchant.
- *
- * The only write on this screen is the merchant name (§2.2), and the only way
- * to get it wrong is to promise a save the API cannot perform — so the tests
- * check the field follows the query, the save actually lands in the store, and
- * "Batal" returns the field to the server's truth rather than the form's.
- */
+/** S-10 · Pengaturan Merchant. */
 
 import '@/api';
 

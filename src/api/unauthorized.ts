@@ -1,15 +1,4 @@
-/**
- * The 401 signal.
- *
- * The request pipeline announces here whenever an authenticated request comes
- * back unauthorized; the auth provider listens and raises the expired-session
- * modal. Keeping it a plain module rather than a React import means client.ts
- * has no dependency on the UI layer.
- *
- * A failed sign-in is not an expired session — it is a wrong password — so the
- * auth endpoints are excluded. Without that, one typo at the login screen
- * would raise "Sesi Anda telah berakhir" over the login form.
- */
+/** The 401 signal. */
 
 const EXEMPT_PATHS = ['/auth/login', '/auth/register'];
 

@@ -1,12 +1,4 @@
-/**
- * S-06's outlet card — one tile in the grid that replaces the table.
- *
- * Outlets are few, so the screen reads as cards rather than a dense table, and
- * each card carries what §2.4 actually returns: name, address, status and
- * created-at. The brief's KPI strip (Kasir · Produk · Stok) is left out because
- * it would take three extra list queries to fill and the API serves none of
- * them on the outlet row — the created date is what the row itself can say.
- */
+/** S-06's outlet card — one tile in the grid that replaces the table. */
 
 import { Store } from 'lucide-react';
 

@@ -1,13 +1,4 @@
-/**
- * Payment method: two large cards, not a dropdown.
- *
- * This is one tap in the middle of a queue, so both options are on screen at
- * once with a target far larger than the 44px minimum. Selection is carried by
- * a border, a fill *and* the label — never colour alone.
- *
- * Non-Tunai is a record, not a transaction: there is no gateway, no QR
- * generation and no terminal anywhere in this product.
- */
+/** Payment method: two large cards, not a dropdown. */
 
 import { Banknote, QrCode } from 'lucide-react';
 import * as React from 'react';

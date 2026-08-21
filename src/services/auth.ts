@@ -1,19 +1,4 @@
-/**
- * Identity module — contract §1.
- *
- * Register creates the merchant and its first OWNER in one atomic call; every
- * other account is created by the Owner through the staff module (§1.2).
- *
- * Three things this module deliberately does **not** have, because §1.2 says
- * the MVP does not:
- *
- *   • `GET /auth/me` — the session is read from the token's claims instead
- *     (see lib/jwt.ts).
- *   • `POST /auth/refresh` — one 900-second token, no renewal.
- *   • `POST /auth/logout` — logout is deleting the token client-side. There is
- *     no server-side revocation or blacklist, so a signed-out token stays
- *     technically valid until it expires.
- */
+/** Identity module — contract §1. */
 
 import { z } from 'zod';
 
@@ -25,8 +10,8 @@ import { id, roleSchema, statusSchema } from '@/api/schema';
 /* -------------------------------------------------------------------------- */
 
 /**
- * §1.4 `StaffDto`. This is the only user shape the API returns, and it comes
- * from the staff endpoints — never from login.
+ * §1.4 `StaffDto`. This is the only user shape the API returns, and it comes from the staff
+ * endpoints — never from login.
  */
 export const staffSchema = z
   .object({
@@ -55,13 +40,7 @@ export const staffSchema = z
 
 export type Staff = z.infer<typeof staffSchema>;
 
-/**
- * §1.4 `AuthTokens` — everything login gives back.
- *
- * Note what is absent: no name, no email, no user object. The signed-in
- * person's display name is not available from any endpoint in this contract,
- * so screens must not expect one.
- */
+/** §1.4 `AuthTokens` — everything login gives back. */
 const loginResultSchema = z
   .object({
     access_token: z.string(),
@@ -80,8 +59,8 @@ const loginResultSchema = z
   }));
 
 /**
- * §1.2 register response. It returns no token — the new Owner is sent to the
- * login screen rather than being signed in directly.
+ * §1.2 register response. It returns no token — the new Owner is sent to the login screen rather
+ * than being signed in directly.
  */
 const registerResultSchema = z
   .object({
@@ -116,9 +95,8 @@ export type RegisterInput = {
 
 export const authApi = {
   /**
-   * 401 for bad credentials *and* for a deactivated account — §1.6 requires the
-   * two to be indistinguishable, so the UI must not try to tell them apart.
-   * 429 once past 5 attempts a minute for an email/IP pair.
+   * 401 for bad credentials *and* for a deactivated account — §1.6 requires the two to be
+   * indistinguishable, so the UI must not try to tell them apart.
    */
   login: (input: LoginInput) =>
     request({ method: 'POST', path: '/auth/login', body: input, schema: loginResultSchema }),

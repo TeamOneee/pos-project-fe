@@ -1,15 +1,4 @@
-/**
- * Products. Admin and Owner manage; `GET /products` is Owner and Admin only.
- *
- * A cashier never reaches this module — their catalogue is `GET /products/catalog`
- * in use-catalog.ts, which is a different endpoint with different scoping.
- *
- * Lists are paginated; `placeholderData` keeps the previous page on screen
- * while the next one loads, so paging does not flash a skeleton.
- *
- * There is no `GET /products/:id`, so a screen that needs one product takes it
- * from the list it already loaded.
- */
+/** Products. Admin and Owner manage; `GET /products` is Owner and Admin only. */
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -29,8 +18,8 @@ export function useProducts(filters: ProductFilters = {}) {
   return useQuery({
     queryKey: queryKeys.products(filters),
     queryFn: () => productsApi.list(filters),
-    // Longer than the default: catalogue edits invalidate the list on write,
-    // so a read only refetches when it actually changed — not on every visit.
+    // Longer than the default: catalogue edits invalidate the list on write, so a read only
+    // refetches when it actually changed — not on every visit.
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });

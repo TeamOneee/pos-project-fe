@@ -1,15 +1,4 @@
-/**
- * "Uang Diterima" and the change owed.
- *
- * The amount is typed as digits and grouped as it goes, so the cashier reads
- * `50.000` rather than `50000` while a customer waits. It never becomes a
- * float: the input holds an integer number of rupiah, and the change is one
- * subtraction.
- *
- * The change row is the point of the panel. Short payment is not an error
- * state to be discovered on submit — it says how much is missing, and the
- * confirm button is refused until it is not.
- */
+/** "Uang Diterima" and the change owed. */
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,9 +75,9 @@ export function CashPanel({ total, received, onChange, disabled = false }: CashP
 }
 
 /**
- * Digits only. An empty field is null rather than zero, so "nothing typed yet"
- * and "explicitly nothing" stay distinguishable and the confirm button can
- * refuse the first without complaining about the second.
+ * Digits only. An empty field is null rather than zero, so "nothing typed yet" and "explicitly
+ * nothing" stay distinguishable and the confirm button can refuse the first without complaining
+ * about the second.
  */
 function parseDigits(text: string): Rupiah | null {
   const digits = text.replace(/\D/g, '');

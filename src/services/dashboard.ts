@@ -1,24 +1,4 @@
-/**
- * Reporting module — contract §6.2.
- *
- * Eight endpoints, split by who may read them and where the numbers come from:
- *
- *   • **Owner business** — summary, sales-trend, aov-trend, time-pattern,
- *     top-products, outlet-comparison. Served cache-aside from aggregated
- *     `COMPLETED` transactions, so every response carries a `freshness_status`
- *     and may legitimately be `STALE` while still being HTTP 200 (§6.1 rule 3).
- *     `date_from` and `date_to` are mandatory, and the range may not exceed
- *     366 days.
- *   • **Current state** — operations (ADMIN + OWNER) and low-stock
- *     (ADMIN + OWNER). Read live, always `FRESH`, and carrying no period.
- *
- * An ADMIN never sees revenue, AOV, transaction counts or business analytics
- * from any of these (§6.1 rule 1).
- *
- * This module replaces the previous `/dashboard/admin`, `/dashboard/owner` and
- * `/analytics/*` endpoints, none of which exist in this contract: a screen now
- * composes the panels it needs from the granular endpoints above.
- */
+/** Reporting module — contract §6.2. */
 
 import { z } from 'zod';
 
@@ -75,12 +55,7 @@ const summarySchema = z
 
 export type DashboardSummary = z.infer<typeof summarySchema>;
 
-/**
- * §6.2 `GET /dashboard/operations` — the Admin's landing figures.
- *
- * Deliberately stock-and-catalogue only: no revenue, no AOV, no transaction
- * count. That is the whole point of the endpoint existing separately.
- */
+/** §6.2 `GET /dashboard/operations` — the Admin's landing figures. */
 const operationsSchema = z
   .object({
     inventory_item_count: z.number(),
@@ -238,13 +213,7 @@ const outletComparisonSchema = z
 export type OutletComparison = z.infer<typeof outletComparisonSchema>;
 export type OutletComparisonItem = OutletComparison['items'][number];
 
-/**
- * §6.4 `LowStockItem`.
- *
- * The threshold arrives resolved: `effective_low_stock_threshold` is the
- * override where one exists and the product's base threshold otherwise. Screens
- * compare quantity against that, never against the base.
- */
+/** §6.4 `LowStockItem`. */
 const lowStockSchema = z
   .object({
     items: z.array(

@@ -1,16 +1,4 @@
-/**
- * A mutation that the role matrix has to authorise before it can be sent.
- *
- * Hiding a button is a UI decision; this is the enforcement. A mutation hook
- * declares the capability it needs once, and a session without that capability
- * gets a rejected promise instead of an HTTP request — so there is no reachable
- * write even for code that calls the hook directly, and no accidental 403 round
- * trip from a screen that forgot to gate an affordance.
- *
- * The backend gates the same endpoints; this is the client agreeing with it
- * rather than relying on it. The error is deliberately shaped like the server's
- * 403 (`kind: 'forbidden'`) so error handling downstream has one case to answer.
- */
+/** A mutation that the role matrix has to authorise before it can be sent. */
 
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 

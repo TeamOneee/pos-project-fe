@@ -1,14 +1,4 @@
-/**
- * The cart panel: header, scrollable lines, sticky totals.
- *
- * Total equals subtotal (CLAUDE.md rule 2). There is no discount, tax or
- * service charge row here, and there must never be one — if this block ever
- * grows a third figure, that is a bug.
- *
- * The amount is repeated on the pay button because reading it there, rather
- * than glancing back up at the total, is what stops a cashier taking the wrong
- * money.
- */
+/** The cart panel: header, scrollable lines, sticky totals. */
 
 import { ShoppingCart } from 'lucide-react';
 

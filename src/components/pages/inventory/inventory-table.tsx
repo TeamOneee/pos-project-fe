@@ -1,27 +1,10 @@
-/**
- * S-15's data table.
- *
- * Two variants of one table. The Admin's has an action column; the Owner's does
- * not render one at all — the buttons are absent from the DOM rather than
- * hidden, because a read-only screen that merely looks read-only is not one.
- *
- * Below tablet the table becomes stacked cards (brief §7.3): the product stays
- * the identifier and everything else becomes a labelled line. A table that
- * scrolls sideways on a phone is not a table anyone reads.
- *
- * Two columns the previous contract fed are gone, because §4.4 `InventoryDto`
- * carries neither: the product's **SKU** (no such field exists anywhere in this
- * contract) and its **price** (a catalog concern — inventory reports quantity).
- * In their place is the row's effective threshold, which is worth showing now
- * that it is genuinely per-row: the same product can be "low" at 5 in one
- * outlet and at 20 in another (§4.1 rule 5).
- */
+/** S-15's data table. */
 
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { StockBadge, rowTint } from '@/components/pages/inventory/stock-status';
+import { StockBadge, quantityTone } from '@/components/pages/inventory/stock-status';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import type { InventoryItem } from '@/services/inventory';
 import { formatDateTime, formatTimeAgo } from '@/lib/date';
@@ -66,8 +49,8 @@ type InventoryTableProps = {
   onOpenStockPerOutlet: (row: InventoryRow) => void;
   emptyMessage: string;
   /**
-   * Present when the empty table is the result of a filter rather than an empty
-   * outlet — the two states get different copy *and* different ways out.
+   * Present when the empty table is the result of a filter rather than an empty outlet — the two
+   * states get different copy *and* different ways out.
    */
   onClearFilters?: (() => void) | undefined;
 };
@@ -105,18 +88,12 @@ export function InventoryTable({
           return (
             <div
               key={row.inventoryId}
-              className={cn(
-                'flex flex-col gap-sm rounded-md border border-border p-md',
-                rowTint(level)
-              )}
+              className="flex flex-col gap-sm rounded-md border border-border p-md"
             >
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
 
-              <Line label="Outlet">
-                <Text variant="body">{row.outletName}</Text>
-              </Line>
               <Line label="Stok">
-                <Text variant="body-strong" className="tabular-nums">
+                <Text variant="body-strong" tone={quantityTone(level)} className="tabular-nums">
                   {formatCount(row.quantity)}
                 </Text>
               </Line>
@@ -146,13 +123,12 @@ export function InventoryTable({
 
   return (
     <div>
-      <div className="flex flex-row gap-md border-b border-border pb-sm">
-        <Head className="flex-[3]">Produk</Head>
-        <Head className="flex-[2]">Outlet</Head>
-        <Head className="flex-1 justify-end">Stok</Head>
-        <Head className="flex-1 justify-end">Batas</Head>
-        <Head className="flex-1">Status Stok</Head>
-        <Head className="flex-1">Terakhir Diubah</Head>
+      <div className="flex flex-row items-center gap-md border-b border-border pb-sm">
+        <Head className="min-w-0 flex-1">Produk</Head>
+        <Head className="w-[80px] shrink-0 justify-end">Stok</Head>
+        <Head className="w-[72px] shrink-0 justify-end">Batas</Head>
+        <Head className="w-[120px] shrink-0">Status Stok</Head>
+        <Head className="w-[150px] shrink-0">Terakhir Diubah</Head>
         {onAdjust ? <Head className="w-[120px] shrink-0">Aksi</Head> : null}
       </div>
 
@@ -162,39 +138,31 @@ export function InventoryTable({
         return (
           <div
             key={row.inventoryId}
-            className={cn(
-              'flex flex-row items-center gap-md border-b border-border py-md',
-              rowTint(level)
-            )}
+            className="flex flex-row items-center gap-md border-b border-border py-md last:border-b-0"
           >
-            <div className="min-w-0 flex-[3]">
+            <div className="min-w-0 flex-1">
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
             </div>
 
-            <div className="min-w-0 flex-[2]">
-              <Text variant="body" className="block truncate">
-                {row.outletName}
-              </Text>
-            </div>
-
-            {/* The number the screen exists for: large, mono, right-aligned. */}
-            <div className="flex flex-1 justify-end">
-              <Text variant="h3" className="tabular-nums">
+            {/* The number the screen exists for: large, right-aligned, and the
+                one thing on the row that carries the alarm colour. */}
+            <div className="flex w-[80px] shrink-0 justify-end">
+              <Text variant="h3" tone={quantityTone(level)} className="tabular-nums">
                 {formatCount(row.quantity)}
               </Text>
             </div>
 
-            <div className="flex flex-1 justify-end">
+            <div className="flex w-[72px] shrink-0 justify-end">
               <Text variant="mono" tone="muted">
                 {formatCount(row.effectiveLowStockThreshold)}
               </Text>
             </div>
 
-            <div className="flex-1">
+            <div className="w-[120px] shrink-0">
               <StockBadge level={level} />
             </div>
 
-            <div className="min-w-0 flex-1">
+            <div className="w-[150px] min-w-0 shrink-0">
               <UpdatedAt value={row.updatedAt} />
             </div>
 
@@ -213,8 +181,8 @@ export function InventoryTable({
 }
 
 /**
- * The product name doubles as the entry point to the per-outlet drawer, which
- * is available to both roles — looking is not managing.
+ * The product name doubles as the entry point to the per-outlet drawer, which is available to both
+ * roles — looking is not managing.
  */
 function ProductCell({ row, onOpen }: { row: InventoryRow; onOpen: () => void }) {
   return (

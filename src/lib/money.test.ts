@@ -1,11 +1,6 @@
 /**
- * Money, the rule the whole product rests on (CLAUDE.md rule 1): it never
- * touches a float, and no output ever shows a decimal.
- *
- * The parse cases are the interesting ones. The API sends `decimal(N,2)` strings,
- * so "15750000.00" has to become the integer 15750000 — and a *non-zero* fraction
- * has to fail loudly rather than round, because silently turning 100.50 into 100
- * or 101 is inventing or destroying money.
+ * Money, the rule the whole product rests on (CLAUDE.md rule 1): it never touches a float, and no
+ * output ever shows a decimal.
  */
 
 import { describe, expect, it } from 'vitest';

@@ -1,14 +1,4 @@
-/**
- * The mobile cart: a fixed summary bar, and a sheet that expands to 85% height.
- *
- * Below 768 the cart cannot sit beside the grid, and stacking it underneath
- * would bury the running total under a scroll. The bar keeps the two facts a
- * cashier needs — how many items and how much — permanently on screen, and the
- * sheet is one tap away.
- *
- * The sheet stays mounted and translated off-screen so both directions
- * animate; it is inert while closed.
- */
+/** The mobile cart: a fixed summary bar, and a sheet that expands to 85% height. */
 
 import { ChevronDown } from 'lucide-react';
 

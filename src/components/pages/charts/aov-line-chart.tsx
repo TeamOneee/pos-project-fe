@@ -1,7 +1,6 @@
 /**
- * Average order value over the period. Kept as a single line: no fill, no
- * second axis, dots only at data points so the direction is what the eye
- * follows.
+ * Average order value over the period. Kept as a single line: no fill, no second axis, dots only at
+ * data points so the direction is what the eye follows.
  */
 
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';

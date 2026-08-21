@@ -1,14 +1,4 @@
-/**
- * A quantity input with − / + on either side.
- *
- * Stock is adjusted in small steps far more often than it is retyped, so the
- * steppers are the primary control and the field is there for the occasional
- * large correction. Both steppers clear the 44×44 minimum (CLAUDE.md rule 6).
- *
- * The value is held as a string so the field can be empty mid-edit without the
- * caller seeing a NaN; `onChange` reports the parsed number, and an unparseable
- * field reports the floor rather than a broken value.
- */
+/** A quantity input with − / + on either side. */
 
 import { Minus, Plus } from 'lucide-react';
 import * as React from 'react';

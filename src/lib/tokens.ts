@@ -1,9 +1,4 @@
-/**
- * Typed runtime API over the design tokens (single source: design-tokens.cjs).
- *
- * Runtime consumers: chart series colours and breakpoints. Styling in
- * components goes through Tailwind classes instead.
- */
+/** Typed runtime API over the design tokens (single source: design-tokens.cjs). */
 
 export type ThemeName = 'light' | 'dark';
 

@@ -1,23 +1,4 @@
-/**
- * S-11 · Produk.
- *
- * `GET /products` filters and pages server-side, so this screen's state *is* the
- * query: search, category and status go into the request, and any change to them
- * resets to page one. The view toggle is the exception — it redraws the page that
- * already arrived.
- *
- * Two behaviours worth naming:
- *
- *   • An active product whose category was deactivated stays in this list, at
- *     full opacity, marked KATEGORI NONAKTIF. Deactivating a category does not
- *     cascade, and the Admin has to be able to find the affected products — which
- *     is impossible if the screen quietly filters them out. The POS applies the
- *     same rule in the other direction (it hides them); both read it from
- *     lib/catalog-visibility so they cannot drift apart.
- *   • Both roles here manage the catalog (BR-011B), so every mutation surface is
- *     unconditional. The hooks behind them are still guarded by the matrix, so a
- *     stray direct call is rejected before any request is made.
- */
+/** S-11 · Produk. */
 
 import * as React from 'react';
 
@@ -47,6 +28,7 @@ import {
   StockPerOutletDrawer,
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
+import { categoryHueIndex } from '@/lib/category-color';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useDeactivateProduct, useProducts } from '@/hooks/use-products';
@@ -84,8 +66,8 @@ export default function ProductsPage() {
   const categories = useCategories();
   const deactivate = useDeactivateProduct();
 
-  // A filter change invalidates the page number: page 4 of a narrower list is
-  // usually empty, which looks like "no results" for the wrong reason.
+  // A filter change invalidates the page number: page 4 of a narrower list is usually empty, which
+  // looks like "no results" for the wrong reason.
   const filterKey = `${search}|${query.categoryId ?? ''}|${query.status ?? ''}`;
   React.useEffect(() => {
     setPage(1);
@@ -96,12 +78,19 @@ export default function ProductsPage() {
     [categories.data]
   );
 
+  // Built from the merchant's category list, not from the rows on screen, so a category keeps its
+  // colour on every page of the catalogue.
+  const categoryHues = React.useMemo(
+    () => categoryHueIndex(categories.data?.items ?? []),
+    [categories.data]
+  );
+
   const rows = React.useMemo<CatalogRow[]>(
     () =>
       (products.data?.items ?? []).map((product) => ({
         product,
-        // Only meaningful for a product that is itself active — an inactive
-        // product is already absent from the POS for its own reasons.
+        // Only meaningful for a product that is itself active — an inactive product is already
+        // absent from the POS for its own reasons.
         hiddenByCategory: product.isActive && isHiddenByCategory(product, activeCategories),
       })),
     [products.data, activeCategories]
@@ -116,8 +105,8 @@ export default function ProductsPage() {
   };
 
   /**
-   * The row menu, built for every session that reaches this screen — both roles
-   * manage the catalog (BR-011B).
+   * The row menu, built for every session that reaches this screen — both roles manage the catalog
+   * (BR-011B).
    */
   const rowMenu = (product: Product): RowMenuItem[] => [
     { label: 'Edit', onSelect: () => openEditor(product) },
@@ -191,9 +180,19 @@ export default function ProductsPage() {
           ) : (
             <>
               {view === 'table' ? (
-                <ProductTable rows={rows} rowMenu={rowMenu} onOpenStock={openStock} />
+                <ProductTable
+                  rows={rows}
+                  rowMenu={rowMenu}
+                  onOpenStock={openStock}
+                  categoryHues={categoryHues}
+                />
               ) : (
-                <ProductGrid rows={rows} rowMenu={rowMenu} onOpenStock={openStock} />
+                <ProductGrid
+                  rows={rows}
+                  rowMenu={rowMenu}
+                  onOpenStock={openStock}
+                  categoryHues={categoryHues}
+                />
               )}
 
               <PaginationFooter

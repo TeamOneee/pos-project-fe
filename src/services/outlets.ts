@@ -1,11 +1,4 @@
-/**
- * Outlet module — contract §2.2.
- *
- * Reading is OWNER and ADMIN; creating and changing is OWNER only. There is no
- * `DELETE` and no `GET /outlets/:id`: an outlet is retired by patching it to
- * `INACTIVE`, which makes it read-only for business operations — no checkout
- * and no stock adjustment against it (§2.2 warning, FR-TEN-004).
- */
+/** Outlet module — contract §2.2. */
 
 import { z } from 'zod';
 

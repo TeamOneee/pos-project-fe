@@ -1,16 +1,4 @@
-/**
- * One error type for the whole data layer.
- *
- * Every failure — HTTP status, a `success: false` envelope, a timeout, or a
- * payload that does not match its schema — arrives at the UI as an ApiError
- * with a discriminated `kind`, so screens can branch without inspecting
- * status codes or parsing message strings.
- *
- * Contract §0.1 is deliberate about one thing: the error envelope carries
- * **no `code` field**. The only discriminators a client gets are `statusCode`,
- * `message` (which follows a fixed template per condition), and
- * `errors[].field`. Everything below is built on exactly those three.
- */
+/** One error type for the whole data layer. */
 
 import { parseMoneyOr } from '@/lib/money';
 
@@ -41,15 +29,7 @@ export type ApiErrorKind =
 /** A per-field validation message, as returned by the contract's `errors[]`. */
 export type FieldError = { field: string; message: string };
 
-/**
- * The named 409 conditions from §0.1.
- *
- * They share a status code, so the `message` template is the only thing that
- * separates them. Matching on server copy is not something to do lightly, but
- * §0.1 states these templates normatively and offers nothing else — the
- * alternative would be treating every conflict identically, which would leave
- * the cashier without a stock or price frame at checkout.
- */
+/** The named 409 conditions from §0.1. */
 export type ConflictCondition =
   | 'EMAIL_ALREADY_REGISTERED'
   | 'PRODUCT_INACTIVE'
@@ -68,13 +48,7 @@ const CONFLICT_MESSAGES: { condition: ConflictCondition; pattern: RegExp }[] = [
   { condition: 'IDEMPOTENCY_CONFLICT', pattern: /konflik idempotency/i },
 ];
 
-/**
- * A fault the server pinned to one line of the checkout we submitted.
- *
- * §5.2 reports these as `errors[].field = "items[0].product_id"` — an index
- * into the array *we sent*, not a product id. The caller resolves it back to a
- * product through its own request, which it still has.
- */
+/** A fault the server pinned to one line of the checkout we submitted. */
 export type CheckoutItemFault = {
   /** Index into the submitted `items` array; null when the field is unindexed. */
   itemIndex: number | null;
@@ -171,9 +145,9 @@ export class ApiError extends Error {
   }
 
   /**
-   * The response reached us but did not match the contract. This is a bug on
-   * one side of the boundary, never a user-facing condition — it fails loudly
-   * rather than letting `undefined` render on a screen.
+   * The response reached us but did not match the contract. This is a bug on one side of the
+   * boundary, never a user-facing condition — it fails loudly rather than letting `undefined`
+   * render on a screen.
    */
   static parse(path: string, cause: unknown): ApiError {
     return new ApiError({
@@ -257,11 +231,8 @@ function itemIndexOf(field: string): number | null {
 }
 
 /**
- * Stock shortfalls behind a 409, so the cart can show which line failed and by
- * how much rather than a generic toast.
- *
- * The numbers live inside the message text (`stock=0, requested=1`) — §5.2
- * gives no structured field for them.
+ * Stock shortfalls behind a 409, so the cart can show which line failed and by how much rather than
+ * a generic toast.
  */
 export function insufficientStockDetails(error: unknown): InsufficientStockDetail[] {
   if (conflictCondition(error) !== 'INSUFFICIENT_STOCK') return [];
@@ -279,9 +250,9 @@ export function isInsufficientStock(error: unknown): boolean {
 }
 
 /**
- * Price drift behind a 409 at checkout. The cashier has to see the old and new
- * price side by side before the sale can go through — the old price comes from
- * the cart, since the server only reports the current one.
+ * Price drift behind a 409 at checkout. The cashier has to see the old and new price side by side
+ * before the sale can go through — the old price comes from the cart, since the server only reports
+ * the current one.
  */
 export function priceChangedDetails(error: unknown): PriceChangedDetail[] {
   if (conflictCondition(error) !== 'PRICE_CHANGED') return [];
@@ -304,19 +275,14 @@ export function isDuplicateEmail(error: unknown): boolean {
 }
 
 /**
- * A product or its category was deactivated between loading the catalogue and
- * confirming the sale. Both read the same way to the cashier: the line has to
- * come out of the cart.
+ * A product or its category was deactivated between loading the catalogue and confirming the sale.
  */
 export function isItemUnavailable(error: unknown): boolean {
   const condition = conflictCondition(error);
   return condition === 'PRODUCT_INACTIVE' || condition === 'CATEGORY_INACTIVE';
 }
 
-/**
- * §5.2: the same `checkout_request_id` arrived with a different payload. This
- * is a client bug — a key was reused across two genuinely different sales.
- */
+/** §5.2: the same `checkout_request_id` arrived with a different payload. */
 export function isIdempotencyConflict(error: unknown): boolean {
   return conflictCondition(error) === 'IDEMPOTENCY_CONFLICT';
 }
@@ -332,8 +298,8 @@ function readTaggedNumber(message: string, name: string): number {
 }
 
 /**
- * Same, for a decimal-string amount. Parsed defensively: a malformed figure in
- * a diagnostic must not mask the error it is describing.
+ * Same, for a decimal-string amount. Parsed defensively: a malformed figure in a diagnostic must
+ * not mask the error it is describing.
  */
 function readTaggedMoney(message: string, name: string): number {
   const match = new RegExp(`${name}\\s*=\\s*(-?[\\d.]+)`).exec(message);

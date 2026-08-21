@@ -1,27 +1,4 @@
-/**
- * S-12 · Tambah / Edit Produk.
- *
- * Deliberately four fields and a toggle. There is no discount field and no tax
- * field, because neither exists in this product: total equals subtotal
- * (CLAUDE.md rule 2). There is no per-outlet price field either — §3.2 does
- * define `PUT /products/:id/outlet-prices/:outlet_id`, but per-outlet price
- * overrides are on the product's Out-of-scope list, so the override is left
- * unbuilt rather than half-exposed here.
- *
- * The SKU field is gone: §3.4 `ProductDto` has no SKU, and nothing in the
- * contract accepts or returns one. In its place is `low_stock_threshold`, which
- * §3.2 makes **required** on create — it is the base value every outlet's stock
- * is judged against until that outlet overrides it (§4.1 rule 5).
- *
- * Two things the form has to say out loud:
- *
- *   • Only active categories are selectable. `POST /products` 400s on an inactive
- *     one, so the select filters them out and the helper explains why the list is
- *     shorter than the Kategori screen's.
- *   • Editing a price does not rewrite history. Old transactions keep the price
- *     they were sold at, and the banner says so — otherwise the natural reading
- *     of "edit price" is that yesterday's receipts change too.
- */
+/** S-12 · Tambah / Edit Produk. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info } from 'lucide-react';
@@ -65,10 +42,7 @@ export const PRICE_HISTORY_NOTICE =
   'Perubahan harga hanya berlaku untuk transaksi berikutnya. Riwayat transaksi lama tidak berubah.';
 
 /**
- * The money rules live in lib/validation, but they *transform* — string in,
- * integer rupiah out. A form field has to stay the string the user is typing, so
- * the schema borrows the rules for validation and the submit handler runs the
- * same parser to get the number. One source of truth, no transform in the form.
+ * The money rules live in lib/validation, but they *transform* — string in, integer rupiah out.
  */
 const priceRupiah = rupiahInput('Harga');
 
@@ -109,8 +83,8 @@ export function ProductDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-[560px] overflow-y-auto">
         {open && (
-          // Keyed on the row so switching between two products starts clean
-          // rather than carrying the previous one's values.
+          // Keyed on the row so switching between two products starts clean rather than carrying
+          // the previous one's values.
           <ProductForm
             key={product?.productId ?? 'new'}
             product={product}
@@ -146,8 +120,8 @@ function ProductForm({
     defaultValues: {
       name: product?.name ?? '',
       lowStockThreshold: product?.lowStockThreshold ?? 0,
-      // An edited product may sit in a deactivated category; the field starts
-      // empty in that case so saving forces a valid choice.
+      // An edited product may sit in a deactivated category; the field starts empty in that case so
+      // saving forces a valid choice.
       categoryId:
         product?.categoryId && activeCategories.some((c) => c.categoryId === product.categoryId)
           ? product.categoryId
@@ -169,16 +143,16 @@ function ProductForm({
     const threshold = entries.find((entry) => entry.field === 'low_stock_threshold');
     if (threshold) setError('lowStockThreshold', { message: threshold.message });
 
-    // A validation 400 with no field breakdown is still about the category on
-    // this endpoint — it is the only precondition POST /products has.
+    // A validation 400 with no field breakdown is still about the category on this endpoint — it is
+    // the only precondition POST /products has.
     if (entries.length === 0 && isApiError(cause) && cause.kind === 'validation') {
       setError('categoryId', { message: INACTIVE_CATEGORY_ERROR });
     }
   };
 
   const submit = handleSubmit((values) => {
-    // Guard the same rule the API enforces, so a stale category list produces a
-    // field error instead of a round trip and a toast.
+    // Guard the same rule the API enforces, so a stale category list produces a field error instead
+    // of a round trip and a toast.
     if (!activeCategories.some((category) => category.categoryId === values.categoryId)) {
       setError('categoryId', { message: INACTIVE_CATEGORY_ERROR });
       return;
@@ -395,13 +369,7 @@ function ProductForm({
   );
 }
 
-/**
- * Groups digits with "." as the user types: "15000" → "15.000".
- *
- * Anything that is not a digit is dropped, so a pasted "Rp 15.000,00" collapses
- * to 1500000 rather than being half-accepted — the schema then rejects it if the
- * user meant sen, which this product does not have.
- */
+/** Groups digits with "." as the user types: "15000" → "15.000". */
 function groupThousands(value: string): string {
   const digits = value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');

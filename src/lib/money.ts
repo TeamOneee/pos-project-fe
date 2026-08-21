@@ -1,10 +1,4 @@
-/**
- * Money handling. CLAUDE.md rule 1: money never touches a float.
- *
- * The API sends decimal strings ("15750000.00"). We parse them to an integer
- * number of rupiah at the API boundary and keep them integers everywhere else.
- * No parseFloat, no toFixed, no decimals in any output.
- */
+/** Money handling. CLAUDE.md rule 1: money never touches a float. */
 
 /** An integer number of rupiah. Branding keeps it from mixing with raw numbers. */
 export type Rupiah = number;
@@ -18,17 +12,7 @@ export class MoneyParseError extends Error {
   }
 }
 
-/**
- * Parse an API decimal string to an integer number of rupiah.
- *
- * Rupiah has no minor unit in this product, so any fractional part must be
- * zero — "15750000.00" is the API's decimal(N,2) rendering of a whole number.
- * A non-zero fraction means the API contract broke and we fail loudly rather
- * than silently rounding money.
- *
- *   parseMoney("15750000.00") === 15750000
- *   parseMoney("0")           === 0
- */
+/** Parse an API decimal string to an integer number of rupiah. */
 export function parseMoney(apiString: string | number): Rupiah {
   if (typeof apiString === 'number') {
     if (!Number.isInteger(apiString)) throw new MoneyParseError(apiString);
@@ -47,8 +31,8 @@ export function parseMoney(apiString: string | number): Rupiah {
     throw new MoneyParseError(apiString);
   }
 
-  // The integer part is safe for Number() — it has no fractional component,
-  // so no binary-float rounding can occur below Number.MAX_SAFE_INTEGER.
+  // The integer part is safe for Number() — it has no fractional component, so no binary-float
+  // rounding can occur below Number.MAX_SAFE_INTEGER.
   const value = Number(whole);
   if (!Number.isSafeInteger(value)) throw new MoneyParseError(apiString);
 
@@ -64,15 +48,7 @@ export function parseMoneyOr(apiString: string | number, fallback: Rupiah = 0): 
   }
 }
 
-/**
- * Lenient variant for computed averages (e.g. average_transaction_value).
- *
- * The contract says every money field is "00", but the backend currently
- * returns averages as "35156.25" — omzet/count with real division. Failing
- * the whole dashboard because one average has a fractional rupiah is worse
- * than rounding it. This helper rounds to the nearest rupiah, while the
- * strict `parseMoney` keeps its loud failure for all other money fields.
- */
+/** Lenient variant for computed averages (e.g. average_transaction_value). */
 export function parseMoneyLenient(apiString: string | number): Rupiah {
   if (typeof apiString === 'number') {
     if (!Number.isFinite(apiString)) throw new MoneyParseError(apiString);
@@ -107,20 +83,12 @@ function groupDigits(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-/**
- * Format an integer rupiah amount for display.
- *
- *   formatIDR(15750000) === "Rp 15.750.000"
- *   formatIDR(0)        === "Rp 0"
- *   formatIDR(-2500)    === "-Rp 2.500"
- *
- * Never emits a decimal separator — there are no sen in this product.
- */
+/** Format an integer rupiah amount for display. */
 export function formatIDR(amount: Rupiah): string {
   if (!Number.isFinite(amount)) throw new MoneyParseError(amount);
 
-  // Defensive: a float slipped through somewhere upstream. Truncate toward zero
-  // rather than round, so we never invent money that was not there.
+  // Defensive: a float slipped through somewhere upstream. Truncate toward zero rather than round,
+  // so we never invent money that was not there.
   const integer = Math.trunc(amount);
   const negative = integer < 0;
   const formatted = `Rp ${groupDigits(String(Math.abs(integer)))}`;
@@ -128,10 +96,7 @@ export function formatIDR(amount: Rupiah): string {
   return negative ? `-${formatted}` : formatted;
 }
 
-/**
- * Format without the "Rp " prefix, for table columns that carry the unit in
- * the header. Same guarantees: integers only, no decimal separator.
- */
+/** Format without the "Rp " prefix, for table columns that carry the unit in the header. */
 export function formatIDRCompactUnit(amount: Rupiah): string {
   return formatIDR(amount).replace(/^(-?)Rp /, '$1');
 }
@@ -146,16 +111,7 @@ export function lineTotal(unitPrice: Rupiah, quantity: number): Rupiah {
   return Math.trunc(unitPrice) * Math.trunc(quantity);
 }
 
-/**
- * Render integer rupiah back as the contract's decimal string.
- *
- * §0 requires every money field on the wire to be an explicit decimal string
- * and never a JSON number, so anything we send — `price` on a product,
- * `expected_unit_price` on a checkout line — has to come back through here.
- * Built by string concatenation, never `toFixed`, so no float ever touches it.
- *
- *   formatMoneyForApi(8500) === "8500.00"
- */
+/** Render integer rupiah back as the contract's decimal string. */
 export function formatMoneyForApi(amount: Rupiah): string {
   if (!Number.isInteger(amount)) throw new MoneyParseError(amount);
   const sign = amount < 0 ? '-' : '';

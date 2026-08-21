@@ -1,17 +1,4 @@
-/**
- * S-15b · Stok per Outlet.
- *
- * A right-hand drawer opened from any product row. It answers the one question
- * an outlet-scoped inventory table cannot: where else is this product, and how
- * much of it is there.
- *
- * §4.2 makes the outlet filter on `GET /inventory` optional, so this is a
- * single `?product_id=` read across the whole merchant rather than the fan-out
- * over per-pairing lookups it used to need. Each row also arrives with its own
- * `effective_low_stock_threshold` and the server's `is_low_stock` verdict, so
- * the drawer no longer has to be told what "low" means — which matters, because
- * two outlets can hold different thresholds for the same product.
- */
+/** S-15b · Stok per Outlet. */
 
 import { Boxes } from 'lucide-react';
 

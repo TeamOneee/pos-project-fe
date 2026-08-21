@@ -1,12 +1,4 @@
-/**
- * S-08 · Staf.
- *
- * Owner only, by route and by matrix, so the tests focus on the reads and
- * writes that carry the contract's two rules: a cashier lands on exactly one
- * outlet, an admin on none — and the Owner's own row offers no actions the
- * endpoint would refuse. The route gate is checked too, because an Admin
- * typing /users is the failure mode the matrix exists to prevent.
- */
+/** S-08 · Staf. */
 
 import '@/api';
 
@@ -77,7 +69,6 @@ describe('S-08 · staff list', () => {
     expect(screen.getByText('Rudi Hartono')).toBeInTheDocument();
 
     // Roles read in Bahasa, and outlets resolve to names the page fetched.
-    // "Pemilik" also names the session in the sidebar, hence the counts.
     expect(screen.getAllByText('Pemilik').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Admin').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Kasir').length).toBeGreaterThanOrEqual(3);
@@ -88,6 +79,49 @@ describe('S-08 · staff list', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
 
     expect(await screen.findByText('Menampilkan 1–5 dari 5')).toBeInTheDocument();
+  });
+
+  it('searches by name across the whole list, not just the visible page', async () => {
+    await signInAs('owner@indomart.com');
+    await openUsers();
+    await screen.findByText('John Doe');
+
+    await act(async () => {
+      setInputValue(screen.getByLabelText('Cari nama atau email'), 'rudi');
+    });
+
+    expect(screen.getByText('Rudi Hartono')).toBeInTheDocument();
+    expect(screen.queryByText('John Doe')).toBeNull();
+    expect(screen.queryByText('Budi Santoso')).toBeNull();
+    // The footer counts what matched, not what the server returned.
+    expect(await screen.findByText('Menampilkan 1–1 dari 1')).toBeInTheDocument();
+  });
+
+  it('searches on the email column too, since it is on screen', async () => {
+    await signInAs('owner@indomart.com');
+    await openUsers();
+    await screen.findByText('John Doe');
+
+    await act(async () => {
+      setInputValue(screen.getByLabelText('Cari nama atau email'), 'sari@');
+    });
+
+    expect(screen.getByText('Sari Dewi')).toBeInTheDocument();
+    expect(screen.queryByText('Rudi Hartono')).toBeNull();
+  });
+
+  it('offers a way out when a search matches nobody', async () => {
+    await signInAs('owner@indomart.com');
+    await openUsers();
+    await screen.findByText('John Doe');
+
+    await act(async () => {
+      setInputValue(screen.getByLabelText('Cari nama atau email'), 'zzzz');
+    });
+
+    // The filtered empty state, which carries "Hapus filter" — not the "no staff yet" copy, which
+    // would be a lie.
+    expect(await screen.findByRole('button', { name: /Hapus filter/i })).toBeInTheDocument();
   });
 
   it('gives the Owner no row menu but others Edit, Reset Password and Nonaktifkan', async () => {

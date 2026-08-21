@@ -1,15 +1,4 @@
-/**
- * Product master — contract §3.2.
- *
- * `price` crosses the boundary as a decimal string and leaves this file as
- * integer rupiah. Nothing downstream ever sees the string form.
- *
- * Two shapes that were in the previous contract are gone from §3.4 and so are
- * gone from here: there is **no `sku`** on `ProductDto`, and there is no
- * `DELETE` — a product is retired with `PATCH { is_active: false }` (BR-019).
- * Price and status changes never rewrite past sales, which snapshot their own
- * name and unit price (§3.2 warning).
- */
+/** Product master — contract §3.2. */
 
 import { z } from 'zod';
 

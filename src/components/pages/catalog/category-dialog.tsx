@@ -1,11 +1,4 @@
-/**
- * S-13's create/edit modal. One field, 400px wide.
- *
- * A category is a name and nothing else — `POST /categories` takes `{ name }`
- * and status is set by activating or deactivating, not by a toggle here. So the
- * modal stays the size of its content rather than padding itself out to look
- * like the product form.
- */
+/** S-13's create/edit modal. One field, 400px wide. */
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';

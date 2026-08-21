@@ -1,11 +1,4 @@
-/**
- * The filter bar for S-15: search by product or SKU, and narrow by condition.
- *
- * Both filters run in memory over the outlet's rows rather than as query
- * params — `GET /inventory` takes neither a search term nor a stock condition,
- * and the alternative would be a request per keystroke that the API cannot
- * answer anyway.
- */
+/** The filter bar for S-15: search by product or SKU, and narrow by condition. */
 
 import { Search } from 'lucide-react';
 

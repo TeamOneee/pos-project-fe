@@ -1,14 +1,4 @@
-/**
- * S-11, and the enforcement behind the screen.
- *
- * The Owner and the Admin both manage the catalog (BR-011B), so the mutation
- * surfaces are on the screen for both roles. What is tested here:
- *
- *   1. Both roles see the create button and the row menus.
- *   2. The mutation hooks are guarded by the matrix — but the matrix admits
- *      both roles, so a direct call from either session reaches the API.
- *   3. The mock backend would answer 403 for any role the matrix excludes.
- */
+/** S-11, and the enforcement behind the screen. */
 
 import '@/api';
 
@@ -85,8 +75,8 @@ describe('S-11 · products list', () => {
   it('marks an active product whose category was deactivated', async () => {
     await signInAs('sari@indomart.com');
 
-    // Deactivating a category does not cascade: its products stay ACTIVE and
-    // stay in this list, which is exactly the case the badge exists for.
+    // Deactivating a category does not cascade: its products stay ACTIVE and stay in this list,
+    // which is exactly the case the badge exists for.
     const category = getDb().categories.find((entry) => entry.id === 'cat_minuman');
     if (category) category.is_active = false;
 
@@ -118,8 +108,8 @@ describe('S-11 · products list', () => {
 type ProbeResult = { error: unknown } | null;
 
 /**
- * Calls the catalog mutations directly, with no screen and no button in between —
- * the "what if something calls the hook anyway" case.
+ * Calls the catalog mutations directly, with no screen and no button in between — the "what if
+ * something calls the hook anyway" case.
  */
 function MutationProbe({ onSettled }: { onSettled: (result: ProbeResult) => void }) {
   const create = useCreateProduct();

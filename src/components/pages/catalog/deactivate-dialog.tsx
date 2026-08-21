@@ -1,19 +1,4 @@
-/**
- * The confirmation every destructive action in the app goes through.
- *
- * `DELETE /products/{id}` and `DELETE /categories/{id}` are soft deletes, and
- * that is the whole reason this dialog exists: the word "delete" would be a lie,
- * and the user's real question is "what stops working if I do this?".
- *
- * Three things it always does, because a confirmation that skips any of them is
- * just a speed bump:
- *
- *   • It names the specific record — "Nonaktifkan Coca Cola 1.5L?", never
- *     "Nonaktifkan item ini?".
- *   • It states the consequence: what stops working, in the caller's words.
- *   • It states what survives, via `preserved`, so the user is not guessing
- *     whether they are about to lose history.
- */
+/** The confirmation every destructive action in the app goes through. */
 
 import { ShieldCheck } from 'lucide-react';
 import * as React from 'react';

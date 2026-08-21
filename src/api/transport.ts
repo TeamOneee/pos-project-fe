@@ -1,11 +1,4 @@
-/**
- * The seam between mock and live.
- *
- * A transport takes a described request and returns a raw status plus a parsed
- * JSON body — nothing more. Envelope checking, schema validation and error
- * mapping all happen above it in client.ts, so both modes go through exactly
- * the same code once the bytes are in hand.
- */
+/** The seam between mock and live. */
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -18,12 +11,8 @@ export type ApiRequest = {
   query?: Record<string, QueryValue>;
   body?: unknown;
   /**
-   * Contract §0: the client may propagate its own trace id via
-   * `X-Correlation-Id`; the server generates one when we do not. This is a
-   * header and only a header — the JSON body never carries it.
-   *
-   * Checkout idempotency does *not* live here. §5.2 puts `checkout_request_id`
-   * in the request body, so it is an ordinary field on CheckoutInput.
+   * Contract §0: the client may propagate its own trace id via `X-Correlation-Id`; the server
+   * generates one when we do not.
    */
   correlationId?: string | undefined;
   signal?: AbortSignal | undefined;

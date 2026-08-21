@@ -1,13 +1,4 @@
-/**
- * The two states the dashboard has besides "populated".
- *
- * The skeleton mirrors the real layout rather than being a generic block, so
- * nothing jumps when the data lands.
- *
- * The empty state keeps the KPI tiles — at Rp 0 and 0 — because a new merchant
- * needs to see that the figures exist and are simply zero, not that the screen
- * is broken. Rows 2 to 6 collapse into one card pointing at outlet setup.
- */
+/** The two states the dashboard has besides "populated". */
 
 import { ChartColumn } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -137,35 +128,34 @@ function ListSkeleton({ className }: { className?: string }) {
 }
 
 /**
- * The Admin stock dashboard's loading state. Same building blocks as the
- * Owner's skeleton (KPI tiles plus list cards) so the two dashboards share one
- * visual language — only the absence of chart rows differs.
+ * The Admin stock dashboard's loading state. Same building blocks as the Owner's skeleton (KPI
+ * tiles plus list cards) so the two dashboards share one visual language — only the absence of
+ * chart rows differs.
  */
+/** S-14 while it loads: the queue, the per-outlet table, the catalogue strip. */
 export function StockDashboardSkeleton() {
   return (
     <div className="flex flex-col gap-lg">
-      <div className="flex flex-row flex-wrap gap-lg">
-        {[0, 1, 2, 3].map((index) => (
-          <Card key={index} className="min-w-[140px] flex-1 basis-full tablet:basis-0">
-            <CardContent className="flex flex-col gap-sm pt-lg">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-3 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Per-outlet table: title, then a row per outlet. */}
+      <Card>
+        <CardContent className="flex flex-col gap-md pt-lg">
+          <Skeleton className="h-6 w-48" />
+          {[0, 1, 2].map((row) => (
+            <Skeleton key={row} className="h-10 w-full" />
+          ))}
+        </CardContent>
+      </Card>
 
-      {[0, 1, 2].map((card) => (
-        <Card key={card}>
-          <CardContent className="flex flex-col gap-md pt-lg">
-            <Skeleton className="h-6 w-48" />
-            {[0, 1, 2].map((row) => (
-              <Skeleton key={row} className="h-10 w-full" />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+      <Card>
+        <CardContent className="flex flex-col gap-lg pt-lg tablet:flex-row">
+          {[0, 1, 2, 3].map((figure) => (
+            <div key={figure} className="flex min-w-[140px] flex-1 flex-col gap-xs">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-7 w-16" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,15 +1,4 @@
-/**
- * Resolved colours for charts.
- *
- * Recharts paints SVG and needs real colour values, not class names, so this
- * is one of the sanctioned places a token is read at runtime rather than
- * through Tailwind. Everything still comes from the design tokens — no chart
- * file contains a hex except the two fixed series colours.
- *
- * The two series colours are fixed across themes: revenue is always #4F46E5
- * and transaction count always #0EA5E9, so a reader who learns the pairing on
- * one screen keeps it on every other.
- */
+/** Resolved colours for charts. */
 
 import { useTheme } from '@/components/ui/theme-provider';
 import { CHART_SERIES } from '@/lib/tokens';

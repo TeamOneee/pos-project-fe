@@ -1,14 +1,8 @@
-/**
- * The 72px tablet icon rail.
- *
- * Same nav, same source of truth, no labels. Each icon carries a tooltip for
- * pointer users and an aria-label for everyone else.
- */
+/** The 72px tablet icon rail. */
 
 import { NavLink } from 'react-router-dom';
 
 import { activeHref, navFor, type NavItem } from '@/components/layouts/nav-config';
-import { UserChip } from '@/components/layouts/user-chip';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -25,10 +19,6 @@ export function IconRail({ role, pathname }: { role: Role; pathname: string }) {
         {items.map((item) => (
           <RailLink key={item.href} item={item} active={active === item.href} />
         ))}
-      </div>
-
-      <div className="flex w-full flex-col items-center border-t border-border pt-md">
-        <UserChip compact />
       </div>
     </aside>
   );

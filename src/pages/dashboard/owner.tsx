@@ -1,14 +1,4 @@
-/**
- * S-03 · Owner business dashboard.
- *
- * One of the two surfaces behind `/dashboard`; the Admin's operational stock
- * dashboard is the other. The role picks between them in `pages/dashboard`,
- * and the route guard keeps a Cashier out of both.
- *
- * The screen is composed from seven `/dashboard/*` reads plus a few supporting
- * ones — see use-owner-dashboard.ts, which does the fan-out. What is left here
- * is layout, the period and outlet controls, and the three states.
- */
+/** S-03 · Owner business dashboard. */
 
 import * as React from 'react';
 
@@ -31,27 +21,28 @@ import { TopProductsCard, UnderperformingCard } from '@/components/pages/dashboa
 import { SalesTrendCard } from '@/components/pages/dashboard/sales-trend-card';
 import { TimePatternCard } from '@/components/pages/dashboard/time-pattern-card';
 import { useOwnerDashboard } from '@/hooks/use-owner-dashboard';
-import { FreshnessCaption, OutletSelect, PeriodSegmented } from '@/components/pages/owner/controls';
-import type { Period } from '@/lib/period';
+import { FreshnessCaption, OutletSelect } from '@/components/pages/owner/controls';
+import { PeriodControl } from '@/components/pages/owner/period-control';
+import { DEFAULT_SELECTION, type PeriodSelection } from '@/lib/period';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 
 export default function OwnerDashboardPage() {
   const mobile = useBreakpoint() === 'mobile';
-  const [period, setPeriod] = React.useState<Period>('THIS_MONTH');
+  const [selection, setSelection] = React.useState<PeriodSelection>(DEFAULT_SELECTION);
   const [outletId, setOutletId] = React.useState<string | null>(null);
 
-  const dashboard = useOwnerDashboard(period, outletId);
+  const dashboard = useOwnerDashboard(selection, outletId);
 
   const chartHeight = mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.default;
   const { outletOptions, refetch, isFetching, dataUpdatedAt, freshness } = dashboard;
 
-  // Memoized so useTopBarActions sees a stable node: the top bar slot is fed
-  // through an effect, and a fresh element each render would loop the update.
+  // Memoized so useTopBarActions sees a stable node: the top bar slot is fed through an effect, and
+  // a fresh element each render would loop the update.
   const controls = React.useMemo(
     () => (
       <div className="flex flex-row items-center gap-md">
         <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
-        <PeriodSegmented value={period} onChange={setPeriod} />
+        <PeriodControl value={selection} onChange={setSelection} />
         <FreshnessCaption
           updatedAt={dataUpdatedAt}
           stale={freshness === 'STALE'}
@@ -60,7 +51,7 @@ export default function OwnerDashboardPage() {
         />
       </div>
     ),
-    [outletOptions, outletId, period, dataUpdatedAt, freshness, isFetching, refetch]
+    [outletOptions, outletId, selection, dataUpdatedAt, freshness, isFetching, refetch]
   );
 
   useTopBarActions(!mobile ? controls : null);
@@ -78,7 +69,7 @@ export default function OwnerDashboardPage() {
               onRefresh={refetch}
             />
           </div>
-          <PeriodSegmented value={period} onChange={setPeriod} />
+          <PeriodControl value={selection} onChange={setSelection} />
         </div>
       )}
 

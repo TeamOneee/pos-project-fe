@@ -1,14 +1,4 @@
-/**
- * S-06 · Outlet.
- *
- * The route asks for `outlets` manage, so only the Owner gets here — there is
- * no read-only variant to render, and the mutation hooks behind every
- * affordance carry the same guard. The screen is a card grid rather than a
- * table because outlets are few (brief §7.3), and it pages wide (one request,
- * size capped at the API's maximum) with search applied locally: §2.2 has a
- * status filter but no search term, so the status is server-side and the
- * search stays on the list the screen already has.
- */
+/** S-06 · Outlet. */
 
 import * as React from 'react';
 
@@ -39,9 +29,8 @@ export default function OutletsPage() {
   const [editing, setEditing] = React.useState<Outlet | null>(null);
   const [deactivating, setDeactivating] = React.useState<Outlet | null>(null);
 
-  // §2.2 filters status server-side and has no search term, so the page asks
-  // for everything and narrows locally. Outlets are few; one wide request is
-  // cheaper and reads better than ten pages of three.
+  // §2.2 filters status server-side and has no search term, so the page asks for everything and
+  // narrows locally.
   const outlets = useOutlets({
     ...(query.status ? { status: query.status } : {}),
     size: PAGE_SIZE_MAX,
@@ -98,12 +87,10 @@ export default function OutletsPage() {
   return (
     <div className="flex flex-col gap-lg p-lg desktop:mx-auto desktop:w-full desktop:max-w-[1280px]">
       <div className="flex flex-col gap-md tablet:flex-row tablet:items-start tablet:justify-between">
-        <div className="flex flex-col gap-xs">
-          <Text variant="h1">Outlet</Text>
-          <Text variant="body" tone="muted">
-            Kelola lokasi operasional merchant Anda.
-          </Text>
-        </div>
+        {/* The shell's top bar carries the title; this is its subtitle. */}
+        <Text variant="body" tone="muted">
+          Kelola lokasi operasional merchant Anda.
+        </Text>
 
         <Button className="shrink-0" onClick={() => openEditor(null)}>
           <Text>+ Tambah Outlet</Text>

@@ -12,14 +12,13 @@ const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 ];
 
 /**
- * Three-way theme control. Each option carries its own label, so the active
- * state is never conveyed by colour alone (CLAUDE.md rule 6).
+ * Three-way theme control. Each option carries its own label, so the active state is never conveyed
+ * by colour alone (CLAUDE.md rule 6).
  */
 function ThemeToggle({ className }: { className?: string }) {
   const { preference, setPreference } = useTheme();
 
-  // The "Sistem" option is hidden while system-following is disabled (light is
-  // the starting theme). The option stays in OPTIONS so re-enabling is one line.
+  // The "Sistem" option is hidden while system-following is disabled (light is the starting theme).
   const options = OPTIONS.filter((option) => option.value !== 'system');
 
   return (

@@ -1,23 +1,4 @@
-/**
- * The Owner dashboard, composed.
- *
- * §6.2 replaced one fat `/dashboard/owner` payload with seven granular reads,
- * and this is where they are put back together into the shape S-03 renders.
- * Keeping the composition in a hook rather than in the screen means the cards
- * stay presentational and the fan-out is testable on its own.
- *
- * Two things the contract does not provide, assembled here from things it does:
- *
- *   • **Period-over-period deltas.** There is no comparison endpoint, so the
- *     previous period is a second `/dashboard/summary` read over the range
- *     immediately before this one, and the deltas are a subtraction.
- *   • **Recent sales.** The dashboard endpoints report aggregates only, so the
- *     last few transactions come from `GET /transactions` itself.
- *
- * Freshness is reported by the server rather than guessed from fetch time:
- * every aggregate carries `data_updated_at` and a `FRESH`/`STALE` flag (§6.1),
- * and a STALE read is still a 200 to be rendered with a caveat.
- */
+/** The Owner dashboard, composed. */
 
 import * as React from 'react';
 
@@ -36,7 +17,14 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useOutlets } from '@/hooks/use-outlets';
 import { useStaff } from '@/hooks/use-staff';
 import { useTransactions } from '@/hooks/use-transactions';
-import { bucketFor, growthPercent, previousRange, rangeFor, type Period } from '@/lib/period';
+import {
+  bucketFor,
+  growthPercent,
+  periodKey,
+  previousRange,
+  rangeFor,
+  type PeriodSelection,
+} from '@/lib/period';
 import type { Freshness } from '@/api/schema';
 
 /** How many sales the "Transaksi Terakhir" card lists. */
@@ -49,15 +37,15 @@ export type PeriodDeltas = {
   averageTransactionValue: number | null;
 };
 
-export function useOwnerDashboard(period: Period, outletId: string | null) {
-  // Recomputed only when the chip changes, so the query keys stay stable
-  // between renders and the aggregates are not refetched on every tick.
-  const range = React.useMemo(() => rangeFor(period), [period]);
+export function useOwnerDashboard(selection: PeriodSelection, outletId: string | null) {
+  // Recomputed only when the selection changes, so the query keys stay stable between renders and
+  // the aggregates are not refetched on every tick.
+  const range = React.useMemo(() => rangeFor(selection), [selection]);
   const previous = React.useMemo(() => previousRange(range), [range]);
 
   const outletFilter = outletId ? { outlet_id: outletId } : {};
   const periodQuery = { ...range, ...outletFilter };
-  const bucket = bucketFor(period);
+  const bucket = bucketFor(range);
 
   const summary = useDashboardSummary(periodQuery);
   const previousSummary = useDashboardSummary({ ...previous, ...outletFilter });
@@ -68,8 +56,8 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
   // Merchant-wide by design: comparing outlets to each other has no outlet filter.
   const outletComparison = useOutletComparison(range);
 
-  // The "Ringkasan Merchant" card, which is about the business rather than the
-  // period, so none of these take a range.
+  // The "Ringkasan Merchant" card, which is about the business rather than the period, so none of
+  // these take a range.
   const merchant = useMerchant();
   const operations = useDashboardOperations();
   const outlets = useOutlets({ status: 'ACTIVE' });
@@ -79,14 +67,7 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
 
   const recent = useTransactions({ ...range, ...outletFilter, size: RECENT_LIMIT });
 
-  /**
-   * Memoised, and not as an optimisation.
-   *
-   * The dashboard feeds these straight into the shell's top-bar slot, which is
-   * an effect. A fresh array or object on every render would change that
-   * effect's dependencies on every render, and the effect writes state — so the
-   * screen would re-render itself forever.
-   */
+  /** Memoised, and not as an optimisation. */
   const outletOptions = React.useMemo(
     () =>
       (outlets.data?.items ?? []).map((outlet) => ({
@@ -128,8 +109,8 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
   }, [summary.data, previousSummary.data]);
 
   /**
-   * The oldest `data_updated_at` across the aggregates on screen, so the
-   * caption is honest about the least fresh figure rather than the most.
+   * The oldest `data_updated_at` across the aggregates on screen, so the caption is honest about
+   * the least fresh figure rather than the most.
    */
   const dataUpdatedAt = React.useMemo(() => {
     const stamps = [
@@ -168,12 +149,16 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
 
   const core = [summary, salesTrend, aovTrend, timePattern, topProducts, outletComparison];
 
+  // Keyed on a string rather than the selection object: this callback is a dependency of the node
+  // the screen hands to the top bar, which is applied through an effect that writes state.
+  const selectionKey = periodKey(selection);
+
   const refetch = React.useCallback(() => {
     for (const query of core) void query.refetch();
     void previousSummary.refetch();
     void recent.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, outletId]);
+  }, [selectionKey, outletId]);
 
   return {
     range,
@@ -193,7 +178,8 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
     merchantOverview,
     outletOptions,
 
-    // opt: progressive rendering — outer skeleton only blocks on summary (KPI), other cards render progressively
+    // opt: progressive rendering — outer skeleton only blocks on summary (KPI), other cards render
+    // progressively
     isPending: summary.isPending,
     isFetching: core.some((query) => query.isFetching),
     isError: summary.isError,
