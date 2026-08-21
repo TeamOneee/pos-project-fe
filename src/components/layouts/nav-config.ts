@@ -9,6 +9,7 @@
 import {
   Boxes,
   Building2,
+  History,
   LayoutDashboard,
   Package,
   ReceiptText,
@@ -67,6 +68,7 @@ const NAV: Record<Role, NavSection[]> = {
         { href: '/categories', label: 'Kategori', icon: Tag },
         // The Owner manages stock like the Admin does (BR-011B).
         { href: '/inventory', label: 'Stok', icon: Boxes, exact: true },
+        { href: '/inventory/movements', label: 'Riwayat Stok', icon: History },
       ],
     },
     {
@@ -88,6 +90,7 @@ const NAV: Record<Role, NavSection[]> = {
         { href: '/dashboard', label: 'Dashboard Stok', icon: LayoutDashboard, exact: true },
         { href: '/inventory', label: 'Inventori', icon: Boxes, exact: true },
         { href: '/inventory/low-stock', label: 'Stok Menipis', icon: TriangleAlert },
+        { href: '/inventory/movements', label: 'Riwayat Stok', icon: History },
       ],
     },
     {
