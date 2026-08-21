@@ -29,12 +29,7 @@ const SIGN_OUT_WARNING: Record<Role, string> = {
     'Keranjang yang belum dibayar akan hilang dan tidak bisa dikembalikan. Anda perlu masuk lagi untuk membuka kasir.',
 };
 
-export function AccountControls({
-  /** The till's bar is tight; drop the identity text and keep the avatar. */
-  compact = false,
-}: {
-  compact?: boolean;
-}) {
+export function AccountControls() {
   const { session, role, signOut } = useAuth();
   const [confirming, setConfirming] = React.useState(false);
 
@@ -59,16 +54,14 @@ export function AccountControls({
         </Avatar>
 
         {/* The email needs room to be worth showing, so it waits for desktop. */}
-        {!compact && (
-          <span className="hidden min-w-0 flex-col desktop:flex">
-            <Text variant="caption" className="block max-w-[180px] truncate">
-              {identity}
-            </Text>
-            <Text variant="caption" tone="subtle">
-              {ROLE_LABEL[role]}
-            </Text>
-          </span>
-        )}
+        <span className="hidden min-w-0 flex-col desktop:flex">
+          <Text variant="caption" className="block max-w-[180px] truncate">
+            {identity}
+          </Text>
+          <Text variant="caption" tone="subtle">
+            {ROLE_LABEL[role]}
+          </Text>
+        </span>
       </div>
 
       <Button
@@ -78,7 +71,7 @@ export function AccountControls({
         aria-label={`Keluar dari akun ${identity}`}
       >
         <Icon as={LogOut} size={16} className="text-danger" />
-        {!compact && <Text tone="danger">Keluar</Text>}
+        <Text tone="danger">Keluar</Text>
       </Button>
 
       <Dialog open={confirming} onOpenChange={setConfirming}>

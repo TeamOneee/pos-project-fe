@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import * as React from 'react';
 
 import { useAuth } from '@/components/pages/auth/auth-provider';
-import { AccountControls } from '@/components/layouts/account-controls';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -21,7 +20,7 @@ import { stockMap, usePosCatalog, type PosProduct } from '@/lib/pos-catalog';
 import { ProductGrid } from '@/components/pages/pos/product-grid';
 import { usePosIdentity } from '@/hooks/use-pos-identity';
 import { useOutlets } from '@/hooks/use-outlets';
-import { SidebarToggle } from '@/components/layouts/sidebar-toggle';
+import { Header } from '@/components/layouts/header';
 import { printReceipt } from '@/lib/print-receipt';
 import { receiptFromCheckout, type ReceiptData } from '@/lib/receipt-data';
 import { receiptHtml } from '@/lib/receipt-html';
@@ -362,56 +361,52 @@ function PosTopBar({
   const mobile = useBreakpoint() === 'mobile';
 
   return (
-    <div className="flex h-16 shrink-0 flex-row items-center justify-between gap-md border-b border-border bg-surface px-lg">
-      <div className="flex min-w-0 flex-row items-center gap-md">
-        {/* The till has no app header, so it carries the sidebar toggle itself —
-            otherwise the Cashier is the one user who cannot reclaim the width. */}
-        <SidebarToggle />
-
-        <Text variant="body-strong" className="shrink-0">
-          Kasir
-        </Text>
-        {hasOutletName && (
+    <Header
+      className="shrink-0"
+      title="Kasir"
+      badge={
+        hasOutletName ? (
           <Badge variant="neutral" className="min-w-0">
             <Text className="block max-w-56 truncate">{outletName}</Text>
           </Badge>
-        )}
-      </div>
+        ) : null
+      }
+      actions={
+        <>
+          {showBack && (
+            <Link
+              to="/dashboard"
+              className="flex min-h-touch items-center justify-center rounded-md px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
+            >
+              <Text variant="body-strong">Kembali</Text>
+            </Link>
+          )}
 
-      <div className="flex shrink-0 flex-row items-center gap-md">
-        {showBack && (
-          <Link
-            to="/dashboard"
-            className="flex min-h-touch items-center justify-center rounded-md px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
-          >
-            <Text variant="body-strong">Kembali</Text>
-          </Link>
-        )}
-        {onSwitchOutlet && (
-          <button
-            onClick={onSwitchOutlet}
-            className="flex min-h-touch items-center justify-center rounded-md px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
-          >
-            <Text variant="body-strong">Ganti Outlet</Text>
-          </button>
-        )}
-        <Text variant="mono" tone="muted">
-          {time}
-        </Text>
-        {/* The sidebar and the tablet rail both carry Riwayat, so the bar only
-            offers it where neither exists: mobile, where it is the Cashier's
-            single way off the till. */}
-        {mobile && (
-          <Link
-            to="/transactions"
-            className="flex min-h-touch items-center justify-center px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
-          >
-            <Text variant="body-strong">Riwayat</Text>
-          </Link>
-        )}
-        <AccountControls compact />
-      </div>
-    </div>
+          {onSwitchOutlet && (
+            <button
+              onClick={onSwitchOutlet}
+              className="flex min-h-touch items-center justify-center rounded-md px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
+            >
+              <Text variant="body-strong">Ganti Outlet</Text>
+            </button>
+          )}
+
+          <Text variant="mono" tone="muted">
+            {time}
+          </Text>
+
+          {/* Only where no sidebar or rail carries it: mobile, the Cashier's single way off the till. */}
+          {mobile && (
+            <Link
+              to="/transactions"
+              className="flex min-h-touch items-center justify-center px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
+            >
+              <Text variant="body-strong">Riwayat</Text>
+            </Link>
+          )}
+        </>
+      }
+    />
   );
 }
 
