@@ -193,10 +193,23 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
     merchantOverview,
     outletOptions,
 
-    /** The screen blocks on the aggregates only; the side cards fill in after. */
-    isPending: core.some((query) => query.isPending),
+    // opt: progressive rendering — outer skeleton only blocks on summary (KPI), other cards render progressively
+    isPending: summary.isPending,
     isFetching: core.some((query) => query.isFetching),
-    isError: core.some((query) => query.isError),
+    isError: summary.isError,
+    summaryError: summary.error,
+    // per-card states for granular error UI
+    salesTrendPending: salesTrend.isPending,
+    salesTrendError: salesTrend.isError,
+    salesTrendErrorDetail: salesTrend.error,
+    aovTrendPending: aovTrend.isPending,
+    aovTrendError: aovTrend.isError,
+    timePatternPending: timePattern.isPending,
+    timePatternError: timePattern.isError,
+    topProductsPending: topProducts.isPending,
+    topProductsError: topProducts.isError,
+    outletComparisonPending: outletComparison.isPending,
+    outletComparisonError: outletComparison.isError,
     refetch,
   };
 }

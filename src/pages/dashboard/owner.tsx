@@ -89,6 +89,7 @@ export default function OwnerDashboardPage() {
       ) : (
         <DashboardBody dashboard={dashboard} chartHeight={chartHeight} compact={mobile} />
       )}
+      {/* per-card inline errors render inside DashboardBody, outer no longer blanks on one slow aggregate */}
     </div>
   );
 }
@@ -116,52 +117,70 @@ function DashboardBody({
       ) : (
         <>
           <div className="flex flex-col gap-lg desktop:flex-row">
-            {dashboard.salesTrend && (
+            {dashboard.salesTrend ? (
               <SalesTrendCard
                 trend={dashboard.salesTrend}
                 height={chartHeight}
                 compact={compact}
                 className="desktop:w-[66%]"
               />
-            )}
+            ) : dashboard.salesTrendError ? (
+              <div className="desktop:w-[66%] rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat tren penjualan</div>
+            ) : null}
             <MerchantSummaryCard overview={dashboard.merchantOverview} className="desktop:flex-1" />
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">
-            <OutletPerformanceCard
-              outlets={dashboard.outletComparison?.items ?? []}
-              className="desktop:w-[58%]"
-            />
-            {dashboard.timePattern && (
+            {dashboard.outletComparison ? (
+              <OutletPerformanceCard
+                outlets={dashboard.outletComparison.items}
+                className="desktop:w-[58%]"
+              />
+            ) : dashboard.outletComparisonError ? (
+              <div className="desktop:w-[58%] rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat perbandingan outlet</div>
+            ) : (
+              <OutletPerformanceCard outlets={[]} className="desktop:w-[58%]" />
+            )}
+            {dashboard.timePattern ? (
               <TimePatternCard
                 pattern={dashboard.timePattern}
                 height={chartHeight}
                 compact={compact}
                 className="desktop:flex-1"
               />
-            )}
+            ) : dashboard.timePatternError ? (
+              <div className="desktop:flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat pola waktu</div>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">
-            <TopProductsCard
-              products={dashboard.topProducts?.topSelling ?? []}
-              className="desktop:flex-1"
-            />
-            <UnderperformingCard
-              products={dashboard.topProducts?.leastSelling ?? []}
-              className="desktop:flex-1"
-            />
+            {dashboard.topProducts ? (
+              <>
+                <TopProductsCard
+                  products={dashboard.topProducts.topSelling}
+                  className="desktop:flex-1"
+                />
+                <UnderperformingCard
+                  products={dashboard.topProducts.leastSelling}
+                  className="desktop:flex-1"
+                />
+              </>
+            ) : dashboard.topProductsError ? (
+              <div className="flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat peringkat produk</div>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-lg desktop:flex-row">
-            {dashboard.aovTrend && (
+            {dashboard.aovTrend ? (
               <AovTrendCard
                 trend={dashboard.aovTrend}
                 delta={dashboard.deltas.averageTransactionValue}
                 height={chartHeight}
                 className="desktop:flex-1"
               />
-            )}
+            ) : dashboard.aovTrendError ? (
+              <div className="desktop:flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat tren AOV</div>
+            ) : null}
             <RecentTransactionsCard
               transactions={dashboard.recentTransactions}
               className="desktop:flex-1"

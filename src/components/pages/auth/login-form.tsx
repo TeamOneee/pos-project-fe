@@ -60,7 +60,8 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-xl">
-      <div className="flex flex-col gap-xs">
+      {/* Desktop only — header above form (hidden on mobile by request) */}
+      <div className="hidden flex-col gap-xs desktop:flex">
         <Text variant="h1">Masuk ke akun Anda</Text>
         <Text variant="body" tone="muted">
           Gunakan email yang terdaftar pada merchant Anda.
@@ -133,7 +134,7 @@ export function LoginForm() {
         </Button>
       </div>
 
-      <div className="flex flex-row justify-center gap-xs">
+      <div className="hidden flex-row justify-center gap-xs desktop:flex">
         <Text variant="body" tone="muted">
           Belum punya akun merchant?
         </Text>
