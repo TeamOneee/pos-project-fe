@@ -91,35 +91,35 @@ export function OutletStockTable({
           </div>
         ) : (
           <div>
-            <div className="flex flex-row gap-md border-b border-border pb-sm">
-              <Head className="flex-[2]">Outlet</Head>
-              <Head className="flex-1 justify-end">Produk Berstok</Head>
-              <Head className="flex-1">Stok Menipis</Head>
-              <Head className="flex-1">Stok Habis</Head>
+            <div className="flex flex-row items-center gap-md border-b border-border pb-sm">
+              <Head className="min-w-0 flex-1">Outlet</Head>
+              <Head className="w-[120px] shrink-0 justify-end">Produk Berstok</Head>
+              <Head className="w-[104px] shrink-0">Stok Menipis</Head>
+              <Head className="w-[96px] shrink-0">Stok Habis</Head>
               <Head className="w-[150px] shrink-0" />
             </div>
 
             {outlets.map((outlet) => (
               <div
                 key={outlet.outletId}
-                className="flex flex-row items-center gap-md border-b border-border py-md"
+                className="flex flex-row items-center gap-md border-b border-border py-md last:border-b-0"
               >
-                <div className="min-w-0 flex-[2]">
+                <div className="min-w-0 flex-1">
                   <Text variant="body-strong" className="block truncate">
                     {outlet.outletName}
                   </Text>
                 </div>
-                <div className="flex flex-1 justify-end">
+                <div className="flex w-[120px] shrink-0 justify-end">
                   <Text variant="mono">{formatCount(outlet.stockedProducts)}</Text>
                 </div>
-                <div className="flex-1">
+                <div className="w-[104px] shrink-0">
                   <AlertCountChip
                     count={outlet.lowStockCount}
                     tone="warning"
                     label={`Stok menipis di ${outlet.outletName}`}
                   />
                 </div>
-                <div className="flex-1">
+                <div className="w-[96px] shrink-0">
                   <AlertCountChip
                     count={outlet.outOfStockCount}
                     tone="danger"

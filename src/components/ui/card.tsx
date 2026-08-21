@@ -16,7 +16,9 @@ Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<'div'>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('gap-xs p-lg', className)} {...props} />
+    // A column, or `gap-xs` governs nothing and a title and its caption render
+    // as two inline spans with no space between them.
+    <div ref={ref} className={cn('flex flex-col gap-xs p-lg', className)} {...props} />
   )
 );
 CardHeader.displayName = 'CardHeader';
