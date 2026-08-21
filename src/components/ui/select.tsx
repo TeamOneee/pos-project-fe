@@ -16,8 +16,10 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
+      // The resting border hides under the focus ring rather than sitting
+      // inside it as a second line; an invalid trigger keeps its red one.
       'flex min-h-touch flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus-ring-always',
-      invalid && 'border-danger',
+      invalid ? 'border-danger' : 'focus:border-transparent',
       props.disabled && 'cursor-not-allowed opacity-50',
       className
     )}

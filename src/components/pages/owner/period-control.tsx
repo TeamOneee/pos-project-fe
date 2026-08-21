@@ -138,7 +138,7 @@ export function PeriodControl({
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((open) => !open)}
-        className="flex min-h-touch min-w-[180px] flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus-ring-always"
+        className="flex min-h-touch min-w-[180px] flex-row items-center justify-between gap-sm rounded-md border border-border-interactive bg-surface px-md py-sm transition-colors focus:border-transparent focus-ring-always"
       >
         <Text variant="body">{triggerLabel(value)}</Text>
         <Icon as={ChevronDown} size={16} className="text-fg-muted" />

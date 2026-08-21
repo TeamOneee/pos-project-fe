@@ -170,7 +170,10 @@ function OutletForm({ outlet, onDone }: { outlet: Outlet | null; onDone: () => v
                 placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
                 disabled={pending}
                 aria-invalid={Boolean(fieldState.error) || undefined}
-                className="min-h-[90px] resize-none rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle transition-colors focus-ring-always invalid:border-danger"
+                /* The resting border hides under the focus ring rather than
+                   sitting inside it as a second line — but not while the field
+                   is invalid, where the red border outlives the focus. */
+                className="min-h-[90px] resize-none rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle transition-colors focus-ring-always invalid:border-danger focus:valid:border-transparent"
               />
             </FormField>
           )}
