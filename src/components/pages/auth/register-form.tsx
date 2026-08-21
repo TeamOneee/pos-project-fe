@@ -97,10 +97,11 @@ export function RegisterForm() {
   });
 
   return (
-    <div className="flex flex-col gap-xl">
-      <div className="flex flex-col gap-xs">
+    <div className="flex flex-col gap-xl pt-10 lg:pt-0">
+      {/* Desktop only — header above form (hidden on mobile by request) */}
+      <div className="hidden flex-col gap-xs desktop:flex">
         <Text variant="h1">Daftarkan bisnis Anda</Text>
-        <Text variant="caption" tone="muted">
+        <Text variant="body" tone="muted">
           Akun pertama otomatis menjadi Owner.
         </Text>
       </div>
@@ -216,7 +217,7 @@ export function RegisterForm() {
         </Button>
       </div>
 
-      <div className="flex flex-row justify-center gap-xs">
+      <div className="hidden flex-row justify-center gap-xs desktop:flex">
         <Text variant="body" tone="muted">
           Sudah punya akun?
         </Text>
