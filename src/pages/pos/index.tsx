@@ -279,14 +279,29 @@ export default function PosScreen() {
   );
 
   // An Owner has no till until they choose which active outlet to work (§4.2).
+  //
+  // The gate keeps the till's own top bar. `/pos` is chromeless — the shell
+  // gives it no header — so without this the picker is the one screen in the
+  // app with no header at all, and an Owner who opened the till by accident has
+  // no "Kembali" to leave by. There is no outlet to name yet and nothing to
+  // switch from, so the bar carries only the way out.
   if (needsOutletPick) {
     return (
-      <OutletPicker
-        outlets={activeOutlets.data?.items ?? []}
-        isPending={activeOutlets.isPending}
-        isError={activeOutlets.isError}
-        onSelect={setOwnerOutletId}
-      />
+      <div className="flex h-full flex-col bg-canvas">
+        <PosTopBar
+          outletName=""
+          hasOutletName={false}
+          showBack={role === 'OWNER' && breakpoint !== 'mobile'}
+        />
+        <div className="min-h-0 flex-1">
+          <OutletPicker
+            outlets={activeOutlets.data?.items ?? []}
+            isPending={activeOutlets.isPending}
+            isError={activeOutlets.isError}
+            onSelect={setOwnerOutletId}
+          />
+        </div>
+      </div>
     );
   }
 
