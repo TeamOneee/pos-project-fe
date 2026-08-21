@@ -52,7 +52,7 @@ export function CatalogueStrip({ summary }: { summary: DashboardOperations }) {
         </div>
 
         <Text variant="caption" tone="subtle">
-          Katalog · seluruh merchant, tidak terpengaruh filter outlet.
+          Katalog · seluruh merchant, bukan per outlet.
         </Text>
       </CardContent>
     </Card>

@@ -167,9 +167,9 @@ describe('an Admin stock adjustment', () => {
     );
     expect(row).toBeDefined();
 
-    await open('/dashboard');
+    await open('/inventory/low-stock');
 
-    // The low-stock card lists it, with an adjust button per row.
+    // The queue lists it, with an adjust button per row.
     const adjustButtons = await screen.findAllByRole('button', { name: /Sesuaikan/ });
     await click(adjustButtons[0] as HTMLElement);
 
@@ -298,7 +298,7 @@ describe('out-of-scope features stay unreachable', () => {
 
   it('never offers stock-movement history on an adjustment', async () => {
     await signInAs('sari@indomart.com');
-    await open('/dashboard');
+    await open('/inventory/low-stock');
 
     const adjustButtons = await screen.findAllByRole('button', { name: /Sesuaikan/ });
     await click(adjustButtons[0] as HTMLElement);

@@ -151,19 +151,7 @@ function ListSkeleton({ className }: { className?: string }) {
 export function StockDashboardSkeleton() {
   return (
     <div className="flex flex-col gap-lg">
-      {/* Queue: title, its filter chips, then rows. */}
-      <Card>
-        <CardContent className="flex flex-col gap-md pt-lg">
-          <div className="flex flex-col gap-md tablet:flex-row tablet:items-center tablet:justify-between">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-9 w-[280px]" />
-          </div>
-          {[0, 1, 2, 3, 4].map((row) => (
-            <Skeleton key={row} className="h-12 w-full" />
-          ))}
-        </CardContent>
-      </Card>
-
+      {/* Per-outlet table: title, then a row per outlet. */}
       <Card>
         <CardContent className="flex flex-col gap-md pt-lg">
           <Skeleton className="h-6 w-48" />

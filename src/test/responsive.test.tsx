@@ -169,15 +169,15 @@ describe('dashboard grids collapse to one column', () => {
     expect(order[2]).toContain('Rata-rata Nilai Transaksi');
   });
 
-  it('stacks the Admin stock queue without reviving the KPI tiles', async () => {
+  it('stacks the Admin dashboard without reviving the KPI tiles', async () => {
     await signInAs('sari@indomart.com');
     await openAt('/dashboard', MOBILE);
 
-    await screen.findByText('Perlu Tindakan');
+    await screen.findByText('Stok Per Outlet');
 
     /*
      * The Admin's four tiles are gone on purpose: their counts became the
-     * queue's filter chips and the catalogue strip. Nothing on this screen may
+     * per-outlet table and the catalogue strip. Nothing on this screen may
      * claim a tile basis — a stray one would be picked up by the Owner's
      * tile-order test above and fail there, on markup from another screen.
      */
