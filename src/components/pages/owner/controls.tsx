@@ -171,7 +171,10 @@ export function FreshnessCaption({
   const absolute = updatedAt === 0 ? '' : formatDateTime(updatedAt);
   const relative = updatedAt === 0 ? '' : formatTimeAgo(updatedAt);
   return (
-    <div className="flex items-center gap-xs" title={updatedAt === 0 ? undefined : `Cache 30m · ${absolute}`}>
+    <div
+      className="flex items-center gap-xs"
+      title={updatedAt === 0 ? undefined : `Cache 30m · ${absolute}`}
+    >
       <Text variant="caption" tone={stale ? 'warning' : 'subtle'}>
         {updatedAt === 0
           ? 'Memuat…'

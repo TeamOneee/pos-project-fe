@@ -53,7 +53,9 @@ export function FooterTabs({ role, pathname }: { role: Role; pathname: string })
           <span
             className={cn(
               'flex h-10 w-10 items-center justify-center rounded-full transition-colors',
-              overflowActive ? 'bg-accent text-white' : 'bg-transparent text-fg-muted hover:bg-subtle'
+              overflowActive
+                ? 'bg-accent text-white'
+                : 'bg-transparent text-fg-muted hover:bg-subtle'
             )}
           >
             <Icon as={Menu} size={20} className={overflowActive ? 'text-white' : 'text-fg-muted'} />

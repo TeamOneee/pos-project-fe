@@ -125,7 +125,9 @@ function DashboardBody({
                 className="desktop:w-[66%]"
               />
             ) : dashboard.salesTrendError ? (
-              <div className="desktop:w-[66%] rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat tren penjualan</div>
+              <div className="desktop:w-[66%] rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">
+                Gagal memuat tren penjualan
+              </div>
             ) : null}
             <MerchantSummaryCard overview={dashboard.merchantOverview} className="desktop:flex-1" />
           </div>
@@ -137,7 +139,9 @@ function DashboardBody({
                 className="desktop:w-[58%]"
               />
             ) : dashboard.outletComparisonError ? (
-              <div className="desktop:w-[58%] rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat perbandingan outlet</div>
+              <div className="desktop:w-[58%] rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">
+                Gagal memuat perbandingan outlet
+              </div>
             ) : (
               <OutletPerformanceCard outlets={[]} className="desktop:w-[58%]" />
             )}
@@ -149,7 +153,9 @@ function DashboardBody({
                 className="desktop:flex-1"
               />
             ) : dashboard.timePatternError ? (
-              <div className="desktop:flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat pola waktu</div>
+              <div className="desktop:flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">
+                Gagal memuat pola waktu
+              </div>
             ) : null}
           </div>
 
@@ -166,7 +172,9 @@ function DashboardBody({
                 />
               </>
             ) : dashboard.topProductsError ? (
-              <div className="flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat peringkat produk</div>
+              <div className="flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">
+                Gagal memuat peringkat produk
+              </div>
             ) : null}
           </div>
 
@@ -179,7 +187,9 @@ function DashboardBody({
                 className="desktop:flex-1"
               />
             ) : dashboard.aovTrendError ? (
-              <div className="desktop:flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">Gagal memuat tren AOV</div>
+              <div className="desktop:flex-1 rounded-lg border border-dashed p-lg text-center text-sm text-muted-foreground">
+                Gagal memuat tren AOV
+              </div>
             ) : null}
             <RecentTransactionsCard
               transactions={dashboard.recentTransactions}
