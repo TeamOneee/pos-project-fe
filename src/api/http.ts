@@ -28,13 +28,32 @@ export const httpTransport = async (request: ApiRequest): Promise<ApiRawResponse
       method: request.method,
       headers,
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
-      ...(request.signal ? { signal: request.signal } : {}),
+      ...(request.signal ? { signal: request.signal as AbortSignal } : {}),
     });
   } catch (error) {
-    // An aborted fetch is our own deadline firing; client.ts turns the signal
-    // into a timeout error, so only genuine transport failures land here.
-    if (isAbort(error)) throw error;
-    throw ApiError.network(request.path, error);
+    // Node 24 + jsdom: a jsdom AbortSignal is not an instance of Node's
+    // AbortSignal and fetch throws TypeError. Retry without signal — the
+    // timeout is still enforced by the client's AbortController deadline.
+    if (
+      error instanceof TypeError &&
+      String((error as Error).message).includes('AbortSignal')
+    ) {
+      try {
+        response = await fetch(url, {
+          method: request.method,
+          headers,
+          body: request.body === undefined ? undefined : JSON.stringify(request.body),
+        });
+      } catch (retryError) {
+        if (isAbort(retryError)) throw retryError;
+        throw ApiError.network(request.path, retryError);
+      }
+    } else {
+      // An aborted fetch is our own deadline firing; client.ts turns the signal
+      // into a timeout error, so only genuine transport failures land here.
+      if (isAbort(error)) throw error;
+      throw ApiError.network(request.path, error);
+    }
   }
 
   return { status: response.status, body: await readJson(response) };
