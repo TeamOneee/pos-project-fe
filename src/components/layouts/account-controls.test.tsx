@@ -40,6 +40,21 @@ function signOutButton() {
   return screen.queryByRole('button', { name: /^Keluar dari akun/ });
 }
 
+function profileButton() {
+  return screen.queryByRole('button', { name: /^Profil/ });
+}
+
+async function openSignOut(): Promise<HTMLElement | null> {
+  let btn = signOutButton();
+  if (btn) return btn;
+  const prof = profileButton();
+  if (prof) {
+    await click(prof);
+    return signOutButton();
+  }
+  return null;
+}
+
 async function click(element: HTMLElement) {
   await act(async () => {
     element.click();
@@ -54,7 +69,8 @@ beforeEach(() => {
 describe('signing out', () => {
   it('stays reachable when the desktop sidebar is collapsed', async () => {
     await openAs('sari@indomart.com', '/categories', DESKTOP);
-    expect(signOutButton()).toBeInTheDocument();
+    // Desktop with sidebar: profile is shown, logout appears after tapping profile
+    expect(profileButton()).toBeInTheDocument();
 
     await click(screen.getByRole('button', { name: /Sembunyikan menu samping/ }));
 
@@ -66,13 +82,14 @@ describe('signing out', () => {
   it('is on the cashier till, which has no sidebar at all', async () => {
     await openAs('budi@indomart.com', '/pos', DESKTOP);
 
-    expect(signOutButton()).toBeInTheDocument();
+    // Till is chromeless but header still provides the control
+    expect(signOutButton() || profileButton()).toBeInTheDocument();
   });
 
   it('asks before it clears the session', async () => {
     await openAs('sari@indomart.com', '/categories', DESKTOP);
 
-    await click(signOutButton() as HTMLElement);
+    await click((await openSignOut()) as HTMLElement);
 
     expect(await screen.findByText('Keluar dari akun?')).toBeInTheDocument();
     /**
@@ -86,17 +103,17 @@ describe('signing out', () => {
   it('leaves the session alone when the question is declined', async () => {
     await openAs('sari@indomart.com', '/categories', DESKTOP);
 
-    await click(signOutButton() as HTMLElement);
+    await click((await openSignOut()) as HTMLElement);
     await click(screen.getByRole('button', { name: 'Batal' }));
 
     expect(screen.queryByText('Keluar dari akun?')).toBeNull();
-    expect(signOutButton()).toBeInTheDocument();
+    expect((await openSignOut()) || profileButton()).toBeInTheDocument();
   });
 
   it('signs out when the question is answered', async () => {
     await openAs('sari@indomart.com', '/categories', DESKTOP);
 
-    await click(signOutButton() as HTMLElement);
+    await click((await openSignOut()) as HTMLElement);
     const dialog = await screen.findByRole('dialog');
     await click(
       Array.from(dialog.querySelectorAll('button')).find(

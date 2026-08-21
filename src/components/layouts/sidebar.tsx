@@ -1,12 +1,32 @@
 /** The 248px desktop sidebar. */
 
+import { LogOut } from 'lucide-react';
+import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 
 import { activeHref, navFor, type NavItem } from '@/components/layouts/nav-config';
+import { useAuth } from '@/components/pages/auth/auth-provider';
+import { Avatar, AvatarFallback, initials } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import type { Role } from '@/lib/permissions';
+import { ROLE_LABEL, type Role } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
+
+const SIGN_OUT_WARNING: Record<Role, string> = {
+  OWNER: 'Anda perlu masuk lagi untuk melanjutkan. Perubahan yang belum disimpan akan hilang.',
+  ADMIN: 'Anda perlu masuk lagi untuk melanjutkan. Penyesuaian stok yang belum disimpan akan hilang.',
+  CASHIER:
+    'Keranjang yang belum dibayar akan hilang dan tidak bisa dikembalikan. Anda perlu masuk lagi untuk membuka kasir.',
+};
 
 type SidebarProps = {
   role: Role;
@@ -47,6 +67,8 @@ export function Sidebar({ role, pathname, merchantName }: SidebarProps) {
           </div>
         ))}
       </nav>
+
+      <SidebarAccount />
     </aside>
   );
 }
@@ -78,5 +100,92 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
         {item.label}
       </Text>
     </NavLink>
+  );
+}
+
+function SidebarAccount() {
+  const { session, role, signOut } = useAuth();
+  const [showLogout, setShowLogout] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+
+  if (!session || !role) return null;
+
+  const identity = session.email || ROLE_LABEL[role];
+
+  // When expanded, only the logout button is visible — spec: default profile, tap -> only Keluar.
+  if (showLogout) {
+    return (
+      <>
+        <div className="border-t border-border p-md">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirming(true)}
+            aria-label={`Keluar dari akun ${identity}`}
+            className="w-full justify-start"
+          >
+            <Icon as={LogOut} size={16} className="text-danger" />
+            <Text tone="danger">Keluar</Text>
+          </Button>
+          <button
+            type="button"
+            onClick={() => setShowLogout(false)}
+            className="mt-xs w-full rounded-md px-sm py-xs text-left text-xs text-fg-muted hover:bg-accent/10"
+          >
+            Kembali ke profil
+          </button>
+        </div>
+
+        <Dialog open={confirming} onOpenChange={setConfirming}>
+          <DialogContent hideClose className="tablet:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Keluar dari akun?</DialogTitle>
+              <DialogDescription>{SIGN_OUT_WARNING[role]}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setConfirming(false)}>
+                <Text>Batal</Text>
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setConfirming(false);
+                  setShowLogout(false);
+                  signOut();
+                }}
+              >
+                <Text>Keluar</Text>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <div className="border-t border-border p-md">
+      <button
+        type="button"
+        onClick={() => setShowLogout(true)}
+        aria-label={`Profil ${identity}, tekan untuk keluar`}
+        aria-expanded={showLogout}
+        className="flex w-full flex-row items-center gap-sm rounded-md p-sm text-left transition-colors hover:bg-accent/10 focus-ring"
+      >
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarFallback>
+            <Text>{initials(identity)}</Text>
+          </AvatarFallback>
+        </Avatar>
+        <span className="flex min-w-0 flex-col">
+          <Text variant="caption" className="block max-w-[150px] truncate">
+            {identity}
+          </Text>
+          <Text variant="caption" tone="subtle">
+            {ROLE_LABEL[role]}
+          </Text>
+        </span>
+      </button>
+    </div>
   );
 }
