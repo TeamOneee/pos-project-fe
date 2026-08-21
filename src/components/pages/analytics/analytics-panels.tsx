@@ -1,15 +1,11 @@
 /** S-04 · Analitik — the four deep-dive panels. */
 
-import { Download } from 'lucide-react';
 import * as React from 'react';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useToast } from '@/components/ui/toast';
 import { SummaryTiles } from '@/components/pages/analytics/summary-tiles';
 import { AovLineChart } from '@/components/pages/charts/aov-line-chart';
 import { ChartFigure, type ChartSeries } from '@/components/pages/charts/chart-figure';
@@ -35,10 +31,6 @@ import { formatCount, formatPercent } from '@/lib/number';
 import { MAX_RANGE_DAYS } from '@/lib/period';
 
 type CommonProps = { outlets: Outlet[] };
-
-/** §6.2: the only two bucket widths any trend endpoint accepts. */
-const BUCKETS = ['DAY', 'HOUR'] as const satisfies readonly Bucket[];
-const BUCKET_LABELS: Record<Bucket, string> = { DAY: 'Harian', HOUR: 'Per Jam' };
 
 /* -------------------------------------------------------------------------- */
 /* Shared range control                                                        */
@@ -106,7 +98,7 @@ export function SalesTrendPanel({ outlets }: CommonProps) {
   const mobile = useBreakpoint() === 'mobile';
   const range = useDateRange();
   const [outletId, setOutletId] = React.useState<string | null>(null);
-  const [bucket, setBucket] = React.useState<Bucket>('DAY');
+  const bucket: Bucket = 'DAY';
 
   const query = useSalesTrend(
     { ...range.range, bucket, ...(outletId ? { outlet_id: outletId } : {}) },
@@ -114,15 +106,7 @@ export function SalesTrendPanel({ outlets }: CommonProps) {
   );
 
   const controls = (
-    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId}>
-      <Segmented
-        options={BUCKETS}
-        value={bucket}
-        onChange={setBucket}
-        labels={BUCKET_LABELS}
-        accessibilityLabel="Pilih interval"
-      />
-    </RangeControls>
+    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId} />
   );
 
   return (
@@ -175,7 +159,7 @@ export function SalesTrendPanel({ outlets }: CommonProps) {
               ]}
             />
 
-            <TableCard title="Rincian Penjualan" exportLabel="data penjualan">
+            <TableCard title="Rincian Penjualan">
               <DataTable
                 columns={salesColumns(data.bucket)}
                 rows={data.points}
@@ -263,7 +247,7 @@ export function TimePatternPanel({ outlets }: CommonProps) {
               ]}
             />
 
-            <TableCard title="Rincian Per Jam" exportLabel="pola waktu">
+            <TableCard title="Rincian Per Jam">
               <DataTable
                 columns={timeColumns}
                 rows={data.points}
@@ -285,7 +269,7 @@ export function AovTrendPanel({ outlets }: CommonProps) {
   const mobile = useBreakpoint() === 'mobile';
   const range = useDateRange();
   const [outletId, setOutletId] = React.useState<string | null>(null);
-  const [bucket, setBucket] = React.useState<Bucket>('DAY');
+  const bucket: Bucket = 'DAY';
 
   const query = useAovTrend(
     { ...range.range, bucket, ...(outletId ? { outlet_id: outletId } : {}) },
@@ -293,15 +277,7 @@ export function AovTrendPanel({ outlets }: CommonProps) {
   );
 
   const controls = (
-    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId}>
-      <Segmented
-        options={BUCKETS}
-        value={bucket}
-        onChange={setBucket}
-        labels={BUCKET_LABELS}
-        accessibilityLabel="Pilih interval"
-      />
-    </RangeControls>
+    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId} />
   );
 
   return (
@@ -348,7 +324,7 @@ export function AovTrendPanel({ outlets }: CommonProps) {
               ]}
             />
 
-            <TableCard title="Rincian AOV" exportLabel="tren AOV">
+            <TableCard title="Rincian AOV">
               <DataTable
                 columns={aovColumns(data.bucket)}
                 rows={data.points}
@@ -443,7 +419,7 @@ export function ProductPerformancePanel({ outlets }: CommonProps) {
               ]}
             />
 
-            <TableCard title="Rincian Produk" exportLabel="performa produk">
+            <TableCard title="Rincian Produk">
               <DataTable
                 columns={productColumns}
                 rows={rows}
@@ -532,44 +508,14 @@ function ChartCard({
   );
 }
 
-function TableCard({
-  title,
-  exportLabel,
-  children,
-}: {
-  title: string;
-  exportLabel: string;
-  children: React.ReactNode;
-}) {
+function TableCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-md">
+      <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <ExportButton label={exportLabel} />
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
-  );
-}
-
-/** Export is a stub, and says so. */
-function ExportButton({ label }: { label: string }) {
-  const { toast } = useToast();
-
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={() =>
-        toast({
-          title: 'Ekspor belum tersedia',
-          description: `Ekspor ${label} belum didukung API. Salin angka dari tabel untuk sementara.`,
-        })
-      }
-    >
-      <Icon as={Download} size={16} />
-      <Text>Ekspor</Text>
-    </Button>
   );
 }
 
