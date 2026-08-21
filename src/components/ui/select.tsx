@@ -40,8 +40,17 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
+      // Radix defaults to `item-aligned`, which lifts the menu so the selected
+      // row lands on top of the trigger — covering the field's own label and
+      // whatever sits above it. Popper drops it below the trigger instead, the
+      // same as the row menu.
+      position="popper"
+      sideOffset={4}
       className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-md border border-border-interactive bg-surface-raised p-xs shadow-md',
+        // Matching the trigger's width keeps the menu squared with the field.
+        // The viewport scrolls itself, so the height cap belongs here, on a
+        // flex column, or a long list overflows instead of scrolling.
+        'z-50 flex max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] min-w-[8rem] flex-col overflow-hidden rounded-md border border-border-interactive bg-surface-raised p-xs shadow-md',
         className
       )}
       {...props}
