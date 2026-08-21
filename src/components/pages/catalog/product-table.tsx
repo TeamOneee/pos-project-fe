@@ -32,9 +32,11 @@ export type ProductTableProps = {
   /** Absent for a read-only session: no menu and no action column at all. */
   rowMenu?: ((product: Product) => RowMenuItem[]) | undefined;
   onOpenStock: (product: Product) => void;
+  /** categoryId → hue, so a category keeps one colour across the catalogue. */
+  categoryHues?: Map<string, string> | undefined;
 };
 
-export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) {
+export function ProductTable({ rows, rowMenu, onOpenStock, categoryHues }: ProductTableProps) {
   const stacked = useBreakpoint() === 'mobile';
 
   if (stacked) {
@@ -64,7 +66,10 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
             </div>
 
             <div className="flex flex-row flex-wrap items-center gap-sm">
-              <CategoryBadge name={product.categoryName} />
+              <CategoryBadge
+                name={product.categoryName}
+                hue={product.categoryId ? categoryHues?.get(product.categoryId) : undefined}
+              />
               <ActiveBadge active={product.isActive} />
             </div>
           </div>
@@ -101,7 +106,10 @@ export function ProductTable({ rows, rowMenu, onOpenStock }: ProductTableProps) 
           </div>
 
           <div className="min-w-0 flex-1">
-            <CategoryBadge name={product.categoryName} />
+            <CategoryBadge
+              name={product.categoryName}
+              hue={product.categoryId ? categoryHues?.get(product.categoryId) : undefined}
+            />
           </div>
 
           <div className="flex flex-1 justify-end">

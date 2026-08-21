@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { categoryHue } from '@/lib/category-color';
 import type { Status } from '@/api/schema';
 
 /** Why a KATEGORI NONAKTIF product still sits in this list. */
@@ -46,8 +47,23 @@ export function ActiveBadge({ active }: { active: boolean }) {
   );
 }
 
-/** The product's category. Neutral: it is a label, not a state. */
-export function CategoryBadge({ name }: { name: string | null }) {
+/**
+ * The product's category: a neutral pill, marked with the category's own hue.
+ *
+ * The pill stays neutral because a category is a label, not a state — tinting
+ * the whole badge would put it in the same visual register as AKTIF and
+ * MENIPIS. The dot is enough to group a long list by eye, and it is decoration:
+ * the name is right beside it (rule 6), so it is `aria-hidden`.
+ *
+ * `hue` comes from the merchant's category list where the caller has it, so
+ * every category gets its own; without it the name is hashed, which is stable
+ * but may repeat a colour.
+ *
+ * The colour is an inline style rather than a class because it is chosen at
+ * runtime from the palette — the same reason charts read tokens directly
+ * (lib/chart-colors.ts). The hexes stay in lib/tokens.ts.
+ */
+export function CategoryBadge({ name, hue }: { name: string | null; hue?: string | undefined }) {
   if (!name) {
     return (
       <Text variant="caption" tone="subtle">
@@ -58,6 +74,11 @@ export function CategoryBadge({ name }: { name: string | null }) {
 
   return (
     <Badge variant="neutral">
+      <span
+        aria-hidden
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{ backgroundColor: hue ?? categoryHue(name) }}
+      />
       <Text>{name}</Text>
     </Badge>
   );

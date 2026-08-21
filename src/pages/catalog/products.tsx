@@ -47,6 +47,7 @@ import {
   StockPerOutletDrawer,
   type DrawerProduct,
 } from '@/components/pages/inventory/stock-per-outlet-drawer';
+import { categoryHueIndex } from '@/lib/category-color';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useDeactivateProduct, useProducts } from '@/hooks/use-products';
@@ -93,6 +94,13 @@ export default function ProductsPage() {
 
   const activeCategories = React.useMemo(
     () => activeCategoryIndex(categories.data?.items ?? []),
+    [categories.data]
+  );
+
+  // Built from the merchant's category list, not from the rows on screen, so a
+  // category keeps its colour on every page of the catalogue.
+  const categoryHues = React.useMemo(
+    () => categoryHueIndex(categories.data?.items ?? []),
     [categories.data]
   );
 
@@ -191,9 +199,19 @@ export default function ProductsPage() {
           ) : (
             <>
               {view === 'table' ? (
-                <ProductTable rows={rows} rowMenu={rowMenu} onOpenStock={openStock} />
+                <ProductTable
+                  rows={rows}
+                  rowMenu={rowMenu}
+                  onOpenStock={openStock}
+                  categoryHues={categoryHues}
+                />
               ) : (
-                <ProductGrid rows={rows} rowMenu={rowMenu} onOpenStock={openStock} />
+                <ProductGrid
+                  rows={rows}
+                  rowMenu={rowMenu}
+                  onOpenStock={openStock}
+                  categoryHues={categoryHues}
+                />
               )}
 
               <PaginationFooter

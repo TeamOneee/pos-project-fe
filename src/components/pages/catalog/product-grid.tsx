@@ -27,10 +27,13 @@ export function ProductGrid({
   rows,
   rowMenu,
   onOpenStock,
+  categoryHues,
 }: {
   rows: CatalogRow[];
   rowMenu?: ((product: Product) => RowMenuItem[]) | undefined;
   onOpenStock: (product: Product) => void;
+  /** categoryId → hue, so a category keeps one colour across the catalogue. */
+  categoryHues?: Map<string, string> | undefined;
 }) {
   return (
     <div className="grid grid-cols-1 gap-md tablet:grid-cols-2 desktop:grid-cols-3">
@@ -68,7 +71,10 @@ export function ProductGrid({
             </Text>
 
             <div className="flex flex-row flex-wrap items-center gap-sm">
-              <CategoryBadge name={product.categoryName} />
+              <CategoryBadge
+                name={product.categoryName}
+                hue={product.categoryId ? categoryHues?.get(product.categoryId) : undefined}
+              />
               <ActiveBadge active={product.isActive} />
               {hiddenByCategory && <InactiveCategoryBadge />}
             </div>
