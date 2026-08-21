@@ -36,7 +36,14 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useOutlets } from '@/hooks/use-outlets';
 import { useStaff } from '@/hooks/use-staff';
 import { useTransactions } from '@/hooks/use-transactions';
-import { bucketFor, growthPercent, previousRange, rangeFor, type Period } from '@/lib/period';
+import {
+  bucketFor,
+  growthPercent,
+  periodKey,
+  previousRange,
+  rangeFor,
+  type PeriodSelection,
+} from '@/lib/period';
 import type { Freshness } from '@/api/schema';
 
 /** How many sales the "Transaksi Terakhir" card lists. */
@@ -49,15 +56,15 @@ export type PeriodDeltas = {
   averageTransactionValue: number | null;
 };
 
-export function useOwnerDashboard(period: Period, outletId: string | null) {
-  // Recomputed only when the chip changes, so the query keys stay stable
+export function useOwnerDashboard(selection: PeriodSelection, outletId: string | null) {
+  // Recomputed only when the selection changes, so the query keys stay stable
   // between renders and the aggregates are not refetched on every tick.
-  const range = React.useMemo(() => rangeFor(period), [period]);
+  const range = React.useMemo(() => rangeFor(selection), [selection]);
   const previous = React.useMemo(() => previousRange(range), [range]);
 
   const outletFilter = outletId ? { outlet_id: outletId } : {};
   const periodQuery = { ...range, ...outletFilter };
-  const bucket = bucketFor(period);
+  const bucket = bucketFor(range);
 
   const summary = useDashboardSummary(periodQuery);
   const previousSummary = useDashboardSummary({ ...previous, ...outletFilter });
@@ -168,12 +175,18 @@ export function useOwnerDashboard(period: Period, outletId: string | null) {
 
   const core = [summary, salesTrend, aovTrend, timePattern, topProducts, outletComparison];
 
+  // Keyed on a string rather than the selection object: this callback is a
+  // dependency of the node the screen hands to the top bar, which is applied
+  // through an effect that writes state. Pinning its identity to a value that
+  // only changes when the user changes something keeps that loop closed.
+  const selectionKey = periodKey(selection);
+
   const refetch = React.useCallback(() => {
     for (const query of core) void query.refetch();
     void previousSummary.refetch();
     void recent.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, outletId]);
+  }, [selectionKey, outletId]);
 
   return {
     range,

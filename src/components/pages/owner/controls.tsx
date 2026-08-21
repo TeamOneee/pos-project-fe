@@ -24,13 +24,8 @@ import {
 } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import type { Outlet } from '@/services/outlets';
-import { PERIODS, PERIOD_LABELS, type Period } from '@/lib/period';
 import { formatDateTime, formatTimeAgo } from '@/lib/date';
 import { cn } from '@/lib/utils';
-
-/** Re-exported so screens can import the chip set alongside the control. */
-export { PERIODS };
-export type { Period };
 
 /* -------------------------------------------------------------------------- */
 /* Outlet                                                                      */
@@ -69,7 +64,7 @@ export function OutletSelect({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Period                                                                      */
+/* Segmented                                                                   */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -83,12 +78,20 @@ export function Segmented<T extends string>({
   onChange,
   labels,
   accessibilityLabel,
+  trailing,
 }: {
   options: readonly T[];
-  value: T;
+  /** Null when the choice on screen is not one of these options. */
+  value: T | null;
   onChange: (value: T) => void;
   labels: Record<T, string>;
   accessibilityLabel: string;
+  /**
+   * An extra tab rendered after the options — one that opens something rather
+   * than selecting a fixed value. Inside the same tablist so it shares the
+   * group's scroll, spacing and shape instead of floating beside it.
+   */
+  trailing?: React.ReactNode;
 }) {
   return (
     <div
@@ -116,27 +119,8 @@ export function Segmented<T extends string>({
           </button>
         );
       })}
+      {trailing}
     </div>
-  );
-}
-
-export function PeriodSegmented({
-  value,
-  onChange,
-  options = PERIODS,
-}: {
-  value: Period;
-  onChange: (period: Period) => void;
-  options?: readonly Period[];
-}) {
-  return (
-    <Segmented
-      options={options}
-      value={value}
-      onChange={onChange}
-      labels={PERIOD_LABELS}
-      accessibilityLabel="Pilih periode"
-    />
   );
 }
 

@@ -88,6 +88,30 @@ export function formatMonthYear(input: DateInput): string {
   return `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/**
+ * "15–21 Agu" / "28 Agu – 3 Sep" / "15 Agu" — a compact inclusive day range.
+ *
+ * For controls that have to say which range is active in the width of a chip,
+ * where the full "15 Agu 2026 – 21 Agu 2026" would not fit. The year is
+ * dropped: these ranges are days old at most, so it carries no information.
+ */
+export function formatDayRangeShort(from: DateInput, to: DateInput): string {
+  const start = toDate(from);
+  const end = toDate(to);
+
+  if (isSameDay(start, end)) return `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]}`;
+
+  // Within one month the month name is said once: "15–21 Agu", not "15 Agu – 21 Agu".
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${start.getDate()}–${end.getDate()} ${MONTHS_SHORT[start.getMonth()]}`;
+  }
+
+  return (
+    `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]} – ` +
+    `${end.getDate()} ${MONTHS_SHORT[end.getMonth()]}`
+  );
+}
+
 /** True when the two inputs fall on the same local calendar day. */
 export function isSameDay(a: DateInput, b: DateInput): boolean {
   const dateA = toDate(a);

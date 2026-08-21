@@ -31,16 +31,17 @@ import { TopProductsCard, UnderperformingCard } from '@/components/pages/dashboa
 import { SalesTrendCard } from '@/components/pages/dashboard/sales-trend-card';
 import { TimePatternCard } from '@/components/pages/dashboard/time-pattern-card';
 import { useOwnerDashboard } from '@/hooks/use-owner-dashboard';
-import { FreshnessCaption, OutletSelect, PeriodSegmented } from '@/components/pages/owner/controls';
-import type { Period } from '@/lib/period';
+import { FreshnessCaption, OutletSelect } from '@/components/pages/owner/controls';
+import { PeriodControl } from '@/components/pages/owner/period-control';
+import { DEFAULT_SELECTION, type PeriodSelection } from '@/lib/period';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 
 export default function OwnerDashboardPage() {
   const mobile = useBreakpoint() === 'mobile';
-  const [period, setPeriod] = React.useState<Period>('THIS_MONTH');
+  const [selection, setSelection] = React.useState<PeriodSelection>(DEFAULT_SELECTION);
   const [outletId, setOutletId] = React.useState<string | null>(null);
 
-  const dashboard = useOwnerDashboard(period, outletId);
+  const dashboard = useOwnerDashboard(selection, outletId);
 
   const chartHeight = mobile ? CHART_HEIGHT.mobile : CHART_HEIGHT.default;
   const { outletOptions, refetch, isFetching, dataUpdatedAt, freshness } = dashboard;
@@ -51,7 +52,7 @@ export default function OwnerDashboardPage() {
     () => (
       <div className="flex flex-row items-center gap-md">
         <OutletSelect outlets={outletOptions} value={outletId} onChange={setOutletId} />
-        <PeriodSegmented value={period} onChange={setPeriod} />
+        <PeriodControl value={selection} onChange={setSelection} />
         <FreshnessCaption
           updatedAt={dataUpdatedAt}
           stale={freshness === 'STALE'}
@@ -60,7 +61,7 @@ export default function OwnerDashboardPage() {
         />
       </div>
     ),
-    [outletOptions, outletId, period, dataUpdatedAt, freshness, isFetching, refetch]
+    [outletOptions, outletId, selection, dataUpdatedAt, freshness, isFetching, refetch]
   );
 
   useTopBarActions(!mobile ? controls : null);
@@ -78,7 +79,7 @@ export default function OwnerDashboardPage() {
               onRefresh={refetch}
             />
           </div>
-          <PeriodSegmented value={period} onChange={setPeriod} />
+          <PeriodControl value={selection} onChange={setSelection} />
         </div>
       )}
 

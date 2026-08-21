@@ -217,7 +217,7 @@ This is the screen to make beautiful — it is the demo centerpiece. Full app sh
 
 **Top bar controls (right side):**
 - **Outlet selector** — a select defaulting to "Semua Outlet", listing each outlet.
-- **Period selector** — segmented control: `Hari Ini · Minggu Ini · Bulan Ini · Kuartal Ini · Tahun Ini`. Default **Bulan Ini**.
+- **Period selector** — segmented control of three *rolling* presets: `Hari Ini · 7 Hari Terakhir · 30 Hari Terakhir`, default **30 Hari Terakhir**, followed by a fourth chip that opens a manual date-range dialog. The manual range is capped at 7 days and is committed on "Terapkan", so an over-wide or reversed range is refused in the dialog rather than sent. Once applied, the chip names the range (`15–21 Agu`) and no preset reads as selected.
 - A `caption` in `text/tertiary` to the far right: **"Diperbarui 2 menit lalu"** with a small refresh icon button. *This freshness indicator is required — the dashboard is not real-time and the UI must say so honestly.*
 
 **Body, top to bottom:**
