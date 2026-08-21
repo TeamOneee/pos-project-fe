@@ -309,6 +309,39 @@ describe('the POS is the exception', () => {
   });
 });
 
+describe('one shell, whatever the screen', () => {
+  it('runs the nav rail the full height, with the header beside it', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/transactions', DESKTOP);
+
+    await screen.findByRole('link', { name: 'Riwayat' });
+
+    const header = screen.getByRole('banner');
+    const nav = screen.getByRole('navigation');
+
+    // The header shares a column with the page, and the rail sits outside that
+    // column — which is what makes it full height. A header spanning above the
+    // rail would contain it here.
+    expect(header.parentElement?.querySelector('main')).not.toBeNull();
+    expect(header.parentElement?.contains(nav)).toBe(false);
+  });
+
+  it('gives the till the same frame, minus the header it supplies itself', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/pos', DESKTOP);
+
+    await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
+
+    // Same shape: nav outside, page inside — the till just brings its own bar.
+    const nav = screen.getByRole('navigation');
+    const main = document.querySelector('main');
+
+    expect(main).not.toBeNull();
+    expect(main?.contains(nav)).toBe(false);
+    expect(nav.closest('main')).toBeNull();
+  });
+});
+
 describe('the desktop sidebar collapses and comes back', () => {
   it('hides the sidebar on demand and restores it from the header', async () => {
     await signInAs('owner@indomart.com');
