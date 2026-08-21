@@ -7,6 +7,10 @@
  *
  * The outlet column is resolved from the outlet list the page already fetched,
  * because `GET /staff` returns `outlet_id`, never a name.
+ *
+ * Name and email take the space that is left; every other column is a fixed
+ * width, so the badges line up down the page and each header sits over its own
+ * column rather than each row negotiating its own proportions.
  */
 
 import * as React from 'react';
@@ -76,12 +80,12 @@ export function StaffTable({ staff, outlets, rowMenu, stacked }: StaffTableProps
 
   return (
     <div>
-      <div className="flex flex-row gap-md border-b border-border pb-sm">
-        <Head className="flex-[2]">Nama</Head>
-        <Head className="flex-[2]">Email</Head>
-        <Head className="flex-1">Role</Head>
-        <Head className="flex-1">Outlet</Head>
-        <Head className="flex-1">Status</Head>
+      <div className="flex flex-row items-center gap-md border-b border-border pb-sm">
+        <Head className="min-w-0 flex-1">Nama</Head>
+        <Head className="min-w-0 flex-1">Email</Head>
+        <Head className="w-[104px] shrink-0">Role</Head>
+        <Head className="w-[180px] shrink-0">Outlet</Head>
+        <Head className="w-[92px] shrink-0">Status</Head>
         {rowMenu ? <Head className="w-touch shrink-0">Aksi</Head> : null}
       </div>
 
@@ -93,7 +97,7 @@ export function StaffTable({ staff, outlets, rowMenu, stacked }: StaffTableProps
             member.status === 'INACTIVE' && 'opacity-60'
           )}
         >
-          <div className="flex min-w-0 flex-[2] flex-row items-center gap-md">
+          <div className="flex min-w-0 flex-1 flex-row items-center gap-md">
             <Avatar>
               <AvatarFallback>{initials(member.name)}</AvatarFallback>
             </Avatar>
@@ -102,29 +106,34 @@ export function StaffTable({ staff, outlets, rowMenu, stacked }: StaffTableProps
             </Text>
           </div>
 
-          <div className="min-w-0 flex-[2]">
+          <div className="min-w-0 flex-1">
             <Text variant="body" tone="muted" className="block truncate">
               {member.email}
             </Text>
           </div>
 
-          <div className="flex-1">
+          <div className="w-[104px] shrink-0">
             <RoleBadge role={member.role} />
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="w-[180px] min-w-0 shrink-0">
             <Text variant="body" tone="muted" className="block truncate">
               {outletLabel(member, outlets)}
             </Text>
           </div>
 
-          <div className="flex-1">
+          <div className="w-[92px] shrink-0">
             <StatusBadge status={member.status} />
           </div>
 
-          {rowMenu && rowMenu(member).length > 0 ? (
+          {/* The cell stays even when the row has no menu — an Owner has none —
+              or that row's columns slide right by the width of the column the
+              others still carry. */}
+          {rowMenu ? (
             <div className="w-touch shrink-0">
-              <RowMenu label={`Menu untuk ${member.name}`} items={rowMenu(member)} />
+              {rowMenu(member).length > 0 ? (
+                <RowMenu label={`Menu untuk ${member.name}`} items={rowMenu(member)} />
+              ) : null}
             </div>
           ) : null}
         </div>
