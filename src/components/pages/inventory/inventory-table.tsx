@@ -15,6 +15,15 @@
  * In their place is the row's effective threshold, which is worth showing now
  * that it is genuinely per-row: the same product can be "low" at 5 in one
  * outlet and at 20 in another (§4.1 rule 5).
+ *
+ * Outlet is not a column either. S-15 reads one outlet at a time — the screen
+ * will not load a row until one is picked — so a column of it repeats the same
+ * name down the page and takes the width the product name wants. The outlet is
+ * named once, on the picker above.
+ *
+ * Every column but the product is a fixed width. The figures then line up as a
+ * grid instead of each row negotiating its own proportions, which is what makes
+ * a wide table scannable down a column rather than across a row.
  */
 
 import * as React from 'react';
@@ -112,9 +121,6 @@ export function InventoryTable({
             >
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
 
-              <Line label="Outlet">
-                <Text variant="body">{row.outletName}</Text>
-              </Line>
               <Line label="Stok">
                 <Text variant="body-strong" className="tabular-nums">
                   {formatCount(row.quantity)}
@@ -146,13 +152,12 @@ export function InventoryTable({
 
   return (
     <div>
-      <div className="flex flex-row gap-md border-b border-border pb-sm">
-        <Head className="flex-[3]">Produk</Head>
-        <Head className="flex-[2]">Outlet</Head>
-        <Head className="flex-1 justify-end">Stok</Head>
-        <Head className="flex-1 justify-end">Batas</Head>
-        <Head className="flex-1">Status Stok</Head>
-        <Head className="flex-1">Terakhir Diubah</Head>
+      <div className="flex flex-row items-center gap-md border-b border-border pb-sm">
+        <Head className="min-w-0 flex-1">Produk</Head>
+        <Head className="w-[80px] shrink-0 justify-end">Stok</Head>
+        <Head className="w-[72px] shrink-0 justify-end">Batas</Head>
+        <Head className="w-[120px] shrink-0">Status Stok</Head>
+        <Head className="w-[150px] shrink-0">Terakhir Diubah</Head>
         {onAdjust ? <Head className="w-[120px] shrink-0">Aksi</Head> : null}
       </div>
 
@@ -163,38 +168,32 @@ export function InventoryTable({
           <div
             key={row.inventoryId}
             className={cn(
-              'flex flex-row items-center gap-md border-b border-border py-md',
+              'flex flex-row items-center gap-md border-b border-border py-md last:border-b-0',
               rowTint(level)
             )}
           >
-            <div className="min-w-0 flex-[3]">
+            <div className="min-w-0 flex-1">
               <ProductCell row={row} onOpen={() => onOpenStockPerOutlet(row)} />
             </div>
 
-            <div className="min-w-0 flex-[2]">
-              <Text variant="body" className="block truncate">
-                {row.outletName}
-              </Text>
-            </div>
-
             {/* The number the screen exists for: large, mono, right-aligned. */}
-            <div className="flex flex-1 justify-end">
+            <div className="flex w-[80px] shrink-0 justify-end">
               <Text variant="h3" className="tabular-nums">
                 {formatCount(row.quantity)}
               </Text>
             </div>
 
-            <div className="flex flex-1 justify-end">
+            <div className="flex w-[72px] shrink-0 justify-end">
               <Text variant="mono" tone="muted">
                 {formatCount(row.effectiveLowStockThreshold)}
               </Text>
             </div>
 
-            <div className="flex-1">
+            <div className="w-[120px] shrink-0">
               <StockBadge level={level} />
             </div>
 
-            <div className="min-w-0 flex-1">
+            <div className="w-[150px] min-w-0 shrink-0">
               <UpdatedAt value={row.updatedAt} />
             </div>
 
