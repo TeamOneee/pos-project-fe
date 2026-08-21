@@ -14,9 +14,16 @@ Frontend untuk platform **Point of Sale (POS) + Business Intelligence** bagi UMK
 
 Alur kritis **POS Checkout** (`/pos`) dibuat tablet-first tanpa sidebar, keranjang sticky, dan penanganan error stok serta perubahan harga.
 
+
 ## Tech Stack
 
 React 19, TypeScript, Vite 6, React Router 7, TanStack Query 5, Zustand, React Hook Form + Zod, Tailwind CSS 3, Radix UI, Recharts, Vite PWA.
+
+## PWA — Bisa Diinstal di Android
+
+Sudah dikonfigurasi sebagai **Progressive Web App (PWA)** via `vite-plugin-pwa` (`vite.config.ts:8`). Bisa diinstal langsung dari browser tanpa Play Store.
+
+**Cara instal:** buka [Live Demo](https://k-pos-prod.netlify.app) di Chrome Android → menu ⋮ → **Instal aplikasi / Tambahkan ke layar utama**. Setelah terinstal akan berjalan fullscreen (standalone), ada ikon di home screen, dan mendukung cache offline untuk shell aplikasi.
 
 ## Cara Menjalankan
 
@@ -77,23 +84,4 @@ src/
 
 | Repository | Link |
 |---|---|
-| **Backend (API)** | `PASTE_LINK_REPO_BACKEND_DI_SINI` |
-
-**Cara mengisi link:**
-
-Ganti `PASTE_LINK_REPO_BACKEND_DI_SINI` dengan URL repository backend.
-
-Contoh:
-```
-https://github.com/username/nama-repo-backend
-```
-
-Format penulisan:
-```
-[Backend](https://github.com/username/nama-repo-backend)
-```
-
-Jika backend berada dalam mono-repo, arahkan ke folder backend:
-```
-https://github.com/username/nama-repo/tree/main/apps/backend
-```
+| **Backend (API)** | `https://github.com/TeamOneee/pos-project-be` |
