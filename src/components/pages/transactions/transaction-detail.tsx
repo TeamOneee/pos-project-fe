@@ -127,7 +127,8 @@ export function TransactionDetailBody({
 
       <div className="flex flex-col gap-sm">
         <div className="flex flex-col gap-md tablet:flex-row">
-          <Button variant="secondary" className="flex-1" disabled={busy} onClick={onPrint}>
+          {/* Printing is the point of reopening a sale; the PDF is the fallback. */}
+          <Button variant="primary" className="flex-1" disabled={busy} onClick={onPrint}>
             <Text>Cetak Struk</Text>
           </Button>
           <Button variant="secondary" className="flex-1" disabled={busy} onClick={onDownload}>
