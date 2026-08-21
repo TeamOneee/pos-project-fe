@@ -4,23 +4,23 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
-  group: netlify-deploy
+  group: netlify-deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Build and deploy to Netlify
+    name: Build and deploy to Netlify (${{ github.event.workflow_run.head_branch || github.ref_name }})
     runs-on: ubuntu-latest
     env:
       NODE_NO_WARNINGS: 1
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+       (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev'))
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -38,18 +38,52 @@ jobs:
 
       - name: Build project
         env:
-          VITE_API_MODE: ${{ secrets.VITE_API_MODE }}
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-        run: npm run build
+          VITE_API_MODE: ${{ (github.event.workflow_run.head_branch == 'dev' || github.ref_name == 'dev') && secrets.VITE_API_MODE_STAGING != '' && secrets.VITE_API_MODE_STAGING || secrets.VITE_API_MODE }}
+          VITE_API_URL: ${{ (github.event.workflow_run.head_branch == 'dev' || github.ref_name == 'dev') && secrets.VITE_API_URL_STAGING != '' && secrets.VITE_API_URL_STAGING || secrets.VITE_API_URL }}
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Building for branch: $BRANCH"
+          echo "VITE_API_MODE=$VITE_API_MODE"
+          echo "VITE_API_URL is set: $([ -n "$VITE_API_URL" ] && echo yes || echo no)"
+          npm run build
 
-      - name: Deploy to Netlify
+      - name: Resolve deploy target
+        id: target
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          if [ "$BRANCH" = "dev" ]; then
+            echo "is_staging=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_staging=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected branch: $BRANCH (staging=$([ "$BRANCH" = "dev" ] && echo true || echo false))"
+
+      - name: Deploy to Netlify (staging)
+        if: steps.target.outputs.is_staging == 'true'
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-branch: dev
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy staging (dev) ${{ github.event.workflow_run.head_sha || github.sha }}"
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+        env:
+          NODE_NO_WARNINGS: 1
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN_STAGING }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_STAGING }}
+
+      - name: Deploy to Netlify (production)
+        if: steps.target.outputs.is_staging == 'false'
         uses: nwtgck/actions-netlify@v3.0
         with:
           publish-dir: './dist'
           production-branch: main
           production-deploy: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Deploy from GitHub Actions"
+          deploy-message: "Deploy production (main) ${{ github.event.workflow_run.head_sha || github.sha }}"
         env:
           NODE_NO_WARNINGS: 1
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
