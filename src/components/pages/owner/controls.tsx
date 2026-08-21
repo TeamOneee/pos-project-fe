@@ -25,7 +25,7 @@ import {
 import { Text } from '@/components/ui/text';
 import type { Outlet } from '@/services/outlets';
 import { PERIODS, PERIOD_LABELS, type Period } from '@/lib/period';
-import { formatTimeAgo } from '@/lib/date';
+import { formatDateTime, formatTimeAgo } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 /** Re-exported so screens can import the chip set alongside the control. */
@@ -168,14 +168,16 @@ export function FreshnessCaption({
     return () => clearInterval(timer);
   }, []);
 
+  const absolute = updatedAt === 0 ? '' : formatDateTime(updatedAt);
+  const relative = updatedAt === 0 ? '' : formatTimeAgo(updatedAt);
   return (
-    <div className="flex items-center gap-xs">
+    <div className="flex items-center gap-xs" title={updatedAt === 0 ? undefined : `Cache 30m · ${absolute}`}>
       <Text variant="caption" tone={stale ? 'warning' : 'subtle'}>
         {updatedAt === 0
           ? 'Memuat…'
           : stale
-            ? `Data kedaluwarsa · Dihitung ${formatTimeAgo(updatedAt)}`
-            : `Data tidak real-time · Dihitung ${formatTimeAgo(updatedAt)}`}
+            ? `Kedaluwarsa · ${absolute} (${relative})`
+            : `Cache 30m · ${absolute} (${relative})`}
       </Text>
       <button
         type="button"
