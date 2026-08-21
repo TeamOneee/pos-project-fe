@@ -14,13 +14,13 @@ membuat keadaan aman tersebut **dijamin oleh struktur kode**, bukan oleh ingatan
 penulis kode berikutnya — dan menambahkan satu lapis yang sebelumnya memang
 tidak ada sama sekali: Content-Security-Policy.
 
-| Kontrol | Berkas | Melindungi dari |
-|---|---|---|
-| Escaping by construction | `src/lib/html.ts` | Nilai dari API yang masuk ke markup struk |
-| Sandbox frame cetak | `src/lib/print-receipt.ts` | Skrip yang lolos escaping tetap tidak bisa jalan |
-| Normalisasi input | `src/lib/validation.ts` | Karakter tak terlihat, bidi override, homograf |
-| CSP + header keamanan | `vite.config.ts`, `netlify.toml`, `docker/security-headers.conf` | Eksekusi skrip pihak ketiga, clickjacking, MIME sniffing |
-| Larangan lint | `eslint.config.js` | Sink XSS baru masuk diam-diam di kemudian hari |
+| Kontrol                  | Berkas                           | Melindungi dari                                          |
+| ------------------------ | -------------------------------- | -------------------------------------------------------- |
+| Escaping by construction | `src/lib/html.ts`                | Nilai dari API yang masuk ke markup struk                |
+| Sandbox frame cetak      | `src/lib/print-receipt.ts`       | Skrip yang lolos escaping tetap tidak bisa jalan         |
+| Normalisasi input        | `src/lib/validation.ts`          | Karakter tak terlihat, bidi override, homograf           |
+| CSP + header keamanan    | `vite.config.ts`, `netlify.toml` | Eksekusi skrip pihak ketiga, clickjacking, MIME sniffing |
+| Larangan lint            | `eslint.config.js`               | Sink XSS baru masuk diam-diam di kemudian hari           |
 
 ---
 
@@ -49,15 +49,15 @@ CSRF (API memakai bearer token, bukan cookie), dan keamanan transport (TLS).
 
 Diperiksa di seluruh `src/`:
 
-| Yang dicari | Ditemukan |
-|---|---|
-| `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML`, `insertAdjacentHTML` | **Tidak ada** |
-| `eval`, `new Function` | **Tidak ada** |
-| `document.write` | **1** — `src/lib/print-receipt.ts`, ke dalam iframe struk |
-| `href` / `src` dinamis, `window.open`, `location.href =` | **Tidak ada**; seluruh link literal dari `nav-config.ts` |
-| Upload berkas, `FileReader`, `URL.createObjectURL` | **Tidak ada** |
-| `postMessage` / listener `message` | **Tidak ada** |
-| Renderer HTML/Markdown di `package.json` | **Tidak ada** |
+| Yang dicari                                                               | Ditemukan                                                 |
+| ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML`, `insertAdjacentHTML` | **Tidak ada**                                             |
+| `eval`, `new Function`                                                    | **Tidak ada**                                             |
+| `document.write`                                                          | **1** — `src/lib/print-receipt.ts`, ke dalam iframe struk |
+| `href` / `src` dinamis, `window.open`, `location.href =`                  | **Tidak ada**; seluruh link literal dari `nav-config.ts`  |
+| Upload berkas, `FileReader`, `URL.createObjectURL`                        | **Tidak ada**                                             |
+| `postMessage` / listener `message`                                        | **Tidak ada**                                             |
+| Renderer HTML/Markdown di `package.json`                                  | **Tidak ada**                                             |
 
 Artinya React adalah satu-satunya yang merender nilai ke DOM, dan React
 meng-escape setiap nilai yang dicetaknya. **Satu-satunya** tempat string menjadi
@@ -128,10 +128,13 @@ Kotak filter/pencarian sengaja tidak diberi skema: nilainya hanya masuk ke
 ### 4.4 Content-Security-Policy
 
 CSP lengkap dipasang sebagai `<meta>` pada dokumen hasil build (plugin di
-`vite.config.ts`), supaya berlaku sama di Netlify, di image nginx, maupun di
-`vite preview`. Direktif yang tidak bisa dinyatakan lewat meta —
-`frame-ancestors` — dipasang sebagai header asli di `netlify.toml` dan
-`docker/security-headers.conf`; keduanya berlaku bersamaan.
+`vite.config.ts`), supaya berlaku sama di Netlify maupun di `vite preview`.
+Direktif yang tidak bisa dinyatakan lewat meta — `frame-ancestors` — dipasang
+sebagai header asli di `netlify.toml`; keduanya berlaku bersamaan.
+
+> Bila suatu saat aplikasi ini dilayani oleh server lain (nginx, Caddy), header
+> pada §4.4 harus dipasang ulang di sana: `<meta>` tidak bisa menyatakan
+> `frame-ancestors`.
 
 ```
 default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
@@ -165,12 +168,6 @@ Hal yang harus dijaga saat mengubah konfigurasi:
 Header lain: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
 `Referrer-Policy: strict-origin-when-cross-origin`, dan `Permissions-Policy` yang
 menolak kamera/mikrofon/lokasi/pembayaran.
-
-> **Jebakan nginx:** `add_header` pada satu `location` **membuang** seluruh header
-> yang diwarisi dari blok `server`. `docker/nginx.conf` menyetel `Cache-Control`
-> di dua location, jadi `security-headers.conf` harus di-include ulang di dalam
-> **setiap** location. Location baru yang ditambahkan nanti wajib ikut
-> meng-include-nya.
 
 ### 4.5 Larangan lint (`eslint.config.js`)
 
@@ -225,6 +222,6 @@ Yang tidak bisa dites otomatis dan **wajib dicek manusia**:
    transaksi, analitik) dan pastikan console bersih dari pelanggaran CSP.
 3. Uji asap: buat produk bernama `<img src=x onerror=alert(1)>`, jual, lalu cetak
    struknya. Nama harus muncul sebagai teks apa adanya, tanpa alert.
-4. `docker compose build && docker compose up`, lalu `curl -I http://localhost/`
-   **dan** `curl -I http://localhost/assets/<berkas>.js` — header keamanan harus
-   muncul di keduanya (membuktikan include per-location bekerja).
+4. Setelah deploy, `curl -I <url>` — `Content-Security-Policy: frame-ancestors`,
+   `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` dan
+   `Permissions-Policy` harus ada pada response.

@@ -6,10 +6,10 @@
  * nothing else in the app decides what a role may do, and no screen carries a
  * `role === 'OWNER'` conditional to gate a route.
  *
- * Where CLAUDE.md and docs/design-brief.md disagree, CLAUDE.md wins, as it
+ * CLAUDE.md wins over the older design brief wherever they disagreed, as it
  * says it does. One place that matters:
  *
- *   • The brief's Admin sidebar lists RIWAYAT → Transaksi, and S-21 says
+ *   • The brief's Admin sidebar listed RIWAYAT → Transaksi, and S-21 said
  *     "Access: all roles". The matrix gives Admin **no access** to
  *     transactions, so Admin has no Transaksi nav item and a 403 on the route.
  *
@@ -17,7 +17,7 @@
  * and inventory mutations to `ADMIN` and `OWNER` alike, so both manage those
  * resources here — there is no read-only Owner variant anywhere.
  *
- * One deliberate departure from the brief: the Owner **can** open the POS.
+ * One deliberate departure from that brief: the Owner **can** open the POS.
  * §4.2 lets an Owner pick any active outlet in the merchant and run the till
  * there ("Owner boleh memilih satu Outlet aktif dalam Merchant saat membuka
  * POS"), so `pos` is `manage` for the Owner, not `none`. The brief's sidebar

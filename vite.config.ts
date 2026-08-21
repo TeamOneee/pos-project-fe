@@ -5,9 +5,8 @@ import { fileURLToPath, URL } from 'node:url';
 
 /**
  * The Content-Security-Policy, as a `<meta>` on the built document, so it holds
- * on Netlify, on nginx and under `vite preview` alike. `frame-ancestors`, which
- * a meta cannot express, is a real header in netlify.toml and
- * docker/security-headers.conf.
+ * on Netlify and under `vite preview` alike. `frame-ancestors`, which a meta
+ * cannot express, is a real header in netlify.toml.
  *
  * Build only: the dev server needs the inline preamble @vitejs/plugin-react
  * injects, which `script-src 'self'` would block.
@@ -60,8 +59,8 @@ function contentSecurityPolicy(apiUrl: string | undefined): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // loadEnv reads .env files only; the Docker build passes VITE_API_URL as a
-  // real environment variable.
+  // loadEnv reads .env files only; CI passes VITE_API_URL as a real
+  // environment variable, which Vite gives precedence to.
   const env = loadEnv(mode, process.cwd());
   const apiUrl = process.env.VITE_API_URL ?? env.VITE_API_URL;
 
