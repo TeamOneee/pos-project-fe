@@ -26,6 +26,7 @@
 
 import type { ReceiptData } from '@/lib/receipt-data';
 import { formatDateTime } from '@/lib/date';
+import { render, safeHtml } from '@/lib/html';
 import { formatIDR } from '@/lib/money';
 import { formatCount } from '@/lib/number';
 
@@ -33,18 +34,16 @@ import { formatCount } from '@/lib/number';
 export const RECEIPT_WIDTH_MM = 80;
 
 export function receiptHtml(receipt: ReceiptData): string {
-  const lines = receipt.lines
-    .map(
-      (line) => `
+  const lines = receipt.lines.map(
+    (line) => safeHtml`
       <div class="item">
-        <div class="item-name">${escapeHtml(line.name)}</div>
+        <div class="item-name">${line.name}</div>
         <div class="item-row">
           <span>${formatCount(line.quantity)} × ${formatIDR(line.unitPrice)}</span>
           <span>${formatIDR(line.subtotal)}</span>
         </div>
       </div>`
-    )
-    .join('');
+  );
 
   // A reprint from S-22 knows the method but not what was handed over — cash
   // received is not persisted — so it names the method instead of claiming the
@@ -53,18 +52,18 @@ export function receiptHtml(receipt: ReceiptData): string {
   const cashRows =
     receipt.method === 'CASH'
       ? receipt.received !== null
-        ? `
+        ? safeHtml`
       <div class="row"><span>Tunai</span><span>${formatIDR(receipt.received)}</span></div>
       <div class="row"><span>Kembalian</span><span>${formatIDR(receipt.change ?? 0)}</span></div>`
-        : `<div class="row"><span>Metode</span><span>Tunai</span></div>`
-      : `<div class="row"><span>Metode</span><span>Non-Tunai</span></div>`;
+        : safeHtml`<div class="row"><span>Metode</span><span>Tunai</span></div>`
+      : safeHtml`<div class="row"><span>Metode</span><span>Non-Tunai</span></div>`;
 
-  return `<!doctype html>
+  return render(safeHtml`<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escapeHtml(receipt.transactionNumber)}</title>
+<title>${receipt.transactionNumber}</title>
 <style>
   /* Whatever paper the printer reports; the column centres inside it. */
   @page { margin: 0; }
@@ -137,16 +136,16 @@ export function receiptHtml(receipt: ReceiptData): string {
 </head>
 <body>
   <header>
-    <div class="merchant">${escapeHtml(receipt.merchantName)}</div>
-    <div class="outlet">${escapeHtml(receipt.outletName)}</div>
+    <div class="merchant">${receipt.merchantName}</div>
+    <div class="outlet">${receipt.outletName}</div>
   </header>
 
   <div class="rule"></div>
 
   <div class="meta">
-    <div class="row"><span>No.</span><span>${escapeHtml(receipt.transactionNumber)}</span></div>
-    <div class="row"><span>Waktu</span><span>${escapeHtml(formatDateTime(receipt.issuedAt))}</span></div>
-    <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashierName)}</span></div>
+    <div class="row"><span>No.</span><span>${receipt.transactionNumber}</span></div>
+    <div class="row"><span>Waktu</span><span>${formatDateTime(receipt.issuedAt)}</span></div>
+    <div class="row"><span>Kasir</span><span>${receipt.cashierName}</span></div>
   </div>
 
   <div class="rule"></div>
@@ -164,15 +163,5 @@ export function receiptHtml(receipt: ReceiptData): string {
 
   <footer>Terima kasih atas kunjungan Anda</footer>
 </body>
-</html>`;
-}
-
-/** Receipt data is merchant-controlled, but it still ends up in a document. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+</html>`);
 }

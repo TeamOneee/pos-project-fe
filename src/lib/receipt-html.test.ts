@@ -82,4 +82,38 @@ describe('receipt output', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
   });
+
+  // The template escapes by construction now (lib/html.ts), so these guard the
+  // wiring rather than nine separate calls.
+  it('escapes every header field, not only the product name', () => {
+    const payload = '<img src=x onerror=alert(1)>';
+    const html = receiptHtml({
+      ...BASE,
+      merchantName: payload,
+      outletName: payload,
+      cashierName: payload,
+    });
+
+    // 'onerror=' survives as text; there is no longer a tag for it to be in.
+    expect(html).not.toContain('<img');
+    expect(html.match(/&lt;img src=x onerror=alert\(1\)&gt;/g)).toHaveLength(3);
+  });
+
+  it('escapes a transaction number that tries to close the title element', () => {
+    // An unescaped '</title>' ends the element early; the rest becomes markup.
+    const html = receiptHtml({
+      ...BASE,
+      transactionNumber: '</title><script>alert(1)</script>',
+    });
+
+    expect(html).not.toContain('</title><script>');
+    expect(html).toContain('&lt;/title&gt;');
+  });
+
+  it('escapes a quote that would break out of an attribute', () => {
+    const html = receiptHtml({ ...BASE, merchantName: '" onload="alert(1)' });
+
+    expect(html).not.toContain('" onload="');
+    expect(html).toContain('&quot; onload=&quot;alert(1)');
+  });
 });
