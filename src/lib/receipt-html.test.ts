@@ -73,6 +73,19 @@ describe('receipt output', () => {
     }
   });
 
+  it('sizes the a4 sheet, and asks the dialog for A4 paper', () => {
+    const html = receiptHtml(BASE, 'a4');
+
+    expect(html).toContain('size: A4');
+    expect(html).toContain('width: 100%');
+  });
+
+  it('leaves the thermal column exactly as it was', () => {
+    // The default is the roll; A4 is opt-in, so no print path shifts under it.
+    expect(receiptHtml(BASE)).toBe(receiptHtml(BASE, 'thermal'));
+    expect(receiptHtml(BASE)).not.toContain('size: A4');
+  });
+
   it('escapes a product name that contains markup', () => {
     const html = receiptHtml({
       ...BASE,
@@ -108,6 +121,13 @@ describe('receipt output', () => {
 
     expect(html).not.toContain('</title><script>');
     expect(html).toContain('&lt;/title&gt;');
+  });
+
+  it('escapes on the a4 sheet too, since it is the same markup', () => {
+    const html = receiptHtml({ ...BASE, merchantName: '<script>alert(1)</script>' }, 'a4');
+
+    expect(html).not.toContain('<script>alert(1)');
+    expect(html).toContain('&lt;script&gt;');
   });
 
   it('escapes a quote that would break out of an attribute', () => {

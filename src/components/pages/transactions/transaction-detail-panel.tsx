@@ -54,8 +54,11 @@ export function TransactionDetailPanel({ transactionId }: { transactionId: strin
 
     setBusy(true);
     try {
-      const html = receiptHtml(receiptFromDto(dto));
-      await (destination === 'print' ? printReceipt(html) : downloadReceiptPdf(html));
+      // Same receipt, sized for where it is going: an 80mm roll, or a sheet.
+      const data = receiptFromDto(dto);
+      await (destination === 'print'
+        ? printReceipt(receiptHtml(data))
+        : downloadReceiptPdf(receiptHtml(data, 'a4')));
     } catch {
       toast({
         variant: 'error',

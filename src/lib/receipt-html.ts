@@ -7,11 +7,13 @@
  * Nothing here reads a design token: a thermal printer has one colour and no
  * webfont, and a receipt that depends on the app's theme would print wrong.
  *
- * **On sizing.** The receipt is a fixed 80mm column that centres itself on
- * whatever paper the printer reports. That covers both destinations without
- * choosing between them: on an 80mm roll the column fills the page exactly, and
- * on A4 — which is what "Simpan sebagai PDF" hands us — it lands in the middle
- * of the sheet instead of stranded in a corner.
+ * **On sizing.** Two papers, one document. `thermal` is a fixed 80mm column
+ * that fills an 80mm roll exactly. `a4` restyles the same markup for a full
+ * sheet — "Simpan sebagai PDF" was landing an 80mm strip in the middle of A4,
+ * which is legible only if the user hunts for the scale control.
+ *
+ * Only the stylesheet differs; the markup is identical, so there is one place
+ * where receipt data becomes HTML and one set of escaping guarantees.
  *
  * It deliberately does *not* declare `size: 80mm auto`. That is invalid CSS —
  * `size` takes one or two lengths, or the single keyword `auto`, never a mix —
@@ -26,14 +28,53 @@
 
 import type { ReceiptData } from '@/lib/receipt-data';
 import { formatDateTime } from '@/lib/date';
-import { render, safeHtml } from '@/lib/html';
+import { raw, render, safeHtml } from '@/lib/html';
 import { formatIDR } from '@/lib/money';
 import { formatCount } from '@/lib/number';
 
 /** The roll this is cut for. 58mm rolls print the same column, narrower. */
 export const RECEIPT_WIDTH_MM = 80;
 
-export function receiptHtml(receipt: ReceiptData): string {
+/** Thermal roll, or a full sheet for the PDF. */
+export type ReceiptPaper = 'thermal' | 'a4';
+
+/**
+ * Overrides appended to the thermal rules, so `size: A4` also makes A4 the
+ * paper the print dialog opens on.
+ */
+const A4_STYLES = `
+  @page { size: A4; margin: 18mm 20mm; }
+
+  body {
+    width: 100%;
+    padding: 0;
+    font-size: 11pt;
+  }
+
+  header { margin-bottom: 8mm; }
+  .merchant { font-size: 20pt; }
+  .outlet { font-size: 12pt; }
+
+  .rule { margin: 5mm 0; }
+  .rule-strong { margin: 5mm 0; }
+
+  /* Label beside its value: across 170mm, space-between strands them apart. */
+  .meta .row { justify-content: flex-start; gap: 6mm; }
+  .meta .row > :first-child { min-width: 22mm; }
+  .meta .row > :last-child { text-align: left; }
+
+  /* One line per item: name, then the figures in a fixed column. */
+  .item { display: flex; align-items: baseline; gap: 6mm; break-inside: avoid; }
+  .item + .item { margin-top: 3mm; }
+  .item-name { flex: 1; }
+  .item-row { width: 90mm; flex: none; }
+
+  .total { font-size: 16pt; }
+
+  footer { margin-top: 12mm; font-size: 11pt; }
+`;
+
+export function receiptHtml(receipt: ReceiptData, paper: ReceiptPaper = 'thermal'): string {
   const lines = receipt.lines.map(
     (line) => safeHtml`
       <div class="item">
@@ -132,7 +173,7 @@ export function receiptHtml(receipt: ReceiptData): string {
     margin-top: 5mm;
     font-size: 10.5pt;
   }
-</style>
+${raw(paper === 'a4' ? A4_STYLES : '')}</style>
 </head>
 <body>
   <header>
