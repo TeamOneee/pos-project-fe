@@ -15,7 +15,7 @@
 
 import { z } from 'zod';
 
-import { MoneyParseError, parseMoney } from '@/lib/money';
+import { MoneyParseError, parseMoney, parseMoneyLenient } from '@/lib/money';
 
 /* -------------------------------------------------------------------------- */
 /* Scalars                                                                     */
@@ -43,6 +43,24 @@ export const money = z
     }
   })
   .transform((value) => parseMoney(value));
+
+/** Lenient money: same as `money` but rounds fractional rupiah (for averages). */
+export const moneyLenient = z
+  .union([z.string(), z.number()])
+  .superRefine((value, ctx) => {
+    try {
+      parseMoneyLenient(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          error instanceof MoneyParseError
+            ? `Nilai uang tidak valid: ${JSON.stringify(value)}`
+            : 'Nilai uang tidak valid',
+      });
+    }
+  })
+  .transform((value) => parseMoneyLenient(value));
 
 /** Money the backend may omit or null out. Absent means zero. */
 export const moneyOrZero = money

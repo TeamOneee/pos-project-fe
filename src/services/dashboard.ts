@@ -28,6 +28,7 @@ import {
   dashboardMetaFields,
   id,
   money,
+  moneyLenient,
   toDashboardMeta,
   type Bucket,
   type DashboardMeta,
@@ -61,7 +62,7 @@ const summarySchema = z
   .object({
     omzet: money,
     transaction_count: z.number(),
-    average_transaction_value: money,
+    average_transaction_value: moneyLenient,
     ...dashboardMetaFields,
   })
   .transform((value) => ({
@@ -141,7 +142,7 @@ const aovTrendSchema = z
       z
         .object({
           bucket_start: z.string(),
-          average_transaction_value: money,
+          average_transaction_value: moneyLenient,
         })
         .transform((point) => ({
           bucketStart: point.bucket_start,

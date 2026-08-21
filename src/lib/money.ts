@@ -64,6 +64,44 @@ export function parseMoneyOr(apiString: string | number, fallback: Rupiah = 0): 
   }
 }
 
+/**
+ * Lenient variant for computed averages (e.g. average_transaction_value).
+ *
+ * The contract says every money field is "00", but the backend currently
+ * returns averages as "35156.25" — omzet/count with real division. Failing
+ * the whole dashboard because one average has a fractional rupiah is worse
+ * than rounding it. This helper rounds to the nearest rupiah, while the
+ * strict `parseMoney` keeps its loud failure for all other money fields.
+ */
+export function parseMoneyLenient(apiString: string | number): Rupiah {
+  if (typeof apiString === 'number') {
+    if (!Number.isFinite(apiString)) throw new MoneyParseError(apiString);
+    return Math.round(apiString);
+  }
+
+  if (typeof apiString !== 'string') throw new MoneyParseError(apiString);
+
+  const trimmed = apiString.trim();
+  const match = MONEY_PATTERN.exec(trimmed);
+  if (!match) throw new MoneyParseError(apiString);
+
+  const [, sign, whole = '', fraction] = match;
+
+  // Fast path: exact rupiah already.
+  if (fraction === undefined || /^0+$/.test(fraction)) {
+    const value = Number(whole);
+    if (!Number.isSafeInteger(value)) throw new MoneyParseError(apiString);
+    return sign === '-' ? -value : value;
+  }
+
+  // Fractional rupiah — round to nearest integer (BE's average).
+  const num = Number(trimmed);
+  if (!Number.isFinite(num)) throw new MoneyParseError(apiString);
+  const rounded = Math.round(num);
+  if (!Number.isSafeInteger(rounded)) throw new MoneyParseError(apiString);
+  return rounded;
+}
+
 /** Group digits with "." every three, Indonesian style. */
 function groupDigits(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
