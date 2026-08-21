@@ -252,6 +252,19 @@ describe('the POS is the exception', () => {
     expect(bar?.parentElement?.className).toContain('flex-col');
   });
 
+  it('gives the cashier till the sidebar, so it does not appear only on Riwayat', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/pos', DESKTOP);
+
+    await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
+
+    // Scoped to the nav landmark: the till's own header carries a Riwayat link
+    // of its own, which is the only way out at mobile and stays there.
+    const nav = within(screen.getByRole('navigation'));
+    expect(nav.getByRole('link', { name: 'Kasir' })).toBeInTheDocument();
+    expect(nav.getByRole('link', { name: 'Riwayat' })).toBeInTheDocument();
+  });
+
   it('keeps the cashier till chromeless — the tab bar is not the way back for them', async () => {
     await signInAs('budi@indomart.com');
     await openAt('/pos', MOBILE);

@@ -6,10 +6,15 @@
  * because the navigation genuinely changes shape — a 248px labelled sidebar and
  * a five-item tab bar do not share a layout.
  *
- * The cashier POS is chromeless at every breakpoint. The one exception: an
- * Owner stepping into the till on mobile keeps the bottom tab bar, so there is
- * a visible way back to the Owner's other screens — the till is a detour for
- * them, not their workstation.
+ * The till at /pos drops the app header — it carries its own bar, with the
+ * outlet, the clock and the till's own actions — but keeps the navigation
+ * beside it, so a Cashier does not watch a sidebar appear out of nowhere the
+ * moment they open Riwayat.
+ *
+ * Mobile is the exception, and only for a Cashier: the till needs the height
+ * for its cart, and the till is their workstation rather than a screen they
+ * pass through. An Owner stepping into it on mobile keeps the tab bar, because
+ * for them the till is a detour and they need the way back out.
  *
  * The desktop sidebar collapses to give a screen (the dashboard, say) the full
  * width. The state lives in the shell context so it survives navigation; the
@@ -68,28 +73,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!role) return null;
 
   if (isChromeless(location.pathname)) {
-    // The Owner's till keeps the mobile tab bar so they can step back out of
-    // it; a Cashier's stays fully chromeless — it is their workstation.
-    if (role === 'OWNER') {
-      const desktop = breakpoint === 'desktop';
-      return (
-        <div className="flex h-full flex-col bg-canvas">
-          <div className="flex min-h-0 flex-1">
-            {desktop && !sidebarCollapsed ? (
-              <Sidebar role={role} pathname={location.pathname} merchantName={merchantName} />
-            ) : breakpoint === 'tablet' ? (
-              <IconRail role={role} pathname={location.pathname} />
-            ) : null}
+    return (
+      <div className="flex h-full flex-col bg-canvas">
+        <div className="flex min-h-0 flex-1">
+          {breakpoint === 'desktop' && !sidebarCollapsed ? (
+            <Sidebar role={role} pathname={location.pathname} merchantName={merchantName} />
+          ) : breakpoint === 'tablet' ? (
+            <IconRail role={role} pathname={location.pathname} />
+          ) : null}
 
-            <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
-              {children}
-            </main>
-          </div>
-          {breakpoint === 'mobile' ? <FooterTabs role={role} pathname={location.pathname} /> : null}
+          <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
+            {children}
+          </main>
         </div>
-      );
-    }
-    return <div className="h-full bg-canvas">{children}</div>;
+        {breakpoint === 'mobile' && role === 'OWNER' ? (
+          <FooterTabs role={role} pathname={location.pathname} />
+        ) : null}
+      </div>
+    );
   }
 
   const title = titleOverride ?? navTitleFor(role, location.pathname);
