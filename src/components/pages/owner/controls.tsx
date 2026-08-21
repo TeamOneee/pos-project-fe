@@ -143,19 +143,28 @@ export function FreshnessCaption({
     return () => clearInterval(timer);
   }, []);
 
+  /*
+   * The age, said once.
+   *
+   * This used to print the absolute time and then repeat it in brackets —
+   * "13 Agu 2026, 21.30 (13 Agu 2026, 21.30)" — because `formatTimeAgo` falls
+   * back to the full timestamp past a day, so the two halves collapsed into the
+   * same string on any aggregate older than that. The relative form already
+   * degrades to an absolute one when it has to, which is exactly the behaviour
+   * the caption wanted; printing both was the redundancy.
+   *
+   * The exact timestamp and the cache window stay in the tooltip. On screen the
+   * caption answers one question — how old is this — as the brief asks.
+   */
   const absolute = updatedAt === 0 ? '' : formatDateTime(updatedAt);
-  const relative = updatedAt === 0 ? '' : formatTimeAgo(updatedAt);
+  const age = updatedAt === 0 ? '' : formatTimeAgo(updatedAt);
   return (
     <div
       className="flex items-center gap-xs"
-      title={updatedAt === 0 ? undefined : `Cache 30m · ${absolute}`}
+      title={updatedAt === 0 ? undefined : `Diperbarui ${absolute} · cache 30 menit`}
     >
       <Text variant="caption" tone={stale ? 'warning' : 'subtle'}>
-        {updatedAt === 0
-          ? 'Memuat…'
-          : stale
-            ? `Kedaluwarsa · ${absolute} (${relative})`
-            : `Cache 30m · ${absolute} (${relative})`}
+        {updatedAt === 0 ? 'Memuat…' : `${stale ? 'Kedaluwarsa' : 'Diperbarui'} · ${age}`}
       </Text>
       <button
         type="button"
