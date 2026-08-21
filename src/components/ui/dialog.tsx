@@ -10,6 +10,17 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
+/**
+ * Whether this dialog is rendering a close button in its top-right corner.
+ *
+ * The header keeps a touch target's worth of space clear on that side so a long
+ * title does not run under the ✕. That reservation is only correct when the ✕ is
+ * actually there: on a `hideClose` dialog it is 44px of dead space that pulls a
+ * centred header off-centre. The decision belongs to DialogContent, which owns
+ * the button, so it is passed down rather than guessed at.
+ */
+const DialogHasCloseContext = React.createContext(true);
+
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -57,7 +68,9 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {children}
+        <DialogHasCloseContext.Provider value={!hideClose}>
+          {children}
+        </DialogHasCloseContext.Provider>
         {!hideClose && (
           <DialogPrimitive.Close
             aria-label="Tutup"
@@ -72,9 +85,13 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = 'DialogContent';
 
-const DialogHeader = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => (
-  <div className={cn('flex flex-col gap-xs pr-touch', className)} {...props} />
-);
+const DialogHeader = ({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) => {
+  // Room for the ✕, but only when there is one — see DialogHasCloseContext.
+  const hasClose = React.useContext(DialogHasCloseContext);
+  return (
+    <div className={cn('flex flex-col gap-xs', hasClose && 'pr-touch', className)} {...props} />
+  );
+};
 DialogHeader.displayName = 'DialogHeader';
 
 /**
