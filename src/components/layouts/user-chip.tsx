@@ -11,14 +11,13 @@
  * even that is gone, and the chip falls back to the role alone.
  */
 
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import * as React from 'react';
 
 import { useAuth } from '@/components/pages/auth/auth-provider';
 import { Avatar, AvatarFallback, initials } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
-import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { ROLE_LABEL } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
@@ -60,8 +59,6 @@ export function UserChip({ compact = false, placement = 'above', align = 'start'
             compact ? (align === 'end' ? 'right-0' : 'left-0') : 'left-0 right-0'
           )}
         >
-          <MenuItem icon={UserIcon} label="Profil" onPress={() => setOpen(false)} />
-          <Separator />
           <MenuItem
             icon={LogOut}
             label="Keluar"
