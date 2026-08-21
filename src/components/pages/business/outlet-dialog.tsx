@@ -27,10 +27,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
+import { cnTextarea } from '@/components/pages/inventory/adjust-stock-dialog';
 import { useCreateOutlet, useUpdateOutlet } from '@/hooks/use-outlets';
 import type { Outlet } from '@/services/outlets';
 import { fieldErrors } from '@/api/errors';
 import { requiredString } from '@/lib/validation';
+import { cn } from '@/lib/utils';
 
 const outletFormSchema = z.object({
   name: requiredString('Nama outlet', 100),
@@ -170,10 +172,10 @@ function OutletForm({ outlet, onDone }: { outlet: Outlet | null; onDone: () => v
                 placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
                 disabled={pending}
                 aria-invalid={Boolean(fieldState.error) || undefined}
-                /* The resting border hides under the focus ring rather than
-                   sitting inside it as a second line — but not while the field
-                   is invalid, where the red border outlives the focus. */
-                className="min-h-[90px] resize-none rounded-md border border-border-interactive bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle transition-colors focus-ring-always invalid:border-danger focus:valid:border-transparent"
+                // Same field styling as the other modals, keyed off the form's
+                // own error rather than native :invalid, so focus and error read
+                // identically everywhere.
+                className={cn(cnTextarea(Boolean(fieldState.error)), 'min-h-[90px] resize-none')}
               />
             </FormField>
           )}

@@ -160,6 +160,16 @@ module.exports = {
             outlineOffset: '2px',
           },
         },
+        // The same ring in the error colour, for a field that is focused *and*
+        // invalid. Recolouring the one ring is what keeps that state down to a
+        // single line: a red border inside an accent ring is two, and the pair
+        // reads as a rendering fault rather than as an error.
+        '.focus-ring-danger': {
+          '&:focus': {
+            outline: `2px solid rgb(var(--danger) / 0.4)`,
+            outlineOffset: '2px',
+          },
+        },
       });
     }),
   ],

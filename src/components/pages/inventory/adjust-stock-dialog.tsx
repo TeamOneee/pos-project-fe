@@ -220,10 +220,10 @@ function AdjustStockForm({ target, onDone }: { target: AdjustTarget; onDone: () 
 export function cnTextarea(invalid: boolean): string {
   return [
     'rounded-md border bg-surface px-md py-sm type-body text-fg placeholder:text-fg-subtle',
-    'transition-colors focus-ring-always',
-    // The resting border hides under the focus ring rather than sitting inside
-    // it as a second line; an invalid field keeps its red one through focus.
-    invalid ? 'border-danger' : 'border-border-interactive focus:border-transparent',
+    // One line at a time: the resting border hides under the ring, and an
+    // invalid field recolours the ring rather than keeping a second border.
+    'transition-colors focus:border-transparent',
+    invalid ? 'border-danger focus-ring-danger' : 'border-border-interactive focus-ring-always',
     'disabled:bg-subtle disabled:text-fg-muted disabled:cursor-not-allowed',
   ].join(' ');
 }
