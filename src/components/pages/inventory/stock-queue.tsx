@@ -13,8 +13,10 @@
  *
  * On colour: every row here is an alarm, so tinting whole rows would be
  * wallpaper — it would stop discriminating precisely where discrimination is
- * the point. The severity is a 3px rail instead, the same vocabulary KpiTile
- * uses, and the word is always in the Stok cell beside it.
+ * the point. Severity is carried by the Stok cell alone: HABIS in a danger
+ * badge, the remaining quantity in a warning one. A severity rail down the
+ * left edge said the same thing a second time and drew the eye before the
+ * product name did.
  *
  * The threshold shown is the **effective** one: an outlet's override where it
  * has set one, the product's base value otherwise (§4.1 rule 5).
@@ -171,10 +173,7 @@ function QueueRowView({ row, onAdjust, onOpenStockPerOutlet }: { row: QueueRow }
     <div
       role="group"
       aria-label={rowLabel(row)}
-      className={cn(
-        'flex flex-row items-center gap-md border-b border-border py-md pl-md',
-        rail(row)
-      )}
+      className="flex flex-row items-center gap-md border-b border-border py-md pl-md last:border-b-0"
     >
       <div className="flex min-w-0 flex-[3] flex-row items-center gap-sm">
         <ProductButton
@@ -208,7 +207,7 @@ function QueueCard({ row, onAdjust, onOpenStockPerOutlet }: { row: QueueRow } & 
     <div
       role="group"
       aria-label={rowLabel(row)}
-      className={cn('flex flex-col gap-sm rounded-md border border-border p-md', rail(row))}
+      className="flex flex-col gap-sm rounded-md border border-border p-md"
     >
       <div className="flex flex-row items-center gap-sm">
         <ProductButton
@@ -344,10 +343,6 @@ function rowKey(row: QueueRow): string {
  */
 function rowLabel(row: QueueRow): string {
   return `${row.productName} · ${row.outletName}`;
-}
-
-function rail(row: QueueRow): string {
-  return isOutOfStock(row) ? 'border-l-[3px] border-l-danger' : 'border-l-[3px] border-l-warning';
 }
 
 /** The quantity, or the word for having none of it. */
