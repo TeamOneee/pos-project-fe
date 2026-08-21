@@ -380,6 +380,7 @@ function PosTopBar({
   showBack?: boolean;
 }) {
   const time = useClock();
+  const mobile = useBreakpoint() === 'mobile';
 
   return (
     <div className="flex h-16 shrink-0 flex-row items-center justify-between gap-md border-b border-border bg-surface px-lg">
@@ -418,12 +419,17 @@ function PosTopBar({
         <Text variant="mono" tone="muted">
           {time}
         </Text>
-        <Link
-          to="/transactions"
-          className="flex min-h-touch items-center justify-center px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
-        >
-          <Text variant="body-strong">Riwayat</Text>
-        </Link>
+        {/* The sidebar and the tablet rail both carry Riwayat, so the bar only
+            offers it where neither exists: mobile, where it is the Cashier's
+            single way off the till. */}
+        {mobile && (
+          <Link
+            to="/transactions"
+            className="flex min-h-touch items-center justify-center px-md text-accent outline-none transition-opacity hover:opacity-70 focus-ring"
+          >
+            <Text variant="body-strong">Riwayat</Text>
+          </Link>
+        )}
         <AccountControls compact />
       </div>
     </div>

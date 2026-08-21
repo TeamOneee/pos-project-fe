@@ -56,7 +56,15 @@ describe('the POS outlet gate', () => {
 
     // The till's own bar, the same one the picked-outlet screen carries.
     expect(screen.getByRole('link', { name: 'Kembali' })).toHaveAttribute('href', '/dashboard');
-    expect(screen.getByRole('link', { name: 'Riwayat' })).toBeInTheDocument();
+
+    // Transactions are reachable from the sidebar rather than from the bar,
+    // which no longer repeats a destination the navigation already offers. The
+    // Owner's nav calls it "Transaksi"; only the Cashier's says "Riwayat".
+    expect(screen.getByRole('link', { name: 'Transaksi' })).toHaveAttribute(
+      'href',
+      '/transactions'
+    );
+    expect(screen.queryByRole('link', { name: 'Riwayat' })).toBeNull();
   });
 
   it('offers nothing to switch from until an outlet is chosen', async () => {

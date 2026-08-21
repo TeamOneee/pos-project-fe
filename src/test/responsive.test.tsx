@@ -265,6 +265,29 @@ describe('the POS is the exception', () => {
     expect(nav.getByRole('link', { name: 'Riwayat' })).toBeInTheDocument();
   });
 
+  it('offers Riwayat on the till bar only where there is no nav to carry it', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/pos', DESKTOP);
+    await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
+
+    // The sidebar carries it, so the till's bar does not repeat it.
+    const links = screen.getAllByRole('link', { name: 'Riwayat' });
+    expect(links).toHaveLength(1);
+    expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Riwayat' })).toBe(
+      links[0]
+    );
+  });
+
+  it('keeps Riwayat on the till bar at mobile, where nothing else offers it', async () => {
+    await signInAs('budi@indomart.com');
+    await openAt('/pos', MOBILE);
+    await screen.findByRole('button', { name: /Coca Cola 1\.5L/ });
+
+    // No sidebar, no rail and no tab bar for a Cashier: this is the only exit.
+    expect(screen.queryByRole('navigation')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Riwayat' })).toBeInTheDocument();
+  });
+
   it('keeps the cashier till chromeless — the tab bar is not the way back for them', async () => {
     await signInAs('budi@indomart.com');
     await openAt('/pos', MOBILE);
