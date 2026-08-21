@@ -15,7 +15,8 @@
  * and the cart is not persisted, so a mis-click next to the outlet filter would
  * cost a cashier the basket they were halfway through. The old menu bought that
  * safety accidentally, by being two clicks; the dialog buys it deliberately,
- * without hiding anything.
+ * without hiding anything. The dialog names what *this* role loses — see
+ * SIGN_OUT_WARNING.
  *
  * Below tablet there is no header — the mobile tab bar carries its own "Keluar"
  * inside the overflow sheet.
@@ -37,7 +38,25 @@ import {
 } from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { ROLE_LABEL } from '@/lib/permissions';
+import { ROLE_LABEL, type Role } from '@/lib/permissions';
+
+/**
+ * What each role actually stands to lose, rather than one warning aimed at
+ * whoever it fits best.
+ *
+ * A Cashier is the only one holding something unrecoverable: the cart lives in
+ * memory and is not persisted, so signing out mid-basket loses it outright. An
+ * Admin's exposure is a half-filled stock adjustment, an Owner's a half-filled
+ * form on any screen. Telling all three about "transaksi yang belum disimpan"
+ * warned two of them about something they were not doing.
+ */
+const SIGN_OUT_WARNING: Record<Role, string> = {
+  OWNER: 'Anda perlu masuk lagi untuk melanjutkan. Perubahan yang belum disimpan akan hilang.',
+  ADMIN:
+    'Anda perlu masuk lagi untuk melanjutkan. Penyesuaian stok yang belum disimpan akan hilang.',
+  CASHIER:
+    'Keranjang yang belum dibayar akan hilang dan tidak bisa dikembalikan. Anda perlu masuk lagi untuk membuka kasir.',
+};
 
 export function AccountControls({
   /** The till's bar is tight; drop the identity text and keep the avatar. */
@@ -96,9 +115,7 @@ export function AccountControls({
         <DialogContent hideClose className="tablet:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Keluar dari akun?</DialogTitle>
-            <DialogDescription>
-              Anda perlu masuk lagi untuk melanjutkan. Transaksi yang belum disimpan akan hilang.
-            </DialogDescription>
+            <DialogDescription>{SIGN_OUT_WARNING[role]}</DialogDescription>
           </DialogHeader>
 
           <DialogFooter>
