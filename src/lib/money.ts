@@ -31,33 +31,28 @@ export class MoneyParseError extends Error {
  */
 export function parseMoney(apiString: string | number): Rupiah {
   if (typeof apiString === 'number') {
-    if (!Number.isFinite(apiString)) throw new MoneyParseError(apiString);
-    return Math.round(apiString);
+    if (!Number.isInteger(apiString)) throw new MoneyParseError(apiString);
+    return apiString;
   }
 
   if (typeof apiString !== 'string') throw new MoneyParseError(apiString);
 
-  const trimmed = apiString.trim();
-  const match = MONEY_PATTERN.exec(trimmed);
+  const match = MONEY_PATTERN.exec(apiString.trim());
   if (!match) throw new MoneyParseError(apiString);
 
   const [, sign, whole = '', fraction] = match;
 
-  // BE mengirim average_transaction_value sebagai "43796.61" (hasil bagi omzet/count)
-  // Kontrak bilang "00" tapi BE nyata pakai desimal — ikuti BE (round ke rupiah terdekat)
-  // bukan throw. Tetap aman untuk "15750000.00" -> 15750000
-  const num = Number(trimmed);
-  if (!Number.isFinite(num)) throw new MoneyParseError(apiString);
-  if (!Number.isSafeInteger(Math.trunc(num)) && Math.abs(num) > Number.MAX_SAFE_INTEGER) throw new MoneyParseError(apiString);
-
-  const rounded = Math.round(num);
-  // jaga whole tetap dipakai untuk kasus besar > 2^53? fallback ke whole
-  if (fraction === undefined || /^0+$/.test(fraction)) {
-    const value = Number(whole);
-    if (!Number.isSafeInteger(value)) throw new MoneyParseError(apiString);
-    return sign === '-' ? -value : value;
+  // String comparison, never parseFloat: "00" is zero, "5" is not.
+  if (fraction !== undefined && /[^0]/.test(fraction)) {
+    throw new MoneyParseError(apiString);
   }
-  return rounded;
+
+  // The integer part is safe for Number() — it has no fractional component,
+  // so no binary-float rounding can occur below Number.MAX_SAFE_INTEGER.
+  const value = Number(whole);
+  if (!Number.isSafeInteger(value)) throw new MoneyParseError(apiString);
+
+  return sign === '-' ? -value : value;
 }
 
 /** Parse, but fall back to 0 instead of throwing. For display-only paths. */
