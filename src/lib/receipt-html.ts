@@ -2,12 +2,26 @@
  * The printable receipt: 80mm thermal width, monospaced, black on white.
  *
  * Plain HTML rather than a rendered component, because both consumers want a
- * document — the print path writes it into a frame. It carries its own `@page`
- * sizing so the printer does not impose margins a 58mm/80mm roll does not
- * have.
+ * document — the print path writes it into a frame, the PDF path renders it.
  *
  * Nothing here reads a design token: a thermal printer has one colour and no
  * webfont, and a receipt that depends on the app's theme would print wrong.
+ *
+ * **On sizing.** The receipt is a fixed 80mm column that centres itself on
+ * whatever paper the printer reports. That covers both destinations without
+ * choosing between them: on an 80mm roll the column fills the page exactly, and
+ * on A4 — which is what "Simpan sebagai PDF" hands us — it lands in the middle
+ * of the sheet instead of stranded in a corner.
+ *
+ * It deliberately does *not* declare `size: 80mm auto`. That is invalid CSS —
+ * `size` takes one or two lengths, or the single keyword `auto`, never a mix —
+ * so the whole declaration was dropped, the page fell back to A4, and the
+ * receipt printed as a small block in the top-left. Naming a length instead
+ * would force every short receipt to feed and waste most of a page of thermal
+ * paper, so the width is expressed in the body and the page is left `auto`.
+ *
+ * Widths are in millimetres, not pixels: a print job is not rendered at 96dpi,
+ * so 302px is only accidentally 80mm.
  */
 
 import type { ReceiptData } from '@/lib/receipt-data';
@@ -15,8 +29,8 @@ import { formatDateTime } from '@/lib/date';
 import { formatIDR } from '@/lib/money';
 import { formatCount } from '@/lib/number';
 
-/** 80mm at 96dpi. The on-screen preview uses the same number. */
-export const RECEIPT_WIDTH_PX = 302;
+/** The roll this is cut for. 58mm rolls print the same column, narrower. */
+export const RECEIPT_WIDTH_MM = 80;
 
 export function receiptHtml(receipt: ReceiptData): string {
   const lines = receipt.lines
@@ -52,65 +66,99 @@ export function receiptHtml(receipt: ReceiptData): string {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escapeHtml(receipt.transactionNumber)}</title>
 <style>
-  /* 80mm roll, no printer margins. */
-  @page { size: 80mm auto; margin: 0; }
+  /* Whatever paper the printer reports; the column centres inside it. */
+  @page { margin: 0; }
 
-  html, body {
-    margin: 0;
-    padding: 0;
+  html {
     background: #fff;
+    /* Pure black throughout. A thermal head has one dot and no grey, so a
+       "muted" tone dithers into a smudge rather than reading as secondary —
+       hierarchy here is size and weight only. */
     color: #000;
   }
 
   body {
-    width: ${RECEIPT_WIDTH_PX}px;
-    padding: 12px;
+    width: ${RECEIPT_WIDTH_MM}mm;
+    margin: 0 auto;
+    padding: 5mm 4mm 7mm;
     box-sizing: border-box;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5pt;
+    line-height: 1.5;
+    -webkit-font-smoothing: none;
   }
 
-  .center { text-align: center; }
-  .bold { font-weight: 700; }
-  .muted { color: #333; }
+  header { text-align: center; margin-bottom: 4mm; }
 
-  header { text-align: center; margin-bottom: 8px; }
-  header .merchant { font-size: 15px; font-weight: 700; }
+  .merchant {
+    font-size: 14pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    word-break: break-word;
+  }
 
-  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+  .outlet { font-size: 10.5pt; }
 
-  .row { display: flex; justify-content: space-between; gap: 8px; }
+  /* Dashed between sections, solid where the eye should stop: around the
+     figures a customer checks. */
+  .rule { border-top: 1px dashed #000; margin: 3mm 0; }
+  .rule-strong { border-top: 2px solid #000; margin: 3mm 0; }
 
-  .item { margin-bottom: 6px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 3mm;
+  }
+
+  /* Amounts share a column: same width, right-aligned, figures lined up. */
+  .row > :last-child { text-align: right; white-space: nowrap; }
+
+  .meta { font-size: 10.5pt; }
+  .meta .row > :first-child { min-width: 16mm; }
+
+  .item + .item { margin-top: 2.5mm; }
   .item-name { word-break: break-word; }
-  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+  .item-row { display: flex; justify-content: space-between; gap: 3mm; }
+  .item-row > :last-child { text-align: right; white-space: nowrap; }
 
-  .total { font-size: 15px; font-weight: 700; }
+  .total {
+    font-size: 14pt;
+    font-weight: 700;
+    margin-top: 1mm;
+  }
 
-  footer { text-align: center; margin-top: 10px; }
+  footer {
+    text-align: center;
+    margin-top: 5mm;
+    font-size: 10.5pt;
+  }
 </style>
 </head>
 <body>
   <header>
     <div class="merchant">${escapeHtml(receipt.merchantName)}</div>
-    <div class="muted">${escapeHtml(receipt.outletName)}</div>
+    <div class="outlet">${escapeHtml(receipt.outletName)}</div>
   </header>
 
-  <div class="row"><span>No.</span><span>${escapeHtml(receipt.transactionNumber)}</span></div>
-  <div class="row"><span>Waktu</span><span>${escapeHtml(formatDateTime(receipt.issuedAt))}</span></div>
-  <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashierName)}</span></div>
+  <div class="rule"></div>
 
-  <div class="divider"></div>
+  <div class="meta">
+    <div class="row"><span>No.</span><span>${escapeHtml(receipt.transactionNumber)}</span></div>
+    <div class="row"><span>Waktu</span><span>${escapeHtml(formatDateTime(receipt.issuedAt))}</span></div>
+    <div class="row"><span>Kasir</span><span>${escapeHtml(receipt.cashierName)}</span></div>
+  </div>
+
+  <div class="rule"></div>
 
   ${lines}
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   <div class="row"><span>Subtotal</span><span>${formatIDR(receipt.subtotal)}</span></div>
   <div class="row total"><span>Total</span><span>${formatIDR(receipt.total)}</span></div>
 
-  <div class="divider"></div>
+  <div class="rule-strong"></div>
 
   ${cashRows}
 
