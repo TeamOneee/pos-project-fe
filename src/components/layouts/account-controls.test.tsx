@@ -45,7 +45,7 @@ function profileButton() {
 }
 
 async function openSignOut(): Promise<HTMLElement | null> {
-  let btn = signOutButton();
+  const btn = signOutButton();
   if (btn) return btn;
   const prof = profileButton();
   if (prof) {

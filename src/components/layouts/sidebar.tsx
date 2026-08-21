@@ -23,7 +23,8 @@ import { cn } from '@/lib/utils';
 
 const SIGN_OUT_WARNING: Record<Role, string> = {
   OWNER: 'Anda perlu masuk lagi untuk melanjutkan. Perubahan yang belum disimpan akan hilang.',
-  ADMIN: 'Anda perlu masuk lagi untuk melanjutkan. Penyesuaian stok yang belum disimpan akan hilang.',
+  ADMIN:
+    'Anda perlu masuk lagi untuk melanjutkan. Penyesuaian stok yang belum disimpan akan hilang.',
   CASHIER:
     'Keranjang yang belum dibayar akan hilang dan tidak bisa dikembalikan. Anda perlu masuk lagi untuk membuka kasir.',
 };

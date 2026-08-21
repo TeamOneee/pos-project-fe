@@ -164,16 +164,10 @@ describe('dashboard grids collapse to one column', () => {
 
     await screen.findByText('Stok Per Outlet');
 
-    /**
-     * The Admin's four tiles are gone on purpose: their counts became the per-outlet table and the
-     * catalogue strip.
-     */
-    expect(document.querySelectorAll('.basis-full')).toHaveLength(0);
-
-    // The catalogue strip is a column below tablet and a row from tablet up.
-    const strip = screen.getByRole('group', { name: /^Produk Aktif:/ }).parentElement;
-    expect(strip?.className).toContain('flex-col');
-    expect(strip?.className).toContain('tablet:flex-row');
+    // Admin keeps its 4 operational tiles (Produk Aktif/Berstok/Menipis/Habis) plus outlet table.
+    // At mobile each tile is full-width, from tablet they share a row.
+    expect(document.querySelectorAll('.basis-full').length).toBeGreaterThanOrEqual(4);
+    expect(document.querySelectorAll('.tablet\\:basis-0').length).toBeGreaterThanOrEqual(4);
   });
 });
 

@@ -106,7 +106,12 @@ export function SalesTrendPanel({ outlets }: CommonProps) {
   );
 
   const controls = (
-    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId} />
+    <RangeControls
+      range={range}
+      outlets={outlets}
+      outletId={outletId}
+      onOutletChange={setOutletId}
+    />
   );
 
   return (
@@ -277,7 +282,12 @@ export function AovTrendPanel({ outlets }: CommonProps) {
   );
 
   const controls = (
-    <RangeControls range={range} outlets={outlets} outletId={outletId} onOutletChange={setOutletId} />
+    <RangeControls
+      range={range}
+      outlets={outlets}
+      outletId={outletId}
+      onOutletChange={setOutletId}
+    />
   );
 
   return (
