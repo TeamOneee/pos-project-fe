@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import * as React from 'react';
 
 import { useAuth } from '@/components/pages/auth/auth-provider';
-import { UserChip } from '@/components/layouts/user-chip';
+import { AccountControls } from '@/components/layouts/account-controls';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -419,7 +419,7 @@ function PosTopBar({
         >
           <Text variant="body-strong">Riwayat</Text>
         </Link>
-        <UserChip compact placement="below" align="end" />
+        <AccountControls compact />
       </div>
     </div>
   );
