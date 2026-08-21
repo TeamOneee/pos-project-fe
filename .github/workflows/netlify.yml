@@ -70,7 +70,9 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_STAGING }}
         run: |
-          netlify deploy --dir=./dist --prod --message "Deploy staging (dev) ${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "Deploying staging to site $NETLIFY_SITE_ID (len=${#NETLIFY_SITE_ID})"
+          netlify status || true
+          netlify deploy --dir=./dist --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" --prod --message "Deploy staging (dev) ${{ github.event.workflow_run.head_sha || github.sha }}"
 
       - name: Deploy to Netlify (production)
         if: steps.target.outputs.is_staging == 'false'
@@ -78,4 +80,6 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
-          netlify deploy --dir=./dist --prod --message "Deploy production (main) ${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "Deploying production to site $NETLIFY_SITE_ID (len=${#NETLIFY_SITE_ID})"
+          netlify status || true
+          netlify deploy --dir=./dist --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" --prod --message "Deploy production (main) ${{ github.event.workflow_run.head_sha || github.sha }}"
