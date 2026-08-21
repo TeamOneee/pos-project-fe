@@ -34,10 +34,7 @@ export const httpTransport = async (request: ApiRequest): Promise<ApiRawResponse
     // Node 24 + jsdom: a jsdom AbortSignal is not an instance of Node's
     // AbortSignal and fetch throws TypeError. Retry without signal — the
     // timeout is still enforced by the client's AbortController deadline.
-    if (
-      error instanceof TypeError &&
-      String((error as Error).message).includes('AbortSignal')
-    ) {
+    if (error instanceof TypeError && String((error as Error).message).includes('AbortSignal')) {
       try {
         response = await fetch(url, {
           method: request.method,
