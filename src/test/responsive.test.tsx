@@ -131,40 +131,62 @@ describe('modals below 768px', () => {
 
 describe('dashboard grids collapse to one column', () => {
   /**
-   * Queried by class rather than by label: "Produk Aktif" and "Stok Menipis" also
-   * appear as column headings in the per-outlet table below, so a text lookup
-   * finds four tiles and four table cells.
+   * Queried by class rather than by label: the tile labels are also column
+   * headings elsewhere on the page, so a text lookup finds both.
+   *
+   * The Owner is the subject here because KpiTile is now the Owner's alone. The
+   * Admin's tiles became the stock queue's filter chips, which are a control
+   * rather than a row of figures and carry no tile basis.
    */
   const kpiTiles = () => Array.from(document.querySelectorAll('.basis-full'));
 
   it('gives each KPI tile a full-width basis below tablet', async () => {
-    await signInAs('sari@indomart.com');
+    await signInAs('owner@indomart.com');
     await openAt('/dashboard', MOBILE);
 
-    await screen.findAllByText('Produk Aktif');
+    await screen.findAllByText('Total Omzet');
     const tiles = kpiTiles();
 
-    expect(tiles.length).toBeGreaterThanOrEqual(4);
+    expect(tiles.length).toBeGreaterThanOrEqual(3);
     // One column below tablet, back to a shared row from tablet up.
     for (const tile of tiles) expect(tile.className).toContain('tablet:basis-0');
   });
 
   it('keeps the KPI row order when it becomes a column', async () => {
-    await signInAs('sari@indomart.com');
+    await signInAs('owner@indomart.com');
     await openAt('/dashboard', MOBILE);
 
-    await screen.findAllByText('Produk Aktif');
+    await screen.findAllByText('Total Omzet');
 
     // Document order is the reading order, so the stacked column follows the row
     // the tiles were specified in.
     const order = kpiTiles()
-      .slice(0, 4)
+      .slice(0, 3)
       .map((tile) => tile.textContent ?? '');
 
-    expect(order[0]).toContain('Produk Aktif');
-    expect(order[1]).toContain('Produk Berstok');
-    expect(order[2]).toContain('Stok Menipis');
-    expect(order[3]).toContain('Stok Habis');
+    expect(order[0]).toContain('Total Omzet');
+    expect(order[1]).toContain('Jumlah Transaksi');
+    expect(order[2]).toContain('Rata-rata Nilai Transaksi');
+  });
+
+  it('stacks the Admin stock queue without reviving the KPI tiles', async () => {
+    await signInAs('sari@indomart.com');
+    await openAt('/dashboard', MOBILE);
+
+    await screen.findByText('Perlu Tindakan');
+
+    /*
+     * The Admin's four tiles are gone on purpose: their counts became the
+     * queue's filter chips and the catalogue strip. Nothing on this screen may
+     * claim a tile basis — a stray one would be picked up by the Owner's
+     * tile-order test above and fail there, on markup from another screen.
+     */
+    expect(document.querySelectorAll('.basis-full')).toHaveLength(0);
+
+    // The catalogue strip is a column below tablet and a row from tablet up.
+    const strip = screen.getByRole('group', { name: /^Produk Aktif:/ }).parentElement;
+    expect(strip?.className).toContain('flex-col');
+    expect(strip?.className).toContain('tablet:flex-row');
   });
 });
 

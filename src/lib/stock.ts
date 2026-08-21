@@ -46,7 +46,19 @@ export function byUrgency<T extends StockRow>(a: T, b: T): number {
   return stockUrgency(a) - stockUrgency(b) || a.quantity - b.quantity;
 }
 
-/** The rows that have actually run out, which get their own table (S-14 row 4). */
+/**
+ * Most urgent first.
+ *
+ * Out-of-stock rows lead by construction rather than by a special case: their
+ * quantity is zero, so their urgency is zero, so they sort ahead of everything
+ * still on the shelf. That is what lets one merged queue read as a severity
+ * order without a second comparator.
+ */
+export function sortByUrgency<T extends StockRow>(rows: readonly T[]): T[] {
+  return [...rows].sort(byUrgency);
+}
+
+/** The rows that have actually run out. */
 export function isOutOfStock(row: { quantity: number }): boolean {
   return row.quantity <= 0;
 }

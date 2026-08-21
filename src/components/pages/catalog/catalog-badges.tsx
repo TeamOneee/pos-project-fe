@@ -7,7 +7,7 @@
  * the tooltip only repeats — a touch user cannot hover.
  */
 
-import { TriangleAlert } from 'lucide-react';
+import { EyeOff, TriangleAlert } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
@@ -18,6 +18,10 @@ import type { Status } from '@/api/schema';
 /** Why a KATEGORI NONAKTIF product still sits in this list. */
 export const INACTIVE_CATEGORY_HINT =
   'Kategorinya nonaktif, jadi produk ini tidak muncul di katalog kasir. Produk sendiri tetap aktif.';
+
+/** Why a deactivated product still sits in the stock queue. */
+export const INACTIVE_PRODUCT_HINT =
+  'Produk ini nonaktif, jadi tidak dijual di kasir. Stoknya tidak perlu disesuaikan.';
 
 export function StatusBadge({ status }: { status: Status }) {
   return <ActiveBadge active={status === 'ACTIVE'} />;
@@ -56,6 +60,31 @@ export function CategoryBadge({ name }: { name: string | null }) {
     <Badge variant="neutral">
       <Text>{name}</Text>
     </Badge>
+  );
+}
+
+/**
+ * A deactivated product that still holds stock, as the stock queue sees it.
+ *
+ * Neutral and spelled NONAKTIF so it reads as the same state the product list
+ * already shows with `ActiveBadge` — the queue and the catalog must not invent
+ * two vocabularies for one flag. It stays in the queue because the stock is
+ * real; what it loses is the adjust action, since restocking something nobody
+ * can sell is not work.
+ */
+export function InactiveProductBadge() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="neutral" aria-label={`Produk nonaktif. ${INACTIVE_PRODUCT_HINT}`}>
+          <Icon as={EyeOff} size={12} className="text-fg-muted" />
+          <Text>NONAKTIF</Text>
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[280px]">
+        <Text>{INACTIVE_PRODUCT_HINT}</Text>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

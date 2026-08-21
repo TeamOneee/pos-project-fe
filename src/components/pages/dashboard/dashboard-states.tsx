@@ -141,31 +141,48 @@ function ListSkeleton({ className }: { className?: string }) {
  * Owner's skeleton (KPI tiles plus list cards) so the two dashboards share one
  * visual language — only the absence of chart rows differs.
  */
+/**
+ * S-14 while it loads: the queue, the per-outlet table, the catalogue strip.
+ *
+ * Shaped like what replaces it, in that order. It carries no tile row — the
+ * Admin screen has no KPI tiles any more, and a skeleton that shows four would
+ * paint them for a moment and then throw them away.
+ */
 export function StockDashboardSkeleton() {
   return (
     <div className="flex flex-col gap-lg">
-      <div className="flex flex-row flex-wrap gap-lg">
-        {[0, 1, 2, 3].map((index) => (
-          <Card key={index} className="min-w-[140px] flex-1 basis-full tablet:basis-0">
-            <CardContent className="flex flex-col gap-sm pt-lg">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-3 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Queue: title, its filter chips, then rows. */}
+      <Card>
+        <CardContent className="flex flex-col gap-md pt-lg">
+          <div className="flex flex-col gap-md tablet:flex-row tablet:items-center tablet:justify-between">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-9 w-[280px]" />
+          </div>
+          {[0, 1, 2, 3, 4].map((row) => (
+            <Skeleton key={row} className="h-12 w-full" />
+          ))}
+        </CardContent>
+      </Card>
 
-      {[0, 1, 2].map((card) => (
-        <Card key={card}>
-          <CardContent className="flex flex-col gap-md pt-lg">
-            <Skeleton className="h-6 w-48" />
-            {[0, 1, 2].map((row) => (
-              <Skeleton key={row} className="h-10 w-full" />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+      <Card>
+        <CardContent className="flex flex-col gap-md pt-lg">
+          <Skeleton className="h-6 w-48" />
+          {[0, 1, 2].map((row) => (
+            <Skeleton key={row} className="h-10 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-lg pt-lg tablet:flex-row">
+          {[0, 1, 2, 3].map((figure) => (
+            <div key={figure} className="flex min-w-[140px] flex-1 flex-col gap-xs">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-7 w-16" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

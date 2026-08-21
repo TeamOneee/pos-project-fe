@@ -35,9 +35,12 @@ export function OutletStockTable({
   outlets,
   /** Opens S-15 pre-filtered to the outlet. */
   onManage,
+  /** Says what this table's scope is when the page around it has another. */
+  caption,
 }: {
   outlets: OutletStats[];
   onManage: (outletId: string) => void;
+  caption?: string;
 }) {
   const stacked = useBreakpoint() === 'mobile';
 
@@ -45,6 +48,11 @@ export function OutletStockTable({
     <Card>
       <CardHeader>
         <CardTitle>Stok Per Outlet</CardTitle>
+        {caption ? (
+          <Text variant="caption" tone="subtle">
+            {caption}
+          </Text>
+        ) : null}
       </CardHeader>
 
       <CardContent>
