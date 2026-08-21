@@ -15,18 +15,20 @@ jobs:
   deploy:
     name: Build and deploy to Netlify (${{ github.event.workflow_run.head_branch || github.ref_name }})
     runs-on: ubuntu-latest
+    env:
+      NODE_NO_WARNINGS: 1
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev'))
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -72,6 +74,7 @@ jobs:
           enable-pull-request-comment: false
           enable-commit-comment: false
         env:
+          NODE_NO_WARNINGS: 1
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID_STAGING }}
 
@@ -85,5 +88,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           deploy-message: "Deploy production (main) ${{ github.event.workflow_run.head_sha || github.sha }}"
         env:
+          NODE_NO_WARNINGS: 1
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
