@@ -6,13 +6,15 @@
  * affects.
  */
 
-import { Menu } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 
+import { useAuth } from '@/components/pages/auth/auth-provider';
 import { activeHref, navFor, type NavItem } from '@/components/layouts/nav-config';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icon';
+import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import type { Role } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
@@ -21,11 +23,14 @@ const MAX_TABS = 5;
 
 export function FooterTabs({ role, pathname }: { role: Role; pathname: string }) {
   const [overflowOpen, setOverflowOpen] = React.useState(false);
+  const { signOut } = useAuth();
 
   const items = navFor(role).flatMap((section) => section.items);
   const active = activeHref(items, pathname);
 
-  const needsOverflow = items.length > MAX_TABS;
+  // Always reserve the last slot for "Lainnya" so logout is reachable even
+  // when the role has <=5 items (ADMIN/CASHIER). Keeps total tabs <=5.
+  const needsOverflow = items.length >= MAX_TABS;
   const visible = needsOverflow ? items.slice(0, MAX_TABS - 1) : items;
   const overflow = needsOverflow ? items.slice(MAX_TABS - 1) : [];
 
@@ -34,31 +39,26 @@ export function FooterTabs({ role, pathname }: { role: Role; pathname: string })
 
   return (
     <>
-      <nav className="flex shrink-0 flex-row border-t border-border bg-surface">
+      <nav className="flex shrink-0 flex-row items-center border-t border-border bg-surface rounded-t-[20px] px-sm py-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
         {visible.map((item) => (
           <TabLink key={item.href} item={item} active={active === item.href} />
         ))}
 
-        {needsOverflow && (
-          <button
-            aria-label="Menu lainnya"
-            aria-expanded={overflowOpen}
-            onClick={() => setOverflowOpen(true)}
+        <button
+          aria-label="Menu lainnya"
+          aria-expanded={overflowOpen}
+          onClick={() => setOverflowOpen(true)}
+          className="flex min-h-touch flex-1 items-center justify-center py-xs"
+        >
+          <span
             className={cn(
-              'flex min-h-touch flex-1 flex-col items-center justify-center gap-xs py-sm transition-colors hover:bg-subtle',
-              overflowActive && 'bg-accent-subtle'
+              'flex h-10 w-10 items-center justify-center rounded-full transition-colors',
+              overflowActive ? 'bg-accent text-white' : 'bg-transparent text-fg-muted hover:bg-subtle'
             )}
           >
-            <Icon
-              as={Menu}
-              size={20}
-              className={overflowActive ? 'text-accent' : 'text-fg-muted'}
-            />
-            <Text variant="caption" tone={overflowActive ? 'accent' : 'muted'} className="truncate">
-              Lainnya
-            </Text>
-          </button>
-        )}
+            <Icon as={Menu} size={20} className={overflowActive ? 'text-white' : 'text-fg-muted'} />
+          </span>
+        </button>
       </nav>
 
       <Dialog open={overflowOpen} onOpenChange={setOverflowOpen}>
@@ -87,6 +87,19 @@ export function FooterTabs({ role, pathname }: { role: Role; pathname: string })
                 <Text tone={active === item.href ? 'accent' : 'default'}>{item.label}</Text>
               </NavLink>
             ))}
+
+            <Separator className="my-sm" />
+
+            <button
+              onClick={() => {
+                setOverflowOpen(false);
+                signOut();
+              }}
+              className="flex min-h-touch w-full flex-row items-center gap-md rounded-md px-md py-sm text-left transition-colors hover:bg-subtle"
+            >
+              <Icon as={LogOut} size={18} className="text-danger" />
+              <Text tone="danger">Keluar</Text>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
@@ -100,15 +113,18 @@ function TabLink({ item, active }: { item: NavItem; active: boolean }) {
       to={item.href}
       end={item.exact}
       aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex min-h-touch flex-1 flex-col items-center justify-center gap-xs py-sm transition-colors hover:bg-subtle',
-        active && 'bg-accent-subtle'
-      )}
+      aria-label={item.label}
+      title={item.label}
+      className="flex min-h-touch flex-1 items-center justify-center py-xs"
     >
-      <Icon as={item.icon} size={20} className={active ? 'text-accent' : 'text-fg-muted'} />
-      <Text variant="caption" tone={active ? 'accent' : 'muted'} className="truncate">
-        {item.label}
-      </Text>
+      <span
+        className={cn(
+          'flex h-10 w-10 items-center justify-center rounded-full transition-colors',
+          active ? 'bg-accent text-white shadow-sm' : 'bg-transparent text-fg-muted hover:bg-subtle'
+        )}
+      >
+        <Icon as={item.icon} size={20} className={active ? 'text-white' : 'text-fg-muted'} />
+      </span>
     </NavLink>
   );
 }
